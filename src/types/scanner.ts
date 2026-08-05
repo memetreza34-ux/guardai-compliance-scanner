@@ -1,4 +1,4 @@
-export type ComplianceCategory = 'ai-act' | 'gdpr' | 'accessibility' | 'security' | 'legal-data' | 'consumer-protection';
+export type ComplianceCategory = 'ai-act' | 'gdpr' | 'accessibility' | 'security' | 'legal-data' | 'consumer-protection' | 'supply-chain' | 'esg' | 'ip-rights' | 'dsa' | 'copyright';
 export type RiskLevel = 'critical' | 'warning' | 'passed';
 
 export interface AuditIssue {
@@ -28,6 +28,7 @@ export interface ScanResult {
   targetDomain: string;
   scannedAt: string;
   overallScore: number;
+  industryAverageScore: number;
   riskStatus: 'COMPLIANT' | 'NEEDS_ACTION' | 'HIGH_RISK';
   categories: Record<ComplianceCategory, CategoryScore>;
   issues: AuditIssue[];

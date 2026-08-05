@@ -8,7 +8,7 @@ import { Badge } from './ui/badge';
 import { Label } from './ui/label';
 
 interface UrlInputHeroProps {
-  onStartScan: (url: string, options: { aiAct: boolean; gdpr: boolean; wcag: boolean; security: boolean }) => void;
+  onStartScan: (url: string | File, options: { aiAct: boolean; gdpr: boolean; wcag: boolean; security: boolean; fileMode: boolean }) => void;
   isScanning: boolean;
 }
 
@@ -18,7 +18,8 @@ export const UrlInputHero: React.FC<UrlInputHeroProps> = ({ onStartScan, isScann
     aiAct: true,
     gdpr: true,
     wcag: true,
-    security: true
+    security: true,
+    fileMode: false
   });
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -57,31 +58,67 @@ export const UrlInputHero: React.FC<UrlInputHeroProps> = ({ onStartScan, isScann
       {/* Hero URL Input Card */}
       <Card className="max-w-3xl mx-auto text-left border-muted/50 bg-card/50 backdrop-blur-sm shadow-xl">
         <CardContent className="p-6">
-          <form onSubmit={handleSubmit}>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Globe className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
-                <Input
-                  type="text"
-                  value={inputUrl}
-                  onChange={(e) => setInputUrl(e.target.value)}
-                  placeholder="z. B. deine-domain.de oder app.meine-firma.com"
-                  className="pl-11 h-12 text-base bg-background/50"
-                />
-              </div>
-              <Button
-                type="submit"
-                disabled={isScanning}
-                className="h-12 px-6"
-                size="lg"
-              >
-                <Search className="w-4 h-4 mr-2" />
-                {isScanning ? 'Scan läuft...' : 'Kostenlos Prüfen'}
-              </Button>
-            </div>
+          {/* Tabs for Mode Selection */}
+          <div className="flex gap-4 mb-6 border-b pb-2">
+            <button 
+              type="button"
+              className={`pb-2 text-sm font-medium transition-colors ${!scanOptions.fileMode ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground'}`}
+              onClick={() => setScanOptions({ ...scanOptions, fileMode: false })}
+            >
+              🌐 Web & Code Scan
+            </button>
+            <button 
+              type="button"
+              className={`pb-2 text-sm font-medium transition-colors ${scanOptions.fileMode ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground'}`}
+              onClick={() => setScanOptions({ ...scanOptions, fileMode: true })}
+            >
+              📄 Datei & Asset Scan
+            </button>
+          </div>
 
-            {/* Quick Options Header */}
-            <div className="mt-5 flex items-center justify-between flex-wrap gap-3">
+          {!scanOptions.fileMode ? (
+            <form onSubmit={handleSubmit}>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Globe className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
+                  <Input
+                    type="text"
+                    value={inputUrl}
+                    onChange={(e) => setInputUrl(e.target.value)}
+                    placeholder="https://deine-domain.de ODER github.com/user/repo"
+                    className="pl-11 h-12 text-base bg-background/50"
+                  />
+                </div>
+                <Button type="submit" disabled={isScanning} className="h-12 px-6" size="lg">
+                  <Search className="w-4 h-4 mr-2" />
+                  {isScanning ? 'Scan läuft...' : 'Kostenlos Prüfen'}
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <div className="border-2 border-dashed border-muted-foreground/25 rounded-xl p-10 text-center bg-muted/10 hover:bg-muted/20 transition-colors cursor-pointer relative">
+              <input 
+                type="file" 
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                accept=".pdf,image/*"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    onStartScan(e.target.files[0] as any, scanOptions);
+                  }
+                }}
+              />
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                  <Search className="w-6 h-6 text-primary" />
+                </div>
+                <h3 className="text-lg font-semibold">PDF, Flyer oder Bild hochladen</h3>
+                <p className="text-sm text-muted-foreground">KI prüft auf Urheberrecht & IP (Max 10MB)</p>
+              </div>
+            </div>
+          )}
+
+          {/* Quick Options Header */}
+          <div className="mt-5 flex items-center justify-between flex-wrap gap-3">
               <Button
                 type="button"
                 variant="ghost"
@@ -95,10 +132,10 @@ export const UrlInputHero: React.FC<UrlInputHeroProps> = ({ onStartScan, isScann
 
               <div className="flex items-center gap-4 text-xs text-muted-foreground font-medium">
                 <span className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-primary" /> 100% Automatisiert
+                  <CheckCircle2 className="w-3.5 h-3.5 text-primary" /> Web & GitHub Support
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-primary" /> EU AI Act Art. 50 Check
+                  <CheckCircle2 className="w-3.5 h-3.5 text-primary" /> Supply-Chain Analyse
                 </span>
               </div>
             </div>
@@ -147,7 +184,7 @@ export const UrlInputHero: React.FC<UrlInputHeroProps> = ({ onStartScan, isScann
                 </Label>
               </div>
             )}
-          </form>
+
 
           {/* Demo Preset Buttons */}
           <div className="mt-6 pt-5 border-t">

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { ScanResult, RiskLevel, ComplianceCategory } from '../types/scanner';
-import { AlertTriangle, CheckCircle2, ShieldAlert, Bot, Scale, Eye, Lock, Copy, Check, Award, FileText, Bell, Zap } from 'lucide-react';
+import { Lock, Zap, Bot, Copy, Check, GitPullRequest, FileText, AlertTriangle, CheckCircle2, ShieldAlert, Scale, Eye, Award, Bell, ShieldCheck, Globe, Leaf, Copyright, UserX } from 'lucide-react';
+import { RemediationModal } from './RemediationModal';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -12,6 +13,8 @@ interface ComplianceDashboardProps {
   onOpenBadgeGenerator: () => void;
   onOpenPricing: () => void;
   onOpenReport: () => void;
+  onOpenAiCounsel: () => void;
+  onOpenTemplates?: () => void;
 }
 
 export const ComplianceDashboard: React.FC<ComplianceDashboardProps> = ({
@@ -19,11 +22,14 @@ export const ComplianceDashboard: React.FC<ComplianceDashboardProps> = ({
   isPremium = false,
   onOpenBadgeGenerator,
   onOpenPricing,
-  onOpenReport
+  onOpenReport,
+  onOpenAiCounsel,
+  onOpenTemplates
 }) => {
   const [filterLevel, setFilterLevel] = useState<RiskLevel | 'all'>('all');
   const [filterCategory, setFilterCategory] = useState<ComplianceCategory | 'all'>('all');
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
+  const [remediationIssue, setRemediationIssue] = useState<{title: string, codeSnippet?: string, affectedElement?: string} | null>(null);
 
   const filteredIssues = scanResult.issues.filter(issue => {
     if (filterLevel !== 'all' && issue.level !== filterLevel) return false;
@@ -61,7 +67,7 @@ export const ComplianceDashboard: React.FC<ComplianceDashboardProps> = ({
             <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
               {scanResult.riskStatus === 'COMPLIANT' && '✅ Vollständig konform – Keine Sicherheitslücken'}
               {scanResult.riskStatus === 'NEEDS_ACTION' && '⚠️ Handlungsbedarf bei AI Act & DSGVO'}
-              {scanResult.riskStatus === 'HIGH_RISK' && '🚨 Hohes Abmahnrisiko – Kritische Verstöße'}
+              {scanResult.riskStatus === 'HIGH_RISK' && '🚨 Akute Bußgeld- & Haftungsrisiken festgestellt! Sofortiger Handlungsbedarf!'}
             </h2>
             <p className="text-xs sm:text-sm text-muted-foreground">
               Erkannte KI: <span className="text-foreground">{scanResult.detectedTech.aiFrameworks.join(', ')}</span> | Tracker: <span className="text-foreground">{scanResult.detectedTech.trackers.join(', ')}</span>
@@ -124,7 +130,7 @@ export const ComplianceDashboard: React.FC<ComplianceDashboardProps> = ({
             </div>
             <h3 className="text-sm font-bold mb-1">EU AI Act Transparenz</h3>
             <p className="text-xs text-muted-foreground">
-              {scanResult.categories['ai-act'].criticalCount} Kritisch • {scanResult.categories['ai-act'].warningCount} Warnungen
+              {scanResult.categories['ai-act'].criticalCount} Akute Rechtsverstöße • {scanResult.categories['ai-act'].warningCount} Warnungen
             </p>
           </CardContent>
         </Card>
@@ -143,7 +149,7 @@ export const ComplianceDashboard: React.FC<ComplianceDashboardProps> = ({
             </div>
             <h3 className="text-sm font-bold mb-1">DSGVO & Privacy</h3>
             <p className="text-xs text-muted-foreground">
-              {scanResult.categories['gdpr'].criticalCount} Kritisch • {scanResult.categories['gdpr'].warningCount} Warnungen
+              {scanResult.categories['gdpr'].criticalCount} Akute Rechtsverstöße • {scanResult.categories['gdpr'].warningCount} Warnungen
             </p>
           </CardContent>
         </Card>
@@ -162,7 +168,7 @@ export const ComplianceDashboard: React.FC<ComplianceDashboardProps> = ({
             </div>
             <h3 className="text-sm font-bold mb-1">Barrierefreiheit (BFSG)</h3>
             <p className="text-xs text-muted-foreground">
-              {scanResult.categories['accessibility'].criticalCount} Kritisch • {scanResult.categories['accessibility'].warningCount} Warnungen
+              {scanResult.categories['accessibility'].criticalCount} Akute Rechtsverstöße • {scanResult.categories['accessibility'].warningCount} Warnungen
             </p>
           </CardContent>
         </Card>
@@ -181,7 +187,7 @@ export const ComplianceDashboard: React.FC<ComplianceDashboardProps> = ({
             </div>
             <h3 className="text-sm font-bold mb-1">Source Code & Security</h3>
             <p className="text-xs text-muted-foreground">
-              {scanResult.categories['security'].criticalCount} Kritisch • {scanResult.categories['security'].warningCount} Warnungen
+              {scanResult.categories['security'].criticalCount} Akute Rechtsverstöße • {scanResult.categories['security'].warningCount} Warnungen
             </p>
           </CardContent>
         </Card>
@@ -200,7 +206,7 @@ export const ComplianceDashboard: React.FC<ComplianceDashboardProps> = ({
             </div>
             <h3 className="text-sm font-bold mb-1">Unternehmensdaten & Impressum</h3>
             <p className="text-xs text-muted-foreground">
-              {scanResult.categories['legal-data']?.criticalCount || 0} Kritisch • {scanResult.categories['legal-data']?.warningCount || 0} Warnungen
+              {scanResult.categories['legal-data']?.criticalCount || 0} Akute Rechtsverstöße • {scanResult.categories['legal-data']?.warningCount || 0} Warnungen
             </p>
           </CardContent>
         </Card>
@@ -219,8 +225,214 @@ export const ComplianceDashboard: React.FC<ComplianceDashboardProps> = ({
             </div>
             <h3 className="text-sm font-bold mb-1">Verbraucherschutz & UX</h3>
             <p className="text-xs text-muted-foreground">
-              {scanResult.categories['consumer-protection']?.criticalCount || 0} Kritisch • {scanResult.categories['consumer-protection']?.warningCount || 0} Warnungen
+              {scanResult.categories['consumer-protection']?.criticalCount || 0} Akute Rechtsverstöße • {scanResult.categories['consumer-protection']?.warningCount || 0} Warnungen
             </p>
+          </CardContent>
+        </Card>
+        {/* Supply Chain / NIS2 */}
+        <Card 
+          onClick={() => setFilterCategory(filterCategory === 'supply-chain' ? 'all' : 'supply-chain')}
+          className={`cursor-pointer transition-all hover:bg-accent/50 ${filterCategory === 'supply-chain' ? 'ring-2 ring-violet-500 bg-violet-500/5' : ''}`}
+        >
+          <CardContent className="p-5">
+            <div className="flex justify-between items-center mb-4">
+              <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center text-violet-500">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <span className="text-xl font-extrabold">{scanResult.categories['supply-chain']?.score || 100}%</span>
+            </div>
+            <h3 className="text-sm font-bold mb-1">Software Lieferkette (NIS2)</h3>
+            <p className="text-xs text-muted-foreground">
+              {scanResult.categories['supply-chain']?.criticalCount || 0} Akute Rechtsverstöße • {scanResult.categories['supply-chain']?.warningCount || 0} Warnungen
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* ESG & CSRD */}
+        {scanResult.categories['esg'] && (
+          <Card 
+            onClick={() => setFilterCategory(filterCategory === 'esg' ? 'all' : 'esg')}
+            className={`cursor-pointer transition-all hover:bg-accent/50 ${filterCategory === 'esg' ? 'ring-2 ring-lime-500 bg-lime-500/5' : ''}`}
+          >
+            <CardContent className="p-5">
+              <div className="flex justify-between items-center mb-4">
+                <div className="w-10 h-10 rounded-xl bg-lime-500/10 flex items-center justify-center text-lime-500">
+                  <Leaf className="w-5 h-5" />
+                </div>
+                <span className="text-xl font-extrabold">{scanResult.categories['esg'].score}%</span>
+              </div>
+              <h3 className="text-sm font-bold mb-1">ESG & Nachhaltigkeit</h3>
+              <p className="text-xs text-muted-foreground">
+                {scanResult.categories['esg'].criticalCount} Akute Rechtsverstöße • {scanResult.categories['esg'].warningCount} Warnungen
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+
+
+        {/* Copyright (New for Assets) */}
+        {scanResult.categories['copyright'] && (
+          <Card 
+            onClick={() => setFilterCategory(filterCategory === 'copyright' as any ? 'all' : 'copyright' as any)}
+            className={`cursor-pointer transition-all hover:bg-accent/50 ${filterCategory === 'copyright' as any ? 'ring-2 ring-cyan-500 bg-cyan-500/5' : ''}`}
+          >
+            <CardContent className="p-5">
+              <div className="flex justify-between items-center mb-4">
+                <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-500">
+                  <Scale className="w-5 h-5" />
+                </div>
+                <span className="text-xl font-extrabold">{scanResult.categories['copyright'].score}%</span>
+              </div>
+              <h3 className="text-sm font-bold mb-1">Urheberrecht & Disclaimer</h3>
+              <p className="text-xs text-muted-foreground">
+                {scanResult.categories['copyright'].criticalCount} Akute Rechtsverstöße • {scanResult.categories['copyright'].warningCount} Warnungen
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* IP Rights */}
+        <Card 
+          onClick={() => setFilterCategory(filterCategory === 'ip-rights' ? 'all' : 'ip-rights')}
+          className={`cursor-pointer transition-all hover:bg-accent/50 ${filterCategory === 'ip-rights' ? 'ring-2 ring-fuchsia-500 bg-fuchsia-500/5' : ''}`}
+        >
+          <CardContent className="p-5">
+            <div className="flex justify-between items-center mb-4">
+              <div className="w-10 h-10 rounded-xl bg-fuchsia-500/10 flex items-center justify-center text-fuchsia-500">
+                <Copyright className="w-5 h-5" />
+              </div>
+              <span className="text-xl font-extrabold">{scanResult.categories['ip-rights']?.score || 100}%</span>
+            </div>
+            <h3 className="text-sm font-bold mb-1">Urheberrecht & IP</h3>
+            <p className="text-xs text-muted-foreground">
+              {scanResult.categories['ip-rights']?.criticalCount || 0} Akute Rechtsverstöße • {scanResult.categories['ip-rights']?.warningCount || 0} Warnungen
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* DSA & Jugendschutz */}
+        <Card 
+          onClick={() => setFilterCategory(filterCategory === 'dsa' ? 'all' : 'dsa')}
+          className={`cursor-pointer transition-all hover:bg-accent/50 ${filterCategory === 'dsa' ? 'ring-2 ring-orange-500 bg-orange-500/5' : ''}`}
+        >
+          <CardContent className="p-5">
+            <div className="flex justify-between items-center mb-4">
+              <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500">
+                <UserX className="w-5 h-5" />
+              </div>
+              <span className="text-xl font-extrabold">{scanResult.categories['dsa']?.score || 100}%</span>
+            </div>
+            <h3 className="text-sm font-bold mb-1">DSA & Jugendschutz</h3>
+            <p className="text-xs text-muted-foreground">
+              {scanResult.categories['dsa']?.criticalCount || 0} Akute Rechtsverstöße • {scanResult.categories['dsa']?.warningCount || 0} Warnungen
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Vendor Risk Management (Phase 2) */}
+      <Card className="border-indigo-500/20 bg-indigo-500/5">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Globe className="w-5 h-5 text-indigo-500" /> Vendor Risk Management (Sub-Processors)
+          </CardTitle>
+          <CardDescription>
+            Automatisch erkannte Drittanbieter und APIs. Wichtig für Schrems II und NIS2 Compliance.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-background rounded-lg p-4 border flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-sm">OpenAI API</p>
+                <p className="text-xs text-muted-foreground">LLM Processor</p>
+              </div>
+              <Badge variant="outline">EU (Frankfurt)</Badge>
+            </div>
+            <div className="bg-background rounded-lg p-4 border flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-sm">Vercel</p>
+                <p className="text-xs text-muted-foreground">Hosting</p>
+              </div>
+              <Badge variant="outline">Global</Badge>
+            </div>
+            <div className="bg-background rounded-lg p-4 border flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-sm">Google Analytics 4</p>
+                <p className="text-xs text-muted-foreground">Analytics</p>
+              </div>
+              <Badge variant="outline" className="text-rose-500 border-rose-500/30 bg-rose-500/10">US Transfer Risk</Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      <div className="grid md:grid-cols-3 gap-4">
+        {/* Benchmark Card */}
+        <Card className="md:col-span-2 bg-card border-border shadow-sm">
+          <CardContent className="p-6 flex flex-col sm:flex-row items-center gap-8">
+            <div className="flex-1 space-y-3">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs font-semibold bg-primary/10 text-primary uppercase tracking-wider">
+                Branchen-Vergleich
+              </div>
+              <h3 className="text-xl font-bold">Wie sicher bist du im Vergleich?</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Dein aktueller Risk-Score liegt bei <strong className="text-foreground">{scanResult.overallScore}%</strong>. 
+                Der Durchschnitt in deiner Branche (SaaS & E-Commerce) liegt bei <strong className="text-foreground">{scanResult.industryAverageScore}%</strong>. 
+                {scanResult.overallScore < scanResult.industryAverageScore ? 
+                  ' Deine Plattform ist angreifbarer als die deiner Mitbewerber.' : 
+                  ' Du bist aktuell besser aufgestellt als der Durchschnitt.'}
+              </p>
+            </div>
+            
+            {/* Visual Bar Chart Comparison */}
+            <div className="w-full sm:w-48 space-y-4 shrink-0">
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs font-medium">
+                  <span>Dein Score</span>
+                  <span>{scanResult.overallScore}%</span>
+                </div>
+                <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full rounded-full ${getScoreBadgeColor(scanResult.overallScore).split(' ')[0].replace('text-', 'bg-')}`} 
+                    style={{ width: `${scanResult.overallScore}%` }}
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs font-medium">
+                  <span className="text-muted-foreground">Industrie-Schnitt</span>
+                  <span className="text-muted-foreground">{scanResult.industryAverageScore}%</span>
+                </div>
+                <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-primary/40 rounded-full" 
+                    style={{ width: `${scanResult.industryAverageScore}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Agency Upsell Card */}
+        <Card className="bg-primary/5 border-primary/20 flex flex-col justify-center">
+          <CardContent className="p-6 text-center space-y-4">
+            <div className="w-12 h-12 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto">
+              <ShieldCheck className="w-6 h-6" />
+            </div>
+            <h3 className="font-bold text-lg leading-tight">Überfordert mit den Fixes?</h3>
+            <p className="text-xs text-muted-foreground">
+              Unser Expertenteam behebt alle kritischen Bugs und DSGVO-Verstöße direkt in deinem Code.
+            </p>
+            <Button 
+              className="w-full font-bold shadow-lg shadow-primary/20" 
+              variant="default"
+              onClick={() => alert("Hier würde sich ein Calendly-Widget zur Terminbuchung für den 1.500€ Audit-Fixing-Service öffnen.")}
+            >
+              Agentur beauftragen
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -249,7 +461,7 @@ export const ComplianceDashboard: React.FC<ComplianceDashboardProps> = ({
               onClick={() => setFilterLevel('critical')}
               className={`h-8 ${filterLevel !== 'critical' ? 'text-destructive' : ''}`}
             >
-              <AlertTriangle className="w-3.5 h-3.5 mr-1.5" /> Kritisch
+              <AlertTriangle className="w-3.5 h-3.5 mr-1.5" /> Akutes Bußgeldrisiko
             </Button>
             <Button
               variant={filterLevel === 'warning' ? 'outline' : 'ghost'}
@@ -277,7 +489,7 @@ export const ComplianceDashboard: React.FC<ComplianceDashboardProps> = ({
                   <div className="flex items-center gap-3 text-left">
                     {issue.level === 'critical' && (
                       <Badge variant="destructive" className="flex items-center gap-1 uppercase text-[10px]">
-                        <AlertTriangle className="w-3 h-3" /> Kritisch
+                        <AlertTriangle className="w-3 h-3" /> Gesetzwidrig
                       </Badge>
                     )}
                     {issue.level === 'warning' && (
@@ -363,6 +575,35 @@ export const ComplianceDashboard: React.FC<ComplianceDashboardProps> = ({
                           </pre>
                         </div>
                       )}
+
+                      <div className="pt-2 flex flex-wrap gap-2">
+                        <Button 
+                          variant="default" 
+                          size="sm" 
+                          onClick={() => {
+                            if (isPremium) {
+                              setRemediationIssue({
+                                title: issue.title,
+                                codeSnippet: issue.codeSnippet,
+                                affectedElement: issue.affectedElement
+                              });
+                            } else {
+                              onOpenPricing();
+                            }
+                          }}
+                          className={`w-full sm:w-auto ${!isPremium ? 'bg-primary/90' : ''}`}
+                        >
+                          <GitPullRequest className="w-4 h-4 mr-2" /> 
+                          {isPremium ? '1-Click Fix (GitHub PR)' : 'Auto-Fix freischalten (Pro)'}
+                          {!isPremium && <Lock className="w-3 h-3 ml-2 opacity-70" />}
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={onOpenTemplates} className="w-full sm:w-auto">
+                          <FileText className="w-4 h-4 mr-2" /> Vorlage anzeigen
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={onOpenAiCounsel} className="w-full sm:w-auto">
+                          <Bot className="w-4 h-4 mr-2 text-primary" /> KI-Experten befragen
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </AccordionContent>
@@ -391,6 +632,14 @@ export const ComplianceDashboard: React.FC<ComplianceDashboardProps> = ({
           </div>
         </CardContent>
       </Card>
+
+      <RemediationModal 
+        isOpen={!!remediationIssue} 
+        onClose={() => setRemediationIssue(null)}
+        issueTitle={remediationIssue?.title || ''}
+        codeSnippet={remediationIssue?.codeSnippet}
+        affectedElement={remediationIssue?.affectedElement}
+      />
     </div>
   );
 };

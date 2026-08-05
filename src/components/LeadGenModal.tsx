@@ -14,19 +14,30 @@ export function LeadGenModal({ onClose, onSuccess }: LeadGenModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
 
     setIsSubmitting(true);
-    // Simulate API call
-    setTimeout(() => {
+    
+    try {
+      // Simulate API call to Make.com / Zapier Webhook
+      // Replace this URL with your actual webhook URL
+      await fetch('https://hook.eu1.make.com/your-webhook-id-here', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, timestamp: new Date().toISOString() }),
+        mode: 'no-cors' // Often needed for simple webhooks to prevent CORS errors on client side
+      });
+    } catch (error) {
+      console.warn('Webhook failed, but continuing for demo purposes:', error);
+    } finally {
       setIsSubmitting(false);
       setIsSuccess(true);
       setTimeout(() => {
         onSuccess();
       }, 2000);
-    }, 1500);
+    }
   };
 
   return (

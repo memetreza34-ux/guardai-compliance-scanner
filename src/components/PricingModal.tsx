@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
-import { CheckCircle2, ShieldCheck, Zap, Server, Lock } from 'lucide-react';
+import { CheckCircle2, ShieldCheck, Server, Lock } from 'lucide-react';
 import { CheckoutSimulation } from './CheckoutSimulation';
 
 interface PricingModalProps {
@@ -12,6 +12,7 @@ interface PricingModalProps {
 
 export function PricingModal({ isPremium, onUpgrade, onClose }: PricingModalProps) {
   const [selectedPlan, setSelectedPlan] = useState<{name: string, price: string} | null>(null);
+  const [isAnnual, setIsAnnual] = useState(true);
 
   if (isPremium) {
     return (
@@ -43,77 +44,104 @@ export function PricingModal({ isPremium, onUpgrade, onClose }: PricingModalProp
   }
 
   return (
-    <div className="max-w-6xl mx-auto py-12 px-4 animate-in fade-in zoom-in-95 duration-500">
-      <div className="text-center mb-16 space-y-4">
+    <div className="max-w-7xl mx-auto py-12 px-4 animate-in fade-in zoom-in-95 duration-500">
+      <div className="text-center mb-10 space-y-4">
         <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight">Sichern Sie Ihre Infrastruktur ab.</h2>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
           Wählen Sie das passende Audit-Paket, um teure Abmahnungen und DSGVO-Strafen zu vermeiden.
         </p>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+      {/* Billing Toggle */}
+      <div className="flex justify-center mb-12">
+        <div className="bg-muted p-1 rounded-full inline-flex items-center relative">
+          <button
+            onClick={() => setIsAnnual(false)}
+            className={`relative w-32 py-2 text-sm font-medium rounded-full transition-all duration-300 z-10 ${
+              !isAnnual ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Monatlich
+          </button>
+          <button
+            onClick={() => setIsAnnual(true)}
+            className={`relative w-32 py-2 text-sm font-medium rounded-full transition-all duration-300 z-10 ${
+              isAnnual ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Jährlich
+            <span className="absolute -top-3 -right-6 bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap">
+              Spar 20%
+            </span>
+          </button>
+          {/* Animated Highlight Background */}
+          <div
+            className="absolute top-1 bottom-1 w-32 bg-background rounded-full shadow-sm transition-transform duration-300 ease-in-out z-0"
+            style={{ transform: `translateX(${isAnnual ? '100%' : '0'})` }}
+          />
+        </div>
+      </div>
+
+      <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
         
-        {/* Tier 1: Einmal-Audit */}
+        {/* Tier 0: Free */}
         <Card className="flex flex-col border-border bg-card">
           <CardHeader>
-            <CardTitle className="text-2xl">Einmal-Audit</CardTitle>
-            <CardDescription>Perfekt für einen sofortigen Sicherheits-Check.</CardDescription>
+            <CardTitle className="text-2xl">Free</CardTitle>
+            <CardDescription>Basis-Scan für kleine Websites.</CardDescription>
             <div className="mt-4 flex items-baseline text-5xl font-extrabold">
-              49€
-              <span className="ml-1 text-xl font-medium text-muted-foreground">/einmalig</span>
-            </div>
-          </CardHeader>
-          <CardContent className="flex-1">
-            <ul className="space-y-4">
-              {[
-                'Vollständiger PDF-Report inkl. aller Befunde',
-                'Code-Snippets für SAST/DAST Fixes',
-                'Unternehmensregister-Validierung',
-                'Dark Pattern & UX Analyse',
-                'E-Mail Support'
-              ].map((feature, i) => (
-                <li key={i} className="flex items-center gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />
-                  <span className="text-sm">{feature}</span>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-          <CardFooter>
-            <Button 
-              className="w-full text-lg h-12 font-bold" 
-              variant="outline"
-              onClick={() => setSelectedPlan({name: 'Einmal-Audit', price: '49,00 €'})}
-            >
-              Jetzt freischalten
-            </Button>
-          </CardFooter>
-        </Card>
-
-        {/* Tier 2: Monitoring (Pro) */}
-        <Card className="flex flex-col border-primary shadow-2xl shadow-primary/10 relative scale-105 z-10 bg-gradient-to-b from-card to-primary/5">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest">
-            Meistgewählt
-          </div>
-          <CardHeader>
-            <CardTitle className="text-2xl flex items-center gap-2">
-              <ShieldCheck className="w-6 h-6 text-primary" />
-              Dauer-Monitoring
-            </CardTitle>
-            <CardDescription>Für Agenturen und SaaS-Unternehmen, die 100% sicher bleiben wollen.</CardDescription>
-            <div className="mt-4 flex items-baseline text-5xl font-extrabold">
-              199€
+              0€
               <span className="ml-1 text-xl font-medium text-muted-foreground">/Monat</span>
             </div>
           </CardHeader>
           <CardContent className="flex-1">
             <ul className="space-y-4">
               {[
-                'Alles aus dem Einmal-Audit',
-                'Wöchentlicher automatischer Deep-Scan',
-                'API-Schutz & CI/CD Integration',
-                'BSI-Zertifikat für Ihre Website',
-                'Persönlicher Legal-Tech Consultant'
+                '1 Website Scan pro Woche',
+                'Overall Compliance Score',
+                'Eingeschränktes Dashboard',
+                'Kritische Fehler (ohne Lösung)',
+                'Community Support'
+              ].map((feature, i) => (
+                <li key={i} className="flex items-center gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-muted-foreground shrink-0" />
+                  <span className="text-sm text-muted-foreground">{feature}</span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+          <CardFooter>
+            <Button variant="outline" className="w-full" disabled>Aktueller Plan</Button>
+          </CardFooter>
+        </Card>
+
+        {/* Tier 1: Pro (Solo) */}
+        <Card className="flex flex-col border-primary ring-2 ring-primary relative bg-primary/5 scale-105 shadow-xl z-10">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2">
+            <span className="bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest">
+              Beliebt
+            </span>
+          </div>
+          <CardHeader>
+            <CardTitle className="text-2xl">Pro (Solo)</CardTitle>
+            <CardDescription>Für Freelancer & Einzelgründer.</CardDescription>
+            <div className="mt-4 flex items-baseline text-5xl font-extrabold text-foreground">
+              {isAnnual ? '24€' : '29€'}
+              <span className="ml-1 text-xl font-medium text-muted-foreground">/Monat</span>
+            </div>
+            {isAnnual && (
+              <p className="text-sm text-muted-foreground mt-2">Jährliche Abrechnung (288€/Jahr)</p>
+            )}
+          </CardHeader>
+          <CardContent className="flex-1">
+            <ul className="space-y-4">
+              {[
+                'Unbegrenzte Scans',
+                '1-Click Legal Docs (AVV, AI Act)',
+                'Auto-Fix Code Snippets',
+                'Public Trust Center Badge',
+                'Live-Monitoring & E-Mail Alerts',
+                'Premium Support'
               ].map((feature, i) => (
                 <li key={i} className="flex items-center gap-3">
                   <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />
@@ -123,20 +151,50 @@ export function PricingModal({ isPremium, onUpgrade, onClose }: PricingModalProp
             </ul>
           </CardContent>
           <CardFooter>
-            <Button 
-              className="w-full text-lg h-12 font-bold bg-primary hover:bg-primary/90 text-primary-foreground"
-              onClick={() => setSelectedPlan({name: 'Dauer-Monitoring', price: '199,00 €'})}
-            >
-              <Zap className="w-5 h-5 mr-2" /> Abo starten
-            </Button>
+            <Button onClick={() => setSelectedPlan({ name: 'Pro (Solo)', price: isAnnual ? '24' : '29' })} className="w-full h-11 text-base font-bold shadow-lg shadow-primary/20">Jetzt Upgraden</Button>
+          </CardFooter>
+        </Card>
+
+        {/* Tier 2: Business (Team) */}
+        <Card className="flex flex-col border-border bg-card">
+          <CardHeader>
+            <CardTitle className="text-2xl">Business (Team)</CardTitle>
+            <CardDescription>Für Agenturen & Teams.</CardDescription>
+            <div className="mt-4 flex items-baseline text-5xl font-extrabold">
+              {isAnnual ? '79€' : '99€'}
+              <span className="ml-1 text-xl font-medium text-muted-foreground">/Monat</span>
+            </div>
+            {isAnnual && (
+              <p className="text-sm text-muted-foreground mt-2">Jährliche Abrechnung (948€/Jahr)</p>
+            )}
+          </CardHeader>
+          <CardContent className="flex-1">
+            <ul className="space-y-4">
+              {[
+                'Bis zu 10 Team-Mitglieder',
+                'Mandantenfähiges Dashboard',
+                'Slack & MS Teams Integration',
+                'Jira & GitHub Auto-Fix PRs',
+                'White-Label PDF Reports',
+                'Dedicated Success Manager'
+              ].map((feature, i) => (
+                <li key={i} className="flex items-center gap-3">
+                  <ShieldCheck className="w-5 h-5 text-indigo-500 shrink-0" />
+                  <span className="text-sm">{feature}</span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+          <CardFooter>
+            <Button onClick={() => setSelectedPlan({ name: 'Business (Team)', price: isAnnual ? '79' : '99' })} variant="outline" className="w-full h-11">Team-Plan wählen</Button>
           </CardFooter>
         </Card>
 
       </div>
       
-      <div className="mt-12 text-center flex items-center justify-center gap-6 text-muted-foreground text-sm">
+      <div className="mt-16 text-center flex items-center justify-center gap-6 text-muted-foreground text-sm">
         <span className="flex items-center gap-2"><Lock className="w-4 h-4" /> Sichere Zahlung</span>
-        <span className="flex items-center gap-2"><Server className="w-4 h-4" /> ISO 27001 Hosting</span>
+        <span className="flex items-center gap-2"><Server className="w-4 h-4" /> ISO 27001 Hosting in Deutschland</span>
       </div>
     </div>
   );

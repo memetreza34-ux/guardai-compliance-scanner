@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ShieldCheck, Copy, Check, Award, Code2, Sparkles, X, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, Copy, Check, Award, Code2, Sparkles } from 'lucide-react';
 import type { TrustBadgeConfig, ScanResult } from '../types/scanner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Button } from './ui/button';
@@ -9,9 +9,10 @@ import { Label } from './ui/label';
 
 interface BadgeGeneratorProps {
   scanResult?: ScanResult | null;
+  onOpenTrustCenter?: () => void;
 }
 
-export const BadgeGenerator: React.FC<BadgeGeneratorProps> = ({ scanResult }) => {
+export const BadgeGenerator: React.FC<BadgeGeneratorProps> = ({ scanResult, onOpenTrustCenter }) => {
   const [config, setConfig] = useState<TrustBadgeConfig>({
     theme: 'dark-glass',
     showScore: true,
@@ -20,7 +21,6 @@ export const BadgeGenerator: React.FC<BadgeGeneratorProps> = ({ scanResult }) =>
   });
 
   const [isCopied, setIsCopied] = useState(false);
-  const [showCertificateModal, setShowCertificateModal] = useState(false);
 
   const domainName = scanResult?.targetDomain || 'deine-website.de';
   const score = scanResult?.overallScore || 94;
@@ -150,7 +150,7 @@ export const BadgeGenerator: React.FC<BadgeGeneratorProps> = ({ scanResult }) =>
               {/* Interactive Badge Preview */}
               <motion.div
                 whileHover={{ scale: 1.05 }}
-                onClick={() => setShowCertificateModal(true)}
+                onClick={() => onOpenTrustCenter && onOpenTrustCenter()}
                 className={`cursor-pointer ${
                   config.position === 'bottom-left' ? 'self-start' : config.position === 'inline' ? 'self-center' : 'self-end'
                 }`}
@@ -190,63 +190,6 @@ export const BadgeGenerator: React.FC<BadgeGeneratorProps> = ({ scanResult }) =>
         </Card>
       </div>
 
-      {/* Verification Certificate Modal */}
-      {showCertificateModal && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-md"
-          >
-            <Card className="border-emerald-500/40 relative shadow-2xl">
-              <button
-                onClick={() => setShowCertificateModal(false)}
-                className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
-              >
-                <X className="w-5 h-5" />
-              </button>
-
-              <CardHeader className="text-center pb-2">
-                <div className="w-16 h-16 rounded-full bg-emerald-500/10 border-2 border-emerald-500/20 flex items-center justify-center text-emerald-500 mx-auto mb-4">
-                  <ShieldCheck className="w-8 h-8" />
-                </div>
-                <CardTitle className="text-xl">Compliance-Zertifikat</CardTitle>
-                <CardDescription>GuardAI Verification Authority</CardDescription>
-              </CardHeader>
-
-              <CardContent>
-                <div className="bg-muted/50 rounded-xl p-4 space-y-3 text-sm mb-6 border">
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Geprüfte Domain:</span>
-                    <span className="font-mono font-bold text-primary">{domainName}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">EU AI Act Status:</span>
-                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/50">
-                      <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Art. 50 Erfüllt
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">DSGVO Privacy Score:</span>
-                    <span className="font-bold text-foreground">{score}%</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Letzter Scan:</span>
-                    <span className="text-foreground">Heute, {new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span>
-                  </div>
-                </div>
-
-                <Button
-                  onClick={() => setShowCertificateModal(false)}
-                  className="w-full"
-                >
-                  Zertifikat Schließen
-                </Button>
-              </CardContent>
-            </Card>
-          </motion.div>
-        </div>
-      )}
     </div>
   );
 };

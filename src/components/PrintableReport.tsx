@@ -1,4 +1,5 @@
-import { ShieldCheck, Printer, ArrowLeft, Badge as BadgeIcon, Lock } from 'lucide-react';
+import React, { useState } from 'react';
+import { ShieldCheck, Printer, ArrowLeft, Badge as BadgeIcon, Lock, Upload } from 'lucide-react';
 import type { ScanResult } from '../types/scanner';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
@@ -12,6 +13,16 @@ interface PrintableReportProps {
 }
 
 export const PrintableReport: React.FC<PrintableReportProps> = ({ scanResult, isPremium, onBack, onUpgrade }) => {
+  const [agencyLogo, setAgencyLogo] = useState<string | null>(null);
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setAgencyLogo(url);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6">
       {/* Top Action Header (hidden in print) */}
@@ -19,10 +30,25 @@ export const PrintableReport: React.FC<PrintableReportProps> = ({ scanResult, is
         <Button onClick={onBack} variant="outline">
           <ArrowLeft className="w-4 h-4 mr-2" /> Zurück zum Dashboard
         </Button>
-
-        <Button onClick={() => window.print()}>
-          <Printer className="w-4 h-4 mr-2" /> Als PDF speichern / Drucken
-        </Button>
+        
+        <div className="flex gap-4">
+          {isPremium && (
+            <div className="relative">
+              <input 
+                type="file" 
+                accept="image/*" 
+                onChange={handleLogoUpload} 
+                className="absolute inset-0 opacity-0 cursor-pointer"
+              />
+              <Button variant="secondary">
+                <Upload className="w-4 h-4 mr-2" /> Logo hochladen (White-Label)
+              </Button>
+            </div>
+          )}
+          <Button onClick={() => window.print()}>
+            <Printer className="w-4 h-4 mr-2" /> Als PDF speichern / Drucken
+          </Button>
+        </div>
       </div>
 
       {/* Official Audit Document Container (Printable Area) */}
@@ -31,12 +57,16 @@ export const PrintableReport: React.FC<PrintableReportProps> = ({ scanResult, is
           {/* Document Header */}
           <div className="flex justify-between items-start border-b-2 border-foreground pb-6 mb-8">
             <div>
-              <div className="flex items-center gap-2 mb-2">
-                <ShieldCheck className="w-8 h-8 text-primary" />
-                <span className="text-2xl font-extrabold tracking-tight">
-                  Guard<span className="text-primary">AI</span> Verification Authority
-                </span>
-              </div>
+              {agencyLogo ? (
+                <img src={agencyLogo} alt="Agency Logo" className="h-12 object-contain mb-2" />
+              ) : (
+                <div className="flex items-center gap-2 mb-2">
+                  <ShieldCheck className="w-8 h-8 text-primary" />
+                  <span className="text-2xl font-extrabold tracking-tight">
+                    Guard<span className="text-primary">AI</span> Verification Authority
+                  </span>
+                </div>
+              )}
               <p className="text-sm text-muted-foreground">
                 Offizielles Audit-Dossier zur Konformitätsbewertung (EU AI Act & DSGVO)
               </p>
