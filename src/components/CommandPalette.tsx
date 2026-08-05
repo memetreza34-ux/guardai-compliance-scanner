@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Globe, LayoutDashboard, CreditCard, ShieldCheck, FileText, Zap, Settings, ChevronRight } from 'lucide-react';
+import { Search, Globe, LayoutDashboard, CreditCard, ShieldCheck, FileText, Zap, Settings, ChevronRight, ScanEye } from 'lucide-react';
 
 interface CommandPaletteProps {
   onNavigate: (tab: string) => void;
@@ -47,6 +47,7 @@ export function CommandPalette({ onNavigate }: CommandPaletteProps) {
     { id: 'ai-counsel', label: 'AI Legal Counsel fragen', icon: <Zap className="w-4 h-4" />, tab: 'ai-counsel', category: 'Tools' },
     { id: 'legal-docs', label: 'Rechtstexte (AGB/DSGVO)', icon: <FileText className="w-4 h-4" />, tab: 'legal-docs', category: 'Tools' },
     { id: 'templates', label: 'Vorlagen & Snippets (Copypaste)', icon: <FileText className="w-4 h-4" />, tab: 'templates', category: 'Tools' },
+    { id: 'truesight', label: 'TrueSight (Deepfake & AI Scanner)', icon: <ScanEye className="w-4 h-4 text-violet-500" />, tab: 'truesight', category: 'Tools' },
     { id: 'integrations', label: 'Integrationen & APIs verwalten', icon: <Search className="w-4 h-4" />, tab: 'integrations', category: 'System' },
     { id: 'policy', label: 'Policy Engine & Graph', icon: <LayoutDashboard className="w-4 h-4" />, tab: 'policy', category: 'System' },
     { id: 'settings', label: 'Webhooks & API (Dev)', icon: <Settings className="w-4 h-4" />, tab: 'dashboard', category: 'Einstellungen' },

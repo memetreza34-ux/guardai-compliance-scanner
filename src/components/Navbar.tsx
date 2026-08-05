@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, Sparkles, Award, CreditCard, RefreshCw, FileText, LayoutDashboard, MessageSquare, Bell } from 'lucide-react';
+import { ShieldCheck, Sparkles, Award, CreditCard, RefreshCw, FileText, LayoutDashboard, Bell, Bot, ScanEye } from 'lucide-react';
 import { Button } from './ui/button';
 import { Tabs, TabsList, TabsTrigger } from './ui/tabs';
 
@@ -7,8 +7,8 @@ import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 import { ThemeToggle } from './ThemeToggle';
 
 interface NavbarProps {
-  activeTab: 'scanner' | 'badge' | 'pricing' | 'report' | 'dashboard' | 'ai-counsel' | 'trust-center' | 'legal-docs' | 'audit-hub' | 'templates' | 'integrations' | 'policy';
-  setActiveTab: (tab: 'scanner' | 'badge' | 'pricing' | 'report' | 'dashboard' | 'ai-counsel' | 'trust-center' | 'legal-docs' | 'audit-hub' | 'templates' | 'integrations' | 'policy') => void;
+  activeTab: 'scanner' | 'badge' | 'pricing' | 'report' | 'dashboard' | 'ai-counsel' | 'trust-center' | 'legal-docs' | 'audit-hub' | 'templates' | 'integrations' | 'policy' | 'truesight';
+  setActiveTab: (tab: 'scanner' | 'badge' | 'pricing' | 'report' | 'dashboard' | 'ai-counsel' | 'trust-center' | 'legal-docs' | 'audit-hub' | 'templates' | 'integrations' | 'policy' | 'truesight') => void;
   hasScanResult: boolean;
   onNewScan: () => void;
 }
@@ -23,8 +23,9 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'scanner' as const, label: 'Scanner', icon: Sparkles },
     { id: 'dashboard' as const, label: 'Meine Audits', icon: LayoutDashboard },
     { id: 'audit-hub' as const, label: 'Audit Hub (SOC 2)', icon: LayoutDashboard },
+    { id: 'ai-counsel' as const, label: 'AI Legal Counsel', icon: Bot },
+    { id: 'truesight' as const, label: 'TrueSight AI', icon: ScanEye },
     { id: 'legal-docs' as const, label: 'Smart Docs', icon: FileText },
-    { id: 'ai-counsel' as const, label: 'Legal-AI', icon: MessageSquare },
     { id: 'templates' as const, label: 'Vorlagen', icon: FileText },
     { id: 'integrations' as const, label: 'Integrationen', icon: ShieldCheck },
     { id: 'policy' as const, label: 'Policy Engine', icon: ShieldCheck },

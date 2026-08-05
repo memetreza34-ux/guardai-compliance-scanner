@@ -16,11 +16,12 @@ import { AuditHub } from './components/AuditHub';
 import { TemplatesHub } from './components/TemplatesHub';
 import { IntegrationsHub } from './components/IntegrationsHub';
 import { PolicyManager } from './components/PolicyManager';
+import { TrueSight } from './components/TrueSight';
 import { generateComplianceScan } from './data/mockScanEngine';
 import type { ScanResult } from './types/scanner';
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<'scanner' | 'badge' | 'pricing' | 'report' | 'dashboard' | 'ai-counsel' | 'trust-center' | 'legal-docs' | 'audit-hub' | 'templates' | 'integrations' | 'policy'>('scanner');
+  const [activeTab, setActiveTab] = useState<'scanner' | 'badge' | 'pricing' | 'report' | 'dashboard' | 'ai-counsel' | 'trust-center' | 'legal-docs' | 'audit-hub' | 'templates' | 'integrations' | 'policy' | 'truesight'>('scanner');
   const [targetUrl, setTargetUrl] = useState<string | File>('');
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
@@ -86,6 +87,7 @@ export function App() {
               {activeTab === 'templates' && <TemplatesHub />}
               {activeTab === 'integrations' && <IntegrationsHub />}
               {activeTab === 'policy' && <PolicyManager />}
+              {activeTab === 'truesight' && <TrueSight isPremium={isPremium} onUpgrade={() => setActiveTab('pricing')} />}
             </>
           )}
         </div>
