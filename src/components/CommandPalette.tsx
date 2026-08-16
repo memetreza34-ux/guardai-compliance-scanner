@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import type { ReactNode } from 'react';
 import { Search, Globe, LayoutDashboard, CreditCard, ShieldCheck, FileText, Zap, Settings, ChevronRight, ScanEye } from 'lucide-react';
 import type { ActiveTab } from '../types/navigation';
 
@@ -9,7 +10,7 @@ interface CommandPaletteProps {
 interface CommandAction {
   id: string;
   label: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   tab: ActiveTab;
   category: string;
 }
