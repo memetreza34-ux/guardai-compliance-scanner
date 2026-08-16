@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import './index.css';
 import { App } from './App.tsx';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
+import BillingReturnPage from './components/BillingReturnPage';
 import PublicTrustPage from './components/PublicTrustPage';
 import { ThemeProvider } from './components/ThemeProvider';
 
@@ -13,9 +14,12 @@ if (!rootElement) {
 }
 
 const publicTrustMatch = window.location.pathname.match(/^\/trust\/([A-Za-z0-9_-]{24,80})\/?$/);
+const billingReturn = /^\/billing\/return\/?$/.test(window.location.pathname);
 const rootView = publicTrustMatch
   ? <PublicTrustPage publicSlug={publicTrustMatch[1]} />
-  : <App />;
+  : billingReturn
+    ? <BillingReturnPage />
+    : <App />;
 
 createRoot(rootElement).render(
   <StrictMode>
