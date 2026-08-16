@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AlertTriangle, X } from 'lucide-react';
 import { Navbar } from './components/Navbar';
 import { LandingPage } from './components/LandingPage';
 import { ScanProgressModal } from './components/ScanProgressModal';
@@ -17,32 +18,46 @@ import { TemplatesHub } from './components/TemplatesHub';
 import { IntegrationsHub } from './components/IntegrationsHub';
 import { PolicyManager } from './components/PolicyManager';
 import { TrueSight } from './components/TrueSight';
-import { generateComplianceScan } from './data/mockScanEngine';
+import { requestComplianceScan, ScanApiError } from './api/scanApi';
 import type { ScanResult } from './types/scanner';
 import type { ActiveTab } from './types/navigation';
+import type { ScanOptions } from './types/scanOptions';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('scanner');
   const [targetUrl, setTargetUrl] = useState<string | File>('');
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
   const [isPremium, setIsPremium] = useState(false);
   const [showLeadGen, setShowLeadGen] = useState(false);
 
-  const handleStartScan = (target: string | File) => {
+  const handleStartScan = async (target: string | File, options: ScanOptions) => {
     setTargetUrl(target);
+    setScanError(null);
     setIsScanning(true);
-  };
 
-  const handleScanCompleted = async () => {
-    const result = await generateComplianceScan(targetUrl);
-    setScanResult(result);
-    setIsScanning(false);
-    setActiveTab('scanner');
+    try {
+      const result = await requestComplianceScan(target, options);
+      setScanResult(result);
+      setActiveTab('scanner');
+    } catch (error) {
+      console.error('GuardAI scan failed:', error);
+      setScanResult(null);
+      setActiveTab('scanner');
+      setScanError(
+        error instanceof ScanApiError
+          ? error.message
+          : 'Der Scan konnte nicht abgeschlossen werden.',
+      );
+    } finally {
+      setIsScanning(false);
+    }
   };
 
   const handleNewScan = () => {
     setScanResult(null);
+    setScanError(null);
     setActiveTab('scanner');
   };
 
@@ -66,11 +81,34 @@ export function App() {
         {isScanning && (
           <ScanProgressModal
             url={typeof targetUrl === 'string' ? targetUrl : targetUrl.name}
-            onComplete={handleScanCompleted}
           />
         )}
 
         <div className="flex-1 w-full flex flex-col p-4 md:p-8 overflow-y-auto">
+          {!isScanning && scanError && activeTab === 'scanner' && (
+            <div
+              role="alert"
+              className="max-w-5xl w-full mx-auto mb-6 rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 flex items-start gap-3"
+            >
+              <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-semibold text-foreground">Scan fehlgeschlagen</p>
+                <p className="text-sm text-muted-foreground mt-1">{scanError}</p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  GuardAI erzeugt bei einem Backend-Fehler kein Ersatz- oder Demo-Ergebnis.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setScanError(null)}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Fehlermeldung schließen"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
           {!isScanning && (
             <>
               {activeTab === 'scanner' && (
