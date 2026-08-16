@@ -1,5 +1,6 @@
 const { HttpError } = require('../lib/httpError');
 const { buildSecurityAssessment } = require('../scanners/securityHeaders');
+const { getSecurityRuleForFinding } = require('../scanners/securityRuleRegistry');
 const { safeGetWithMetadata } = require('../services/safeFetch');
 
 const SECURITY_JOB_TYPE = 'security';
@@ -24,6 +25,14 @@ async function executeSecurityJob(context) {
 
   const html = typeof response.data === 'string' ? response.data : null;
   const security = buildSecurityAssessment(response.headers, finalUrl, html);
+  const issues = security.category.issues.map((issue) => {
+    const rule = getSecurityRuleForFinding(issue.id);
+    return {
+      ...issue,
+      ruleId: rule.id,
+      ruleVersion: rule.version,
+    };
+  });
 
   return {
     detectorId: security.detectorId,
@@ -32,7 +41,7 @@ async function executeSecurityJob(context) {
     source: finalUrl,
     normalizedData: security.evidence,
     score: security.category.score,
-    issues: security.category.issues,
+    issues,
     notices: [
       'Security result is an automated technical screening of the observed HTTP response and document, not a penetration test or proof that no vulnerabilities exist.',
     ],
