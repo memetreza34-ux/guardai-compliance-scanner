@@ -27,16 +27,17 @@ Phase 0 does **not** attempt to build the real scanner yet. It makes sure we kno
 | Correct project README | DONE | Current prototype/rebuild state is now explicit; React version corrected |
 | Harden `.gitignore` | DONE | Secrets, runtime uploads, caches, coverage and test artifacts covered |
 | Create Phase 0 tracker | DONE | This document |
-| Freeze major component disposition | DONE | Included in master guide; dedicated inventory will stay synchronized |
-| Remove `.npm-cache/` from version control | TODO | Directory is still present in repository tree |
-| Remove `npm_cache/` from version control | TODO | Directory is still present in repository tree |
-| Inspect repository for committed secrets | TODO | Must review tracked files/history before calling complete |
-| Review environment/config files | IN PROGRESS | `server/.env.example` exists; production env contract still needs later expansion |
-| Review backend declared dependencies | TODO | Known mismatch between `server/index.js` imports and `server/package.json` |
-| Review duplicate/obsolete files | TODO | App/component cleanup is executed in Phase 2, but candidates are frozen here |
-| Freeze P0/P1 engineering list | IN PROGRESS | Master guide contains current list; update when new blockers are found |
-| Establish repo size cleanup plan | TODO | Cache directories are a known source of repository bloat |
-| Confirm no misleading production claims remain in repository docs | IN PROGRESS | README fixed; UI claim cleanup happens during relevant feature phases |
+| Create dedicated repo inventory | DONE | `docs/REPO_INVENTORY.md` |
+| Freeze major component disposition | DONE | KEEP/REFACTOR/REPLACE/LATER/REMOVE decisions recorded |
+| Remove `.npm-cache/` from version control | DONE | Removed through verified Git tree cleanup |
+| Remove `npm_cache/` from version control | DONE | Removed through verified Git tree cleanup |
+| Inspect current tracked tree for secret/config risk | IN PROGRESS | No real `.env` is visible in root/server tree; automated/history scan still required |
+| Review environment/config files | IN PROGRESS | `server/.env.example` exists; production env contract expands in backend phase |
+| Review backend declared dependencies | DONE | Exact missing import/dependency list recorded in repo inventory |
+| Review duplicate/obsolete files | DONE FOR INVENTORY | Candidates frozen; actual code removal/refactor happens in Phase 2 |
+| Freeze P0/P1 engineering list | DONE | Master guide + this tracker contain initial blockers |
+| Establish repo size cleanup plan | DONE | Generated cache trees removed; ignore rules prevent recurrence |
+| Confirm no misleading production claims remain in repository docs | DONE | README corrected; UI claim remediation stays attached to implementation phases |
 
 ---
 
@@ -57,6 +58,17 @@ Frontend currently contains a hard-coded localhost API path.
 ### P0-03 — Backend clean-install failure risk
 
 Backend imports are not fully represented by `server/package.json`.
+
+Current missing declarations used by `server/index.js`:
+
+- `dotenv`
+- `cheerio`
+- `@google/genai`
+- `helmet`
+- `express-rate-limit`
+- `zod`
+- `multer`
+- `pdf-parse`
 
 **Target:** a clean clone installs and starts without undeclared dependencies.
 
@@ -144,11 +156,17 @@ Phase 0 is complete only when:
 - [x] README describes the real current state.
 - [x] `.gitignore` protects obvious local/secret/runtime artifacts.
 - [x] Major existing features have a KEEP/REFACTOR/REPLACE/LATER decision.
-- [ ] Both committed npm cache directories are removed from version control.
-- [ ] Repository is reviewed for accidentally committed secrets.
-- [ ] Backend dependency mismatch is documented with an exact fix list.
-- [ ] Repository bloat cleanup is complete or intentionally deferred with reason.
-- [ ] No unknown P0 blocker remains from the initial static repository audit.
+- [x] Both committed npm cache directories are removed from version control.
+- [ ] Current tree + relevant history have been reviewed for accidentally committed secrets.
+- [x] Backend dependency mismatch is documented with an exact fix list.
+- [x] Repository bloat cleanup for known npm cache artifacts is complete.
+- [x] Initial static audit has no unclassified P0 blocker; newly discovered blockers are added here immediately.
+
+---
+
+## Remaining Phase 0 item
+
+The only required close-out item is the secret/history review. We will not claim this complete merely because `.env` is ignored now; previous commits must also be considered and automated secret scanning will become a permanent CI control.
 
 ---
 
