@@ -2,13 +2,14 @@ import React from 'react';
 import { ShieldCheck, Sparkles, Award, CreditCard, RefreshCw, FileText, LayoutDashboard, Bell, Bot, ScanEye } from 'lucide-react';
 import { Button } from './ui/button';
 import { Tabs, TabsList, TabsTrigger } from './ui/tabs';
-
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 import { ThemeToggle } from './ThemeToggle';
+import type { ActiveTab } from '../types/navigation';
+import { isActiveTab } from '../types/navigation';
 
 interface NavbarProps {
-  activeTab: 'scanner' | 'badge' | 'pricing' | 'report' | 'dashboard' | 'ai-counsel' | 'trust-center' | 'legal-docs' | 'audit-hub' | 'templates' | 'integrations' | 'policy' | 'truesight';
-  setActiveTab: (tab: 'scanner' | 'badge' | 'pricing' | 'report' | 'dashboard' | 'ai-counsel' | 'trust-center' | 'legal-docs' | 'audit-hub' | 'templates' | 'integrations' | 'policy' | 'truesight') => void;
+  activeTab: ActiveTab;
+  setActiveTab: (tab: ActiveTab) => void;
   hasScanResult: boolean;
   onNewScan: () => void;
 }
@@ -17,31 +18,35 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   setActiveTab,
   hasScanResult,
-  onNewScan
+  onNewScan,
 }) => {
-  const tabs = [
-    { id: 'scanner' as const, label: 'Scanner', icon: Sparkles },
-    { id: 'dashboard' as const, label: 'Meine Audits', icon: LayoutDashboard },
-    { id: 'audit-hub' as const, label: 'Audit Hub (SOC 2)', icon: LayoutDashboard },
-    { id: 'ai-counsel' as const, label: 'AI Legal Counsel', icon: Bot },
-    { id: 'truesight' as const, label: 'TrueSight AI', icon: ScanEye },
-    { id: 'legal-docs' as const, label: 'Smart Docs', icon: FileText },
-    { id: 'templates' as const, label: 'Vorlagen', icon: FileText },
-    { id: 'integrations' as const, label: 'Integrationen', icon: ShieldCheck },
-    { id: 'policy' as const, label: 'Policy Engine', icon: ShieldCheck },
-    { id: 'badge' as const, label: 'Trust Badge', icon: Award },
-    { id: 'trust-center' as const, label: 'Trust Center', icon: ShieldCheck },
-    { id: 'pricing' as const, label: 'Pricing', icon: CreditCard },
-    ...(hasScanResult ? [{ id: 'report' as const, label: 'Report', icon: FileText }] : [])
+  const tabs: Array<{ id: ActiveTab; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+    { id: 'scanner', label: 'Scanner', icon: Sparkles },
+    { id: 'dashboard', label: 'Meine Audits', icon: LayoutDashboard },
+    { id: 'audit-hub', label: 'Audit Hub (SOC 2)', icon: LayoutDashboard },
+    { id: 'ai-counsel', label: 'AI Legal Counsel', icon: Bot },
+    { id: 'truesight', label: 'TrueSight AI', icon: ScanEye },
+    { id: 'legal-docs', label: 'Smart Docs', icon: FileText },
+    { id: 'templates', label: 'Vorlagen', icon: FileText },
+    { id: 'integrations', label: 'Integrationen', icon: ShieldCheck },
+    { id: 'policy', label: 'Policy Engine', icon: ShieldCheck },
+    { id: 'badge', label: 'Trust Badge', icon: Award },
+    { id: 'trust-center', label: 'Trust Center', icon: ShieldCheck },
+    { id: 'pricing', label: 'Pricing', icon: CreditCard },
+    ...(hasScanResult ? [{ id: 'report' as ActiveTab, label: 'Report', icon: FileText }] : []),
   ];
+
+  const handleTabChange = (value: string) => {
+    if (isActiveTab(value)) {
+      setActiveTab(value);
+    }
+  };
 
   return (
     <header className="no-print sticky top-0 z-50 bg-background border-b border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-        
-        {/* Brand Logo & Workspace */}
         <div className="flex items-center gap-6">
-          <div 
+          <div
             onClick={() => setActiveTab('scanner')}
             className="flex items-center gap-3 cursor-pointer group"
           >
@@ -54,20 +59,19 @@ export const Navbar: React.FC<NavbarProps> = ({
                   GuardAI
                 </span>
                 <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground border border-border">
-                  Compliance
+                  Prototype
                 </span>
               </div>
             </div>
           </div>
-          
+
           <div className="hidden sm:block">
             <WorkspaceSwitcher />
           </div>
         </div>
 
-        {/* Floating Tab Selector */}
         <div className="hidden md:block">
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+          <Tabs value={activeTab} onValueChange={handleTabChange}>
             <TabsList className="bg-muted">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
@@ -82,7 +86,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           </Tabs>
         </div>
 
-        {/* Action Button */}
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" className="relative hidden sm:flex">
             <Bell className="w-5 h-5 text-muted-foreground" />
@@ -102,9 +105,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </Button>
           )}
         </div>
-
       </div>
     </header>
   );
 };
-
