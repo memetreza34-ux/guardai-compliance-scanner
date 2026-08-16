@@ -21,7 +21,7 @@ function assertWorkerConfig() {
 async function runSecurityWorkerProcess({ once = false } = {}) {
   assertWorkerConfig();
   const workerId = createWorkerId();
-  const { jobRepository } = getPersistenceServices();
+  const { jobFailureService, jobRepository } = getPersistenceServices();
   let stopping = false;
 
   const requestStop = () => {
@@ -35,6 +35,7 @@ async function runSecurityWorkerProcess({ once = false } = {}) {
     do {
       try {
         const result = await processOneSecurityJob({
+          jobFailureService,
           jobRepository,
           workerId,
           leaseSeconds: config.workerLeaseSeconds,
