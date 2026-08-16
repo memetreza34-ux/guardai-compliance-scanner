@@ -13,6 +13,8 @@ const config = Object.freeze({
   supabasePublishableKey: process.env.SUPABASE_PUBLISHABLE_KEY || '',
   databaseUrl: process.env.DATABASE_URL || '',
   databasePoolMax: Number(process.env.DATABASE_POOL_MAX || 10),
+  workerLeaseSeconds: Number(process.env.WORKER_LEASE_SECONDS || 60),
+  workerPollMs: Number(process.env.WORKER_POLL_MS || 2000),
   maxUploadBytes: 10 * 1024 * 1024,
   maxHtmlBytes: 2 * 1024 * 1024,
   maxExtractedTextChars: 30000,
