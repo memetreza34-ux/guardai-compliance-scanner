@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { GuardApiError } from '../api/apiClient';
-import type { BillingApi } from '../api/billingApi';
+import {
+  createBillingIdempotencyKey,
+  type BillingApi,
+} from '../api/billingApi';
 import type { WorkspaceApi } from '../api/workspaceApi';
 import type { BillingStatus } from '../types/billing';
 import type { WorkspaceOrganization } from '../types/workspace';
@@ -84,7 +87,11 @@ export default function BillingCenter({ billingApi, workspaceApi }: BillingCente
     setBusy(true);
     setError(null);
     try {
-      const checkout = await billingApi.createCheckout(organizationId, selectedPlan);
+      const checkout = await billingApi.createCheckout(
+        organizationId,
+        selectedPlan,
+        createBillingIdempotencyKey(),
+      );
       window.location.assign(checkout.url);
     } catch (checkoutError) {
       setError(readableError(checkoutError));
