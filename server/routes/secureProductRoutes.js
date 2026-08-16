@@ -6,7 +6,14 @@ const { ruleRoutes } = require('./ruleRoutes');
 
 const router = express.Router();
 
-getSecureProductPersistenceServices();
+router.use((_req, _res, next) => {
+  try {
+    getSecureProductPersistenceServices();
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 
 router.use(ruleRoutes);
 router.use(findingRoutes);
