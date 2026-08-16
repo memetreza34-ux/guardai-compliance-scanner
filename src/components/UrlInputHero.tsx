@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { FileText, Globe, Search, ShieldCheck, Upload } from 'lucide-react';
+import { Bot, Eye, FileText, Globe, Lock, Scale, Search, ShieldCheck, Upload } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
-import type { ScanOptions } from '../types/scanOptions';
-import { DEFAULT_SCAN_OPTIONS } from '../types/scanOptions';
+import type { ScanOptions, SelectableWebScanOption } from '../types/scanOptions';
+import { DEFAULT_SCAN_OPTIONS, FILE_SCAN_OPTIONS } from '../types/scanOptions';
 
 interface UrlInputHeroProps {
   onStartScan: (target: string | File, options: ScanOptions) => void | Promise<void>;
@@ -23,20 +23,32 @@ function hasAllowedExtension(fileName: string): boolean {
 export const UrlInputHero: React.FC<UrlInputHeroProps> = ({ onStartScan, isScanning }) => {
   const [inputUrl, setInputUrl] = useState('');
   const [mode, setMode] = useState<'web' | 'file'>('web');
+  const [scanOptions, setScanOptions] = useState<ScanOptions>(DEFAULT_SCAN_OPTIONS);
   const [localError, setLocalError] = useState<string | null>(null);
 
-  const buildOptions = (fileMode: boolean): ScanOptions => ({
-    ...DEFAULT_SCAN_OPTIONS,
-    fileMode,
-  });
+  const enabledWebModuleCount = [scanOptions.aiAct, scanOptions.gdpr, scanOptions.security].filter(Boolean).length;
+
+  const toggleWebModule = (key: SelectableWebScanOption) => {
+    setScanOptions((current) => ({
+      ...current,
+      [key]: !current[key],
+      fileMode: false,
+    }));
+    setLocalError(null);
+  };
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     const value = inputUrl.trim();
     if (!value || isScanning) return;
 
+    if (enabledWebModuleCount === 0) {
+      setLocalError('Wähle mindestens ein derzeit verfügbares Prüfmodul aus.');
+      return;
+    }
+
     setLocalError(null);
-    void onStartScan(value, buildOptions(false));
+    void onStartScan(value, { ...scanOptions, fileMode: false });
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -56,7 +68,7 @@ export const UrlInputHero: React.FC<UrlInputHeroProps> = ({ onStartScan, isScann
     }
 
     setLocalError(null);
-    void onStartScan(file, buildOptions(true));
+    void onStartScan(file, FILE_SCAN_OPTIONS);
     event.target.value = '';
   };
 
@@ -124,13 +136,75 @@ export const UrlInputHero: React.FC<UrlInputHeroProps> = ({ onStartScan, isScann
                     autoComplete="url"
                   />
                 </div>
-                <Button type="submit" disabled={isScanning || !inputUrl.trim()} className="h-12 px-6" size="lg">
+                <Button
+                  type="submit"
+                  disabled={isScanning || !inputUrl.trim() || enabledWebModuleCount === 0}
+                  className="h-12 px-6"
+                  size="lg"
+                >
                   <Search className="w-4 h-4 mr-2" />
                   {isScanning ? 'Scan läuft …' : 'Technischen Scan starten'}
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground mt-3">
-                Welche Checks tatsächlich ausgeführt wurden, wird erst im Ergebnis als Coverage angezeigt.
+
+              <fieldset className="mt-6">
+                <legend className="text-sm font-semibold">Prüfmodule</legend>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Die Auswahl wird an die Scanner-API gesendet. Im Ergebnis zählt nur tatsächlich ausgeführte Coverage.
+                </p>
+
+                <div className="grid sm:grid-cols-2 gap-3 mt-3">
+                  <label className="rounded-xl border bg-background/40 p-4 flex gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={scanOptions.security}
+                      onChange={() => toggleWebModule('security')}
+                      className="mt-1"
+                    />
+                    <span>
+                      <span className="flex items-center gap-2 font-medium text-sm"><Lock className="w-4 h-4 text-primary" /> Security</span>
+                      <span className="block text-xs text-muted-foreground mt-1">Aktuelle Basis: technische HTTP-Header-Checks.</span>
+                    </span>
+                  </label>
+
+                  <label className="rounded-xl border bg-background/40 p-4 flex gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={scanOptions.gdpr}
+                      onChange={() => toggleWebModule('gdpr')}
+                      className="mt-1"
+                    />
+                    <span>
+                      <span className="flex items-center gap-2 font-medium text-sm"><Scale className="w-4 h-4 text-primary" /> Privacy / DSGVO</span>
+                      <span className="block text-xs text-muted-foreground mt-1">Aktuell AI-gestütztes Text-Screening; Browser-Evidence folgt.</span>
+                    </span>
+                  </label>
+
+                  <label className="rounded-xl border bg-background/40 p-4 flex gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={scanOptions.aiAct}
+                      onChange={() => toggleWebModule('aiAct')}
+                      className="mt-1"
+                    />
+                    <span>
+                      <span className="flex items-center gap-2 font-medium text-sm"><Bot className="w-4 h-4 text-primary" /> AI Governance</span>
+                      <span className="block text-xs text-muted-foreground mt-1">Aktuell AI-gestütztes Text-Screening, keine Rechtsentscheidung.</span>
+                    </span>
+                  </label>
+
+                  <div className="rounded-xl border border-dashed bg-muted/20 p-4 flex gap-3 opacity-70" aria-disabled="true">
+                    <input type="checkbox" checked={false} disabled className="mt-1" />
+                    <span>
+                      <span className="flex items-center gap-2 font-medium text-sm"><Eye className="w-4 h-4" /> Accessibility</span>
+                      <span className="block text-xs text-muted-foreground mt-1">Noch nicht ausführbar. Aktivierung erst mit echtem Browser-/axe-Scanner.</span>
+                    </span>
+                  </div>
+                </div>
+              </fieldset>
+
+              <p className="text-xs text-muted-foreground mt-4">
+                Nicht ausgeführte Module werden nicht als bestanden dargestellt.
               </p>
             </form>
           ) : (
