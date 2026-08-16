@@ -1,3 +1,4 @@
+import contractMetadata from '../../shared/scan-contract.json';
 import type {
   AuditIssue,
   CategoryScore,
@@ -62,6 +63,7 @@ interface BackendCategory {
 }
 
 interface BackendScanResponse {
+  contractVersion?: unknown;
   url?: unknown;
   timestamp?: unknown;
   overallScore?: unknown;
@@ -209,6 +211,12 @@ function normalizeResponse(
   }
 
   const data = payload as BackendScanResponse;
+  if (data.contractVersion !== contractMetadata.version) {
+    throw new ScanApiError(
+      `Scanner API contract mismatch. Expected ${contractMetadata.version}.`,
+    );
+  }
+
   const rawCategories = isRecord(data.categories) ? data.categories : {};
   const issues: AuditIssue[] = [];
   const normalizedCategories: Partial<Record<ComplianceCategory, CategoryScore>> = {};
