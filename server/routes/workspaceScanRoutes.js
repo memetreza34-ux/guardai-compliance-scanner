@@ -2,6 +2,10 @@ const express = require('express');
 const { z } = require('zod');
 const { requireAuth } = require('../auth/supabaseAuth');
 const { HttpError } = require('../lib/httpError');
+const {
+  finalizePersistentStatus,
+  finalizePersistentSubmission,
+} = require('../lib/persistentScanContract');
 const { sendRouteError } = require('../middleware/errorHandler');
 const { getPersistenceServices } = require('../services/persistenceServices');
 
@@ -39,11 +43,12 @@ router.post(
         idempotencyKey: idempotencyHeader || null,
       });
 
-      res.status(result.created ? 202 : 200).json({
+      const payload = finalizePersistentSubmission({
         scan: result.scan,
         jobs: result.jobs,
         idempotentReplay: !result.created,
       });
+      res.status(result.created ? 202 : 200).json(payload);
     } catch (error) {
       sendRouteError(res, error, 'Workspace Scan Submission');
     }
@@ -76,7 +81,7 @@ router.get(
         throw new HttpError(404, 'Scan was not found in this organization.', 'SCAN_NOT_FOUND');
       }
 
-      res.json(result);
+      res.json(finalizePersistentStatus(result));
     } catch (error) {
       sendRouteError(res, error, 'Workspace Scan Status');
     }
