@@ -76,7 +76,7 @@ test('isBlockedIp rejects private, loopback, link-local and reserved IPv4 ranges
   assert.equal(isBlockedIp('8.8.8.8'), false);
 });
 
-test('isBlockedIp rejects private IPv6 ranges and IPv4-mapped loopback', () => {
+test('isBlockedIp rejects private, mapped, documentation and multicast IPv6 ranges', () => {
   const blocked = [
     '::',
     '::1',
@@ -85,6 +85,8 @@ test('isBlockedIp rejects private IPv6 ranges and IPv4-mapped loopback', () => {
     'fe80::1',
     '2001:db8::1',
     '::ffff:127.0.0.1',
+    '::ffff:8.8.8.8',
+    'ff02::1',
   ];
 
   for (const address of blocked) {
