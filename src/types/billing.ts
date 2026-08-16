@@ -11,4 +11,6 @@ export interface BillingStatus {
 export interface BillingCheckout {
   sessionId: string;
   url: string;
+  expiresAt: string;
+  idempotentReplay: boolean;
 }
