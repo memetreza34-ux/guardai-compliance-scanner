@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0",
+  "version": "0.2.0",
   "scanTypes": ["web", "asset"],
   "backendCategoryKeys": [
     "security",
@@ -10,5 +10,18 @@
     "copyright"
   ],
   "categoryStatusValues": ["critical", "warning", "compliant"],
-  "findingSeverityValues": ["critical", "warning"]
+  "findingSeverityValues": ["critical", "warning"],
+  "persistentScanStatusValues": ["queued", "running", "completed", "failed", "cancelled"],
+  "persistentJobStatusValues": ["queued", "running", "completed", "failed", "cancelled"],
+  "persistentModuleIds": [
+    "security",
+    "privacy",
+    "accessibility",
+    "ai-governance",
+    "repository",
+    "asset"
+  ],
+  "coverageStateValues": ["queued", "running", "retrying", "assessed", "error", "cancelled", "not_assessed"],
+  "persistentFindingSeverityValues": ["critical", "warning", "info"],
+  "targetVerificationStateValues": ["unverified", "pending", "verified", "failed"]
 }
