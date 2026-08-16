@@ -1,0 +1,47 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const {
+  assertLeaseSeconds,
+  assertWorkerId,
+  calculateRetryDelaySeconds,
+  sanitizeJobError,
+} = require('../domain/jobLifecycle');
+
+
+test('worker identifiers are strict and bounded', () => {
+  assert.equal(assertWorkerId('worker-01:security'), 'worker-01:security');
+  assert.throws(() => assertWorkerId(''), /invalid/i);
+  assert.throws(() => assertWorkerId('worker id'), /invalid/i);
+  assert.throws(() => assertWorkerId('x'.repeat(121)), /invalid/i);
+});
+
+
+test('lease duration stays within GuardAI bounds', () => {
+  assert.equal(assertLeaseSeconds(60), 60);
+  assert.throws(() => assertLeaseSeconds(9), /invalid/i);
+  assert.throws(() => assertLeaseSeconds(901), /invalid/i);
+});
+
+
+test('retry delay uses bounded exponential backoff', () => {
+  assert.equal(calculateRetryDelaySeconds(1), 15);
+  assert.equal(calculateRetryDelaySeconds(2), 30);
+  assert.equal(calculateRetryDelaySeconds(3), 60);
+  assert.equal(calculateRetryDelaySeconds(7), 900);
+  assert.equal(calculateRetryDelaySeconds(20), 900);
+  assert.throws(() => calculateRetryDelaySeconds(0));
+});
+
+
+test('worker errors are bounded and normalized', () => {
+  const error = new Error('line one\nline two');
+  error.code = 'FETCH_FAILED';
+  assert.deepEqual(sanitizeJobError(error), {
+    code: 'FETCH_FAILED',
+    message: 'line one line two',
+  });
+
+  const invalidCode = new Error('oops');
+  invalidCode.code = 'not valid';
+  assert.equal(sanitizeJobError(invalidCode).code, 'WORKER_EXECUTION_FAILED');
+});
