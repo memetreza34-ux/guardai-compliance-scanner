@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   assertPublicHttpTarget,
+  createSafeLookup,
   isBlockedIp,
   normalizeHttpUrl,
 } = require('../lib/targetSafety');
@@ -11,6 +12,19 @@ function assertHttpError(fn, expectedMessagePart) {
     assert.equal(error.name, 'HttpError');
     assert.match(error.message, new RegExp(expectedMessagePart, 'i'));
     return true;
+  });
+}
+
+function runLookup(lookup, hostname, options = {}) {
+  return new Promise((resolve, reject) => {
+    lookup(hostname, options, (error, address, family) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve({ address, family });
+    });
   });
 }
 
@@ -118,4 +132,43 @@ test('assertPublicHttpTarget accepts a hostname when every resolved address is p
   await assert.doesNotReject(
     () => assertPublicHttpTarget(normalizeHttpUrl('https://example.com'), fakeLookup),
   );
+});
+
+test('createSafeLookup rejects a private address returned during socket DNS lookup', async () => {
+  const unsafeLookup = (_hostname, _options, callback) => {
+    callback(null, [{ address: '169.254.169.254', family: 4 }]);
+  };
+  const lookup = createSafeLookup(unsafeLookup);
+
+  await assert.rejects(
+    () => runLookup(lookup, 'example.com'),
+    /resolves to a private/i,
+  );
+});
+
+test('createSafeLookup returns a validated public address to the socket', async () => {
+  const publicLookup = (_hostname, _options, callback) => {
+    callback(null, [
+      { address: '93.184.216.34', family: 4 },
+      { address: '2606:2800:220:1:248:1893:25c8:1946', family: 6 },
+    ]);
+  };
+  const lookup = createSafeLookup(publicLookup);
+
+  const result = await runLookup(lookup, 'example.com');
+  assert.equal(result.address, '93.184.216.34');
+  assert.equal(result.family, 4);
+});
+
+test('createSafeLookup preserves all validated addresses when the caller requests all results', async () => {
+  const addresses = [
+    { address: '93.184.216.34', family: 4 },
+    { address: '2606:2800:220:1:248:1893:25c8:1946', family: 6 },
+  ];
+  const publicLookup = (_hostname, _options, callback) => callback(null, addresses);
+  const lookup = createSafeLookup(publicLookup);
+
+  const result = await runLookup(lookup, 'example.com', { all: true });
+  assert.deepEqual(result.address, addresses);
+  assert.equal(result.family, undefined);
 });
