@@ -17,6 +17,21 @@ function mapSubscriptionRow(row) {
   };
 }
 
+function mapCheckoutRow(row) {
+  return {
+    id: row.id,
+    organizationId: row.organization_id,
+    idempotencyKey: row.idempotency_key,
+    plan: row.plan,
+    status: row.status,
+    providerSessionId: row.provider_session_id,
+    expiresAt: row.expires_at,
+    createdBy: row.created_by,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 function sanitizeBillingError(error) {
   const code = typeof error?.code === 'string' && /^[A-Z0-9_:-]{1,80}$/.test(error.code)
     ? error.code
@@ -63,6 +78,150 @@ function createBillingRepository(pool) {
       throw new HttpError(409, 'Organization is already linked to another billing customer.', 'BILLING_CUSTOMER_CONFLICT');
     }
     return mapSubscriptionRow(result.rows[0]);
+  }
+
+  async function claimCheckoutRequest({ organizationId, userId, idempotencyKey, plan }) {
+    const client = await pool.connect();
+    try {
+      await client.query('begin');
+
+      await client.query(
+        `update public.billing_checkout_requests
+            set status = 'expired', updated_at = now()
+          where organization_id = $1
+            and status = 'ready'
+            and expires_at <= now()`,
+        [organizationId],
+      );
+
+      const sameKey = await client.query(
+        `select id, organization_id, idempotency_key, plan, status,
+                provider_session_id, expires_at, created_by, created_at, updated_at
+           from public.billing_checkout_requests
+          where organization_id = $1 and idempotency_key = $2
+          limit 1
+          for update`,
+        [organizationId, idempotencyKey],
+      );
+
+      if (sameKey.rowCount > 0) {
+        const row = sameKey.rows[0];
+        if (row.plan !== plan) {
+          throw new HttpError(
+            409,
+            'Billing Idempotency-Key was already used for another plan.',
+            'BILLING_IDEMPOTENCY_KEY_REUSED',
+          );
+        }
+        if (row.status === 'ready' && row.expires_at > new Date()) {
+          await client.query('commit');
+          return { created: false, replay: true, resume: false, request: mapCheckoutRow(row) };
+        }
+        if (row.status === 'creating') {
+          const age = Date.now() - new Date(row.updated_at).getTime();
+          if (Number.isFinite(age) && age >= 60_000) {
+            await client.query(
+              `update public.billing_checkout_requests
+                  set updated_at = now()
+                where id = $1`,
+              [row.id],
+            );
+            await client.query('commit');
+            return { created: false, replay: false, resume: true, request: mapCheckoutRow(row) };
+          }
+          throw new HttpError(
+            409,
+            'Billing checkout request is already being created.',
+            'BILLING_CHECKOUT_IN_PROGRESS',
+          );
+        }
+        throw new HttpError(
+          409,
+          'Billing Idempotency-Key cannot be reused after this checkout state.',
+          'BILLING_IDEMPOTENCY_KEY_REUSED',
+        );
+      }
+
+      const inserted = await client.query(
+        `insert into public.billing_checkout_requests (
+           organization_id, idempotency_key, plan, status, created_by
+         ) values ($1, $2, $3, 'creating', $4)
+         on conflict do nothing
+         returning id, organization_id, idempotency_key, plan, status,
+                   provider_session_id, expires_at, created_by, created_at, updated_at`,
+        [organizationId, idempotencyKey, plan, userId],
+      );
+
+      if (inserted.rowCount === 0) {
+        const active = await client.query(
+          `select id from public.billing_checkout_requests
+            where organization_id = $1 and status in ('creating','ready')
+            limit 1`,
+          [organizationId],
+        );
+        throw new HttpError(
+          409,
+          active.rowCount > 0
+            ? 'Organization already has an active billing checkout.'
+            : 'Billing checkout request conflicted with another request.',
+          active.rowCount > 0 ? 'BILLING_CHECKOUT_ALREADY_ACTIVE' : 'BILLING_CHECKOUT_CONFLICT',
+        );
+      }
+
+      await client.query('commit');
+      return { created: true, replay: false, resume: false, request: mapCheckoutRow(inserted.rows[0]) };
+    } catch (error) {
+      try {
+        await client.query('rollback');
+      } catch (rollbackError) {
+        console.error('[Database] Billing checkout claim rollback failed:', rollbackError);
+      }
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async function completeCheckoutRequest({ organizationId, idempotencyKey, sessionId, expiresAt }) {
+    const result = await pool.query(
+      `update public.billing_checkout_requests
+          set status = 'ready',
+              provider_session_id = $3,
+              expires_at = $4,
+              updated_at = now()
+        where organization_id = $1
+          and idempotency_key = $2
+          and status = 'creating'
+        returning id, organization_id, idempotency_key, plan, status,
+                  provider_session_id, expires_at, created_by, created_at, updated_at`,
+      [organizationId, idempotencyKey, sessionId, expiresAt],
+    );
+    if (result.rowCount === 0) {
+      throw new HttpError(409, 'Billing checkout request could not be finalized.', 'BILLING_CHECKOUT_STATE_CONFLICT');
+    }
+    return mapCheckoutRow(result.rows[0]);
+  }
+
+  async function failCheckoutRequest({ organizationId, idempotencyKey }) {
+    await pool.query(
+      `update public.billing_checkout_requests
+          set status = 'failed', updated_at = now()
+        where organization_id = $1
+          and idempotency_key = $2
+          and status = 'creating'`,
+      [organizationId, idempotencyKey],
+    );
+  }
+
+  async function markCheckoutCompleted(sessionId) {
+    if (!sessionId) return;
+    await pool.query(
+      `update public.billing_checkout_requests
+          set status = 'completed', updated_at = now()
+        where provider_session_id = $1
+          and status in ('ready','expired')`,
+      [sessionId],
+    );
   }
 
   async function findOrganizationByStripeCustomer(customerId) {
@@ -230,16 +389,21 @@ function createBillingRepository(pool) {
 
   return {
     attachStripeCustomer,
+    claimCheckoutRequest,
     claimWebhookEvent,
+    completeCheckoutRequest,
+    failCheckoutRequest,
     finalizeWebhookEvent,
     findOrganizationByStripeCustomer,
     getSubscriptionForOrganization,
+    markCheckoutCompleted,
     reconcileStripeSubscription,
   };
 }
 
 module.exports = {
   createBillingRepository,
+  mapCheckoutRow,
   mapSubscriptionRow,
   sanitizeBillingError,
 };
