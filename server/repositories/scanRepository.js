@@ -1,6 +1,18 @@
 const { HttpError } = require('../lib/httpError');
+const { defaultProfile } = require('../domain/scoringPolicy');
 const { assertTargetSupportsModules } = require('../domain/targetScanCompatibility');
 const { assertTargetVerified } = require('../domain/targetAuthorization');
+
+function buildTargetSnapshot(target) {
+  return {
+    id: target.id,
+    type: target.type,
+    displayName: target.display_name,
+    canonicalUrl: target.canonical_url,
+    provider: target.provider,
+    verificationState: target.verification_state,
+  };
+}
 
 function mapScanRow(row) {
   return {
@@ -13,6 +25,9 @@ function mapScanRow(row) {
     contractVersion: row.contract_version,
     requestedModules: row.requested_modules,
     idempotencyKey: row.idempotency_key,
+    scoringProfileId: row.scoring_profile_id,
+    scoringProfileVersion: row.scoring_profile_version,
+    targetSnapshot: row.target_snapshot || null,
     createdAt: row.created_at,
   };
 }
@@ -68,7 +83,8 @@ async function findExistingByIdempotency(client, organizationId, idempotencyKey)
   const result = await client.query(
     `select id, organization_id, target_id, requested_by, status,
             scanner_version, contract_version, requested_modules,
-            idempotency_key, created_at
+            idempotency_key, scoring_profile_id, scoring_profile_version,
+            target_snapshot, created_at
        from public.scans
       where organization_id = $1
         and idempotency_key = $2
@@ -107,7 +123,8 @@ function createScanRepository(pool) {
       await client.query('begin');
 
       const targetResult = await client.query(
-        `select id, organization_id, type, verification_state
+        `select id, organization_id, type, display_name, canonical_url,
+                provider, verification_state
            from public.targets
           where id = $1 and organization_id = $2
           for share`,
@@ -121,6 +138,7 @@ function createScanRepository(pool) {
       const target = targetResult.rows[0];
       assertTargetVerified(target);
       assertTargetSupportsModules(target.type, input.requestedModules);
+      const targetSnapshot = buildTargetSnapshot(target);
 
       const existingBeforeInsert = await findExistingByIdempotency(
         client,
@@ -144,14 +162,18 @@ function createScanRepository(pool) {
            scanner_version,
            contract_version,
            requested_modules,
-           idempotency_key
-         ) values ($1, $2, $3, 'queued', $4, $5, $6::text[], $7)
+           idempotency_key,
+           scoring_profile_id,
+           scoring_profile_version,
+           target_snapshot
+         ) values ($1, $2, $3, 'queued', $4, $5, $6::text[], $7, $8, $9, $10::jsonb)
          on conflict (organization_id, idempotency_key)
            where idempotency_key is not null
          do nothing
          returning id, organization_id, target_id, requested_by, status,
                    scanner_version, contract_version, requested_modules,
-                   idempotency_key, created_at`,
+                   idempotency_key, scoring_profile_id, scoring_profile_version,
+                   target_snapshot, created_at`,
         [
           input.organizationId,
           input.targetId,
@@ -160,6 +182,9 @@ function createScanRepository(pool) {
           input.contractVersion,
           input.requestedModules,
           input.idempotencyKey,
+          defaultProfile.profileId,
+          defaultProfile.version,
+          JSON.stringify(targetSnapshot),
         ],
       );
 
@@ -223,6 +248,7 @@ function createScanRepository(pool) {
 
 module.exports = {
   assertIdempotentRequestMatches,
+  buildTargetSnapshot,
   createScanRepository,
   mapJobRow,
   mapScanRow,
