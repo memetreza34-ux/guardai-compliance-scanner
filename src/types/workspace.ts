@@ -135,3 +135,19 @@ export interface PersistentScanResult {
   evidence: PersistentEvidence[];
   findings: PersistentFinding[];
 }
+
+export interface WorkspaceAuditEvent {
+  id: string;
+  organizationId: string;
+  actorId: string | null;
+  action: string;
+  targetType: string | null;
+  targetId: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface WorkspaceAuditPage {
+  events: WorkspaceAuditEvent[];
+  nextCursor: string | null;
+}
