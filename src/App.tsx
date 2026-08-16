@@ -3,7 +3,7 @@ import { AlertTriangle, X } from 'lucide-react';
 import { Navbar } from './components/Navbar';
 import { LandingPage } from './components/LandingPage';
 import { ScanProgressModal } from './components/ScanProgressModal';
-import { ComplianceDashboard } from './components/ComplianceDashboard';
+import { ScanResultsDashboard } from './components/ScanResultsDashboard';
 import { BadgeGenerator } from './components/BadgeGenerator';
 import { PricingModal } from './components/PricingModal';
 import { PrintableReport } from './components/PrintableReport';
@@ -113,7 +113,7 @@ export function App() {
             <>
               {activeTab === 'scanner' && (
                 scanResult ? (
-                  <ComplianceDashboard
+                  <ScanResultsDashboard
                     scanResult={scanResult}
                     isPremium={isPremium}
                     onOpenBadgeGenerator={() => setActiveTab('badge')}
