@@ -1,397 +1,401 @@
-# GuardAI Master Build Guide
+# GuardAI Master Build Guide — Living Engineering Bible
 
-> **Canonical build plan for GuardAI — from the current prototype to a production-ready public SaaS.**
+> **Verbindliche, GuardAI-spezifische Anleitung vom heutigen Repository bis zu einer echten, sicheren und öffentlich betreibbaren SaaS.**
 >
-> This document is the single source of truth for how we build GuardAI from the repository that exists today until public launch and beyond.
+> Dieses Dokument ist die zentrale technische Quelle für GuardAI. Es ist **lebend**: Wenn wir beim Bau neue Erkenntnisse gewinnen, darf und soll es angepasst werden. Änderungen müssen aber begründet sein und dürfen die Grundprinzipien unten nicht stillschweigend aufweichen.
 
 ---
 
-## 0. How to use this document
+## 0. So benutzen wir diese Anleitung
 
-This guide is not a feature wishlist. It is the required build order.
+Diese Datei ist **keine Wunschliste** und kein Marketing-Dokument. Sie beschreibt die Reihenfolge, in der GuardAI gebaut wird.
 
-**Rule:** We do not add another large UI-only feature until the current core scanner, backend contract, authentication, persistence, payments, security, testing and deployment path are real and stable.
+### Grundregel
 
-Every phase contains:
+Wir bauen keine weitere große UI-Demo-Funktion, solange die bereits sichtbaren Kernfunktionen nicht durch echte Daten, echte Scanner, Authentifizierung, Persistenz, Security, Tests und Deployment getragen werden.
 
-- the goal,
-- what already exists,
-- what must be built,
-- questions that must be answered,
-- implementation tasks,
-- acceptance criteria,
-- and the conditions required before moving to the next phase.
+### Jede Phase ist erst fertig, wenn
 
-A phase is only complete when its acceptance criteria are met.
+- ihr Ziel umgesetzt ist,
+- die Acceptance Criteria erfüllt sind,
+- relevante Tests existieren,
+- keine bekannten P0/P1-Fehler offen sind,
+- Dokumentation aktualisiert wurde,
+- und die nächste Phase auf einer stabilen Basis aufbauen kann.
+
+### GuardAI-Entwicklungsprinzip
+
+```text
+Erst wahr machen.
+Dann stabil machen.
+Dann sicher machen.
+Dann skalieren.
+Dann Enterprise-Funktionen ausbauen.
+```
 
 ---
 
-# 1. Product definition
+# 1. Produktdefinition
 
-## 1.1 What GuardAI should become
+## 1.1 Was GuardAI werden soll
 
-GuardAI should become a **technical compliance evidence and risk scanning platform** for websites, web applications, repositories and selected digital assets.
+GuardAI wird eine **Technical Compliance Evidence & Risk Platform** für:
 
-The product should:
+- Websites und Web-Apps,
+- GitHub-/Git-Repositories,
+- ausgewählte Dokumente und Assets,
+- wiederkehrendes Monitoring,
+- technische Compliance-Evidenz,
+- Security-Risiken,
+- Accessibility-Risiken,
+- Privacy-/Consent-Risiken,
+- AI-Governance-/AI-Act-Evidenz,
+- Berichte und Remediation-Workflows.
 
-1. collect technical evidence,
-2. run deterministic checks where possible,
-3. identify potential compliance and security risks,
-4. map findings to relevant requirements,
-5. assign confidence and severity,
-6. explain findings clearly,
-7. provide remediation guidance,
-8. preserve scan history,
-9. monitor changes over time,
-10. allow teams to review and resolve findings,
-11. create reports from real evidence,
-12. expose verified technical status through a Trust Center,
-13. and use AI primarily as an explanation and classification layer, not as the sole source of truth.
+GuardAI soll:
 
-## 1.2 What GuardAI must NOT claim
+1. reale technische Evidenz sammeln,
+2. deterministische Checks ausführen,
+3. Risiken erkennen,
+4. Ergebnisse nachvollziehbar begründen,
+5. Findings mit Regeln/Anforderungen verknüpfen,
+6. Severity und Confidence getrennt bewerten,
+7. konkrete Remediation liefern,
+8. Scan-Historie speichern,
+9. Veränderungen überwachen,
+10. Team-Workflows ermöglichen,
+11. Berichte aus realen Scan-Daten erzeugen,
+12. optional ausgewählte Statusinformationen öffentlich darstellen,
+13. AI zur Erklärung/Klassifikation nutzen — nicht als alleinige Wahrheitsquelle.
 
-Until a qualified legal process and reliable evidence model exist, GuardAI must not present itself as:
+## 1.2 Was GuardAI nicht behaupten darf
 
-- a government authority,
-- an official certification body,
-- a law firm,
-- a replacement for legal advice,
-- a guarantee of GDPR/DSGVO compliance,
-- a guarantee of EU AI Act compliance,
-- a guarantee of NIS2/ISO/SOC 2 compliance,
-- or a guarantee that a website or repository is secure.
+Solange keine dafür geeignete rechtliche und organisatorische Grundlage besteht, darf GuardAI nicht so dargestellt werden, als wäre es:
 
-Preferred wording:
+- Behörde,
+- offizielle Zertifizierungsstelle,
+- Anwaltskanzlei,
+- Ersatz für Rechtsberatung,
+- Garantie für DSGVO-Konformität,
+- Garantie für EU-AI-Act-Konformität,
+- Garantie für ISO/SOC2/NIS2-Konformität,
+- Garantie für vollständige IT-Sicherheit.
 
-- "Automated technical compliance screening"
-- "Potential issue detected"
-- "Technical evidence"
-- "Requires review"
-- "No issue detected by this automated check"
-- "Scan coverage"
-- "Confidence"
+Bevorzugte Begriffe:
 
-Avoid wording such as:
+- `Automated technical compliance screening`
+- `Potential issue detected`
+- `Technical evidence`
+- `Requires review`
+- `Not assessed`
+- `No issue detected by this automated check`
+- `Scan coverage`
+- `Confidence`
 
-- "officially certified"
-- "100% compliant"
-- "verification authority"
-- "legally safe"
-- "no security vulnerabilities"
+Zu vermeiden:
 
-## 1.3 Core product principle
+- `100% compliant`
+- `officially certified`
+- `Verification Authority`
+- `rechtssicher garantiert`
+- `keine Sicherheitslücken`
 
-Every serious finding should be traceable through this chain:
+## 1.3 Evidence-first-Prinzip
+
+Jedes ernsthafte Finding muss diese Kette besitzen:
 
 ```text
 Target
   ↓
-Scanner
+Scanner / Detector
   ↓
 Raw Evidence
   ↓
-Deterministic Rule / Detector
+Rule
   ↓
 Finding
   ↓
 Requirement Mapping
   ↓
-Confidence + Severity
+Severity + Confidence
   ↓
 Remediation
   ↓
 Human Review State
 ```
 
-If GuardAI cannot show why a result exists, it should not present the result as a verified fact.
+Kann GuardAI nicht erklären, warum ein Ergebnis existiert, darf es nicht als verifizierte Tatsache erscheinen.
 
 ---
 
-# 2. Current repository: what we already have
+# 2. Zielkunden und Kern-Use-Cases
 
-The current repository already gives us a useful prototype foundation.
+Wir bauen nicht für „alle Unternehmen gleichzeitig“.
 
-## 2.1 Existing frontend
+## 2.1 MVP-Zielkunden
 
-Current stack:
+Priorität:
 
-- React
-- TypeScript
-- Vite
-- Tailwind CSS
-- shadcn/base-ui style components
-- Framer Motion
-- Lucide icons
+1. kleine und mittlere SaaS-/Web-Unternehmen,
+2. Web-/Digitalagenturen mit mehreren Kundendomains,
+3. technische Datenschutz-/Security-Verantwortliche,
+4. Entwicklerteams, die vor einem Release technische Compliance-Risiken prüfen wollen.
 
-Existing product surfaces include:
+## 2.2 Spätere Zielkunden
 
-- Landing Page
-- URL/File scanner input
-- Scan Progress modal
-- Compliance Dashboard
-- Printable Report
-- Lead Generation modal
-- Pricing
-- Checkout simulation
-- User Dashboard
-- AI Counsel
-- Audit Hub
-- Trust Center
-- Badge Generator
-- Document Generator
-- Templates Hub
-- Integrations Hub
-- Policy Manager
-- TrueSight
+- größere Unternehmen,
+- Compliance-/GRC-Teams,
+- interne Audit-Teams,
+- Security Teams,
+- Beratungen mit Mandanten-Workspaces.
 
-These components are valuable as product design prototypes, but many are still mock-driven.
+## 2.3 Primäre User Journeys
 
-## 2.2 Existing backend
+### Journey A — Website prüfen
 
-The repository contains an Express server with early implementations for:
+```text
+Registrieren
+→ Workspace erstellen
+→ Domain hinzufügen
+→ Scan starten
+→ Fortschritt sehen
+→ Findings öffnen
+→ Evidence prüfen
+→ Remediation umsetzen
+→ Finding als gelöst markieren
+→ erneut scannen
+```
 
-- `POST /api/scan`
-- URL scanning
-- GitHub repository scanning
-- Gemini-assisted page analysis
-- `POST /api/scan-file`
-- PDF/text extraction
-- basic HTTP security header checks
-- rate limiting
-- Helmet
-- Zod input validation
+### Journey B — Repository prüfen
 
-This server is the beginning of the real scanner backend, but it is not production-ready yet.
+```text
+GitHub verbinden
+→ Repository auswählen
+→ Scan starten
+→ Dependencies / Secrets / SAST / Config prüfen
+→ Findings priorisieren
+→ Fix umsetzen
+→ Re-Scan
+```
 
-## 2.3 Existing scanner prototype
+### Journey C — Agentur
 
-`src/data/mockScanEngine.ts` contains a large set of useful ideas for:
+```text
+Workspace
+→ mehrere Kundenziele
+→ regelmäßige Scans
+→ Reports exportieren
+→ Kundenstatus vergleichen
+→ Alerts erhalten
+```
 
-- findings,
-- categories,
-- legal references,
-- remediation language,
-- demo data,
-- scenario coverage.
+### Journey D — Monitoring
 
-It should be treated as a **design/reference dataset**, not as the final source of scan truth.
-
-## 2.4 Existing type model
-
-`src/types/scanner.ts` gives us an early structure for:
-
-- categories,
-- issues,
-- scan results,
-- scores,
-- detected technology,
-- metrics,
-- trust badge configuration.
-
-We should keep the concept, but replace the current loose frontend/backend mapping with a shared API schema.
+```text
+Target aktivieren
+→ Scan-Zeitplan wählen
+→ Baseline speichern
+→ Änderung erkennen
+→ neues Finding erzeugen
+→ Benachrichtigung senden
+```
 
 ---
 
-# 3. Known blockers in the current repository
+# 3. Aktueller Repository-Zustand
 
-These are **P0 problems**. They must be resolved before public beta.
+Das Repository ist heute ein **starker Produkt-/UI-Prototyp mit ersten Backend-Ansätzen**, aber noch keine Production-SaaS.
 
-## 3.1 Frontend/backend category mismatch
+## 3.1 Frontend heute
 
-The backend currently uses category names such as:
+Vorhanden:
 
-```text
-privacy
-aiAct
-security
-accessibility
-```
+- React + TypeScript + Vite,
+- Tailwind,
+- UI-Komponenten,
+- Landing Page,
+- URL-/File-Input,
+- Scan Progress,
+- Compliance Dashboard,
+- Printable Report,
+- LeadGen,
+- Pricing,
+- Checkout Simulation,
+- User Dashboard,
+- AI Counsel,
+- Audit Hub,
+- Trust Center,
+- Badge Generator,
+- Document Generator,
+- Templates Hub,
+- Integrations Hub,
+- Policy Manager,
+- TrueSight.
 
-The frontend expects values such as:
+Viele dieser Flächen sind heute Demo-/Mock-getrieben.
 
-```text
-gdpr
-ai-act
-security
-accessibility
-```
+## 3.2 Backend heute
 
-This must be replaced by one canonical shared schema.
+Vorhanden:
 
-## 3.2 Status mismatch
+- Express-Server,
+- `POST /api/scan`,
+- erste Website-Prüfung,
+- erste GitHub-Prüfung,
+- Gemini-Analyse,
+- `POST /api/scan-file`,
+- PDF-/Text-Extraktion,
+- einige Security-Header-Checks,
+- Helmet,
+- Rate Limit,
+- erste Zod-Nutzung.
 
-Backend and frontend currently use different values such as:
+## 3.3 Aktuell bekannte P0-Probleme
 
-```text
-compliant
-passed
-warning
-critical
-```
-
-Define one status vocabulary and enforce it everywhere.
-
-## 3.3 Hard-coded localhost API
-
-The frontend currently calls:
-
-```text
-http://localhost:3001/api/...
-```
-
-Production must use a configurable API base URL or a same-origin reverse proxy.
-
-## 3.4 Server dependencies are incomplete
-
-`server/index.js` imports packages that are not all declared in `server/package.json`.
-
-A clean clone must be installable with documented commands and no undeclared local dependencies.
-
-## 3.5 SSRF risk
-
-The backend fetches user-provided URLs. A production scanner must prevent requests to:
-
-- localhost,
-- loopback IPs,
-- RFC1918/private networks,
-- link-local addresses,
-- cloud metadata services,
-- internal DNS destinations,
-- and redirect chains that end on blocked destinations.
-
-## 3.6 Upload safety is incomplete
-
-The UI mentions file limits, but limits must be enforced server-side.
-
-## 3.7 Duplicate rendering in `App.tsx`
-
-Several views are rendered in more than one place. This should be cleaned up before adding routing.
-
-## 3.8 Score fallback bug
-
-Do not use:
-
-```ts
-score || 100
-```
-
-because a valid score of `0` becomes `100`.
-
-Use nullish fallbacks:
-
-```ts
-score ?? 100
-```
-
-and validate score ranges.
-
-## 3.9 Mock product claims
-
-The current prototype contains UI that can imply:
-
-- live monitoring,
-- completed integrations,
-- successful payments,
-- legal document generation,
-- AI analysis,
-- certification,
-- deepfake detection,
-- and compliance verification.
-
-Every such feature must either become real or be clearly labeled as demo/preview before public use.
-
-## 3.10 Repository hygiene
-
-Remove versioned cache directories such as:
-
-- `.npm-cache`
-- `npm_cache`
-
-Update `.gitignore` for secrets, uploads, cache and test output.
+- Frontend/Backend verwenden unterschiedliche Kategorienamen.
+- Statuswerte sind nicht vereinheitlicht.
+- Frontend verwendet hart codiertes `localhost:3001`.
+- Backend importiert Pakete, die nicht vollständig in `server/package.json` stehen.
+- User-gesteuertes URL-Fetching ist noch nicht ausreichend gegen SSRF abgesichert.
+- Upload-Limits/-Typen sind serverseitig nicht vollständig abgesichert.
+- Mehrere App-Views werden doppelt gerendert.
+- `score || fallback` kann einen echten Score `0` überschreiben.
+- Mock-Fallbacks haben nicht dieselbe Datenform wie echte Antworten.
+- UI behauptet teilweise Fähigkeiten, die technisch noch simuliert sind.
+- LeadGen kann Erfolg anzeigen, obwohl der Webhook fehlschlägt.
+- Payment ist simuliert.
+- TrueSight ist simuliert.
+- AI Counsel ist überwiegend simuliert.
+- Audit Hub / Policy / Integrationen enthalten Mock-Zustände.
+- Repository enthält versionierte npm-Cache-Verzeichnisse.
+- `.gitignore` ist für Secrets, Uploads, Cache und Coverage noch zu schwach.
+- Es gibt noch keine vollständige CI-/Test-Pipeline.
 
 ---
 
-# 4. Definition of production-ready
+# 4. GuardAI Repo-Inventar: Was bleibt, was wird umgebaut?
 
-GuardAI is not considered ready for public launch until all of the following are true.
+Diese Matrix ist speziell für den aktuellen Stand des Repositories.
 
-## Product
+| Bereich / Datei | Status | Entscheidung |
+|---|---|---|
+| `src/App.tsx` | Prototype | **REFACTOR** — Routing, Auth-Guards, doppelte Views entfernen |
+| `src/main.tsx` | brauchbar | **KEEP + SMALL REFACTOR** |
+| `src/data/mockScanEngine.ts` | Mock-Kern | **REPLACE AS SOURCE OF TRUTH**; als Demo-/Fixture-Referenz behalten |
+| `src/types/scanner.ts` | frühes Modell | **REFACTOR** zu gemeinsamen Contracts |
+| `ComplianceDashboard.tsx` | gutes UI, Mock-Annahmen | **KEEP UI / REBUILD DATA LAYER** |
+| `ScanProgressModal.tsx` | visuell gut, simuliert | **KEEP UI / CONNECT TO REAL JOB EVENTS** |
+| `PrintableReport.tsx` | Prototype | **REBUILD FROM STORED EVIDENCE** |
+| `LeadGenModal.tsx` | Prototype | **REFACTOR** mit echtem Backend, Consent, Failure-State |
+| `CheckoutSimulation.tsx` | Simulation | **REPLACE** mit echtem Billing |
+| `UserDashboard.tsx` | Mock | **KEEP DESIGN / REBUILD DATA** |
+| `AiCounsel.tsx` | Mock | **LATER + REBUILD** mit Workspace-Kontext |
+| `AuditHub.tsx` | Mock | **POST-MVP** |
+| `PublicTrustCenter.tsx` | Mock | **KEEP DESIGN / REBUILD AFTER REAL EVIDENCE** |
+| `BadgeGenerator.tsx` | Mock | **REBUILD AFTER TRUST CENTER** |
+| `DocumentGenerator.tsx` | Mock | **POST-MVP**; keine „rechtsgültig“-Claims |
+| `TemplatesHub.tsx` | Content Prototype | **REVIEW + VERSION LEGAL SOURCES** |
+| `IntegrationsHub.tsx` | Mock | **POST-MVP**; echte OAuth/API-Verbindungen |
+| `PolicyManager.tsx` | Mock | **POST-MVP** |
+| `TrueSight.tsx` | Simulation | **LABS / POST-MVP** bis echte Modelle/Evals existieren |
+| `UrlInputHero.tsx` | brauchbar | **KEEP + CONNECT REAL OPTIONS** |
+| `LandingPage.tsx` | starkes Design | **KEEP DESIGN / CORRECT CLAIMS** |
+| `server/index.js` | Prototype Backend | **REFACTOR** in modulare Server-Struktur |
+| `server/.env.example` | brauchbar | **EXPAND** |
+| `server/package.json` | unvollständig | **FIX** Dependencies + Scripts |
+| `README.md` | veraltet/prototypisch | **REWRITE** auf echten Projektstatus |
+| `.gitignore` | unvollständig | **FIX NOW** |
+| `.npm-cache/` | Repo-Bloat | **REMOVE FROM VERSION CONTROL** |
+| `npm_cache/` | Repo-Bloat | **REMOVE FROM VERSION CONTROL** |
 
-- [ ] New user can create an account.
-- [ ] New user can verify email.
-- [ ] New user can create/select a workspace.
-- [ ] User can start a real scan.
-- [ ] Scan runs asynchronously and safely.
-- [ ] Scan result is stored.
-- [ ] Scan history is visible.
-- [ ] Findings come from real detectors/evidence.
-- [ ] AI-generated explanations are clearly separated from deterministic facts.
-- [ ] Free/paid access is enforced server-side.
-- [ ] Billing works with a real payment provider.
-- [ ] User can cancel/manage subscription.
-- [ ] User can delete account/workspace data.
-
-## Security
-
-- [ ] SSRF protection exists and has tests.
-- [ ] Rate limits exist.
-- [ ] Authentication is required where appropriate.
-- [ ] Authorization is workspace-aware.
-- [ ] Secrets exist only server-side.
-- [ ] File uploads have size/type limits.
-- [ ] Production CORS is restricted.
-- [ ] Security headers are configured.
-- [ ] Logs do not expose secrets or sensitive document contents.
-- [ ] Dependency and secret scanning run in CI.
-- [ ] Production environment has backup and incident procedures.
-
-## Engineering
-
-- [ ] Clean install works from README.
-- [ ] TypeScript build passes.
-- [ ] Lint passes.
-- [ ] Unit tests pass.
-- [ ] Integration tests pass.
-- [ ] Critical E2E flows pass.
-- [ ] CI blocks broken merges.
-- [ ] Staging exists.
-- [ ] Production deployment is reproducible.
-- [ ] Database migrations are versioned.
-- [ ] Rollback strategy exists.
-
-## Legal/product communication
-
-- [ ] Privacy policy exists.
-- [ ] Terms/AGB exist if needed for launch market.
-- [ ] Impressum exists where required.
-- [ ] Cookie/analytics setup matches the actual implementation.
-- [ ] Data processors/subprocessors are documented.
-- [ ] DPA/AVV availability has been reviewed.
-- [ ] Claims in marketing have been legally reviewed.
-- [ ] Scanner results contain appropriate limitations/disclaimers.
+**Regel:** Beim späteren Umbau wird diese Tabelle aktualisiert. Kein bestehender größerer Bereich soll „versehentlich verschwinden“.
 
 ---
 
-# 5. Target architecture
+# 5. MVP-Grenze
 
-We should evolve toward the following architecture.
+## 5.1 MVP muss enthalten
+
+### Account
+- Registrierung/Login,
+- E-Mail-Verifizierung,
+- Workspace,
+- Rollen mindestens Owner/Admin/Member/Viewer,
+- sichere Sessions.
+
+### Targets
+- Website,
+- GitHub Repository,
+- optional PDF/Text-Asset.
+
+### Scanner
+- Web Security Basischecks,
+- Privacy/Cookie/Network Evidence,
+- Accessibility mit echter Engine,
+- EU-AI-Act Evidence/Guided Review,
+- Repository Dependencies/Secrets/SAST-Basis,
+- Evidence-Speicherung,
+- Rule Engine,
+- nachvollziehbares Scoring.
+
+### Produkt
+- Dashboard,
+- Scan-Historie,
+- Findings,
+- Evidence-Ansicht,
+- Remediation,
+- Re-Scan,
+- Report,
+- Billing,
+- Limits/Entitlements,
+- Monitoring für bezahlte Pläne.
+
+### Betrieb
+- Tests,
+- CI/CD,
+- Staging,
+- Production,
+- Logging,
+- Alerts,
+- Backups,
+- Restore-Test,
+- Incident-Prozess.
+
+## 5.2 Nicht MVP
+
+- TrueSight als ernsthafte Deepfake-Erkennung,
+- vollwertiges GRC/Audit Hub,
+- komplexer Policy-as-Code-Marktplatz,
+- automatische anwaltliche Dokumentgenerierung,
+- große Enterprise-Suite,
+- SAML/SCIM,
+- On-Prem Appliance,
+- White Label.
+
+Diese Funktionen dürfen als Roadmap/Labs existieren, aber nicht vom Kern-MVP ablenken.
+
+---
+
+# 6. Zielarchitektur
 
 ```text
 Browser / React App
         │
         ▼
-API / Backend
+API Gateway / Node Backend
         │
-        ├── Authentication
-        ├── Authorization / Workspaces
+        ├── Auth
+        ├── Workspace Authorization
         ├── Billing / Entitlements
+        ├── Targets API
         ├── Scan API
         ├── Findings API
         ├── Reports API
-        └── Integration API
+        ├── Integrations API
+        └── Admin / Operations API
         │
         ▼
-Database
+PostgreSQL
         │
         ├── users
         ├── organizations
@@ -402,2174 +406,986 @@ Database
         ├── evidence
         ├── findings
         ├── finding_instances
+        ├── rules
+        ├── rule_versions
+        ├── legal_sources
         ├── subscriptions
-        ├── audit_events
-        └── integrations
+        ├── integrations
+        └── audit_events
         │
         ▼
-Job Queue
+Queue
         │
-        ├── Web Crawler Worker
-        ├── Security Scanner Worker
-        ├── Privacy Browser Worker
-        ├── Accessibility Worker
-        ├── Repository Scanner Worker
-        ├── Asset Scanner Worker
-        └── AI Explanation Worker
+        ├── crawler worker
+        ├── browser/privacy worker
+        ├── security worker
+        ├── accessibility worker
+        ├── repository worker
+        ├── asset worker
+        ├── AI explanation worker
+        └── report worker
         │
         ▼
 Object Storage
-        │
         ├── screenshots
-        ├── uploaded files
-        ├── generated reports
-        └── optional raw evidence artifacts
+        ├── uploads
+        ├── reports
+        └── evidence artifacts
 ```
 
-## Important architecture rule
+## Architekturregel
 
-**The public web server should not perform long scans inside the request/response lifecycle.**
-
-Instead:
-
-1. API validates request.
-2. API creates a scan record.
-3. API creates a job.
-4. Worker performs the scan.
-5. Worker writes evidence/findings.
-6. Frontend polls or subscribes to scan progress.
-7. Completed report is loaded from the database.
-
----
-
-# 6. Technology decisions to make
-
-We should answer these questions before Phase 2 is considered complete.
-
-## 6.1 Frontend
-
-Current recommendation for this repo:
-
-- keep React + TypeScript,
-- keep Tailwind,
-- keep existing component system,
-- add a real router,
-- add a query/data fetching layer,
-- add an API client,
-- add form validation,
-- add error boundaries.
-
-### Questions
-
-- Do we keep Vite SPA or migrate to a full-stack framework later?
-- Do we need server-side rendered marketing pages for SEO?
-- Which pages must be public without login?
-- Which pages require a workspace?
-
-For MVP, keeping Vite is acceptable if marketing/SEO requirements remain moderate.
-
-## 6.2 Backend
-
-For the existing repo, continuing with Node.js is sensible.
-
-We should decide whether to:
-
-- keep Express,
-- or move to another structured Node backend later.
-
-Do not rewrite purely for style. First make the existing backend correct, secure and testable.
-
-## 6.3 Database/Auth
-
-We need:
-
-- PostgreSQL,
-- authentication,
-- organizations/workspaces,
-- row-level or service-level authorization,
-- migrations,
-- object storage.
-
-A managed Postgres/Auth provider can accelerate MVP development, but the data model must remain portable.
-
-## 6.4 Queue/workers
-
-Choose one approach:
-
-### Option A — managed queue
-
-Best for simpler operations.
-
-### Option B — Redis-backed queue
-
-Good if we operate our own workers and need retries/concurrency controls.
-
-Required queue features:
-
-- retry policy,
-- dead-letter/failure state,
-- concurrency limits,
-- job timeout,
-- idempotency,
-- progress updates,
-- cancellation where possible.
-
-## 6.5 Browser automation
-
-For real privacy/accessibility scans we need a controlled browser worker.
-
-Responsibilities:
-
-- load page,
-- wait for network stability,
-- capture network requests,
-- inspect cookies,
-- inspect storage,
-- capture DOM,
-- run accessibility checks,
-- optionally interact with consent banners,
-- capture screenshots/evidence.
-
-## 6.6 AI provider
-
-The AI provider must be behind a server abstraction.
-
-Never call AI provider APIs directly from the browser using secret keys.
-
-Create an internal interface such as:
-
-```ts
-interface AiAnalysisProvider {
-  explainFinding(input: FindingContext): Promise<AiExplanation>;
-  classifyPolicyText(input: PolicyTextInput): Promise<PolicyClassification>;
-}
-```
-
-This allows providers/models to change without rewriting the product.
-
----
-
-# 7. Repository target structure
-
-A clean medium-term structure could look like this:
+Lange Scans laufen **nicht** im HTTP-Request.
 
 ```text
-/
-├── docs/
-│   ├── GUARDAI_MASTER_BUILD_GUIDE.md
-│   ├── ARCHITECTURE.md
-│   ├── SECURITY.md
-│   ├── DATA_MODEL.md
-│   ├── API.md
-│   └── RELEASE_CHECKLIST.md
-│
-├── src/                         # React frontend
-│   ├── app/
-│   ├── components/
-│   ├── features/
-│   │   ├── auth/
-│   │   ├── billing/
-│   │   ├── scans/
-│   │   ├── findings/
-│   │   ├── reports/
-│   │   ├── trust-center/
-│   │   └── settings/
-│   ├── api/
-│   ├── lib/
-│   ├── schemas/
-│   └── types/
-│
-├── server/
-│   ├── src/
-│   │   ├── app/
-│   │   ├── routes/
-│   │   ├── middleware/
-│   │   ├── services/
-│   │   ├── scanners/
-│   │   │   ├── web/
-│   │   │   ├── security/
-│   │   │   ├── privacy/
-│   │   │   ├── accessibility/
-│   │   │   ├── repository/
-│   │   │   └── assets/
-│   │   ├── rules/
-│   │   ├── ai/
-│   │   ├── jobs/
-│   │   ├── db/
-│   │   ├── schemas/
-│   │   └── observability/
-│   └── tests/
-│
-├── packages/                    # later, when sharing code is justified
-│   └── contracts/
-│
-└── .github/
-    └── workflows/
+POST scan
+→ validieren
+→ Scan + Job speichern
+→ Queue
+→ Worker
+→ Evidence
+→ Rules
+→ Findings
+→ AI Explanation optional
+→ Scan complete
+→ Frontend erhält Status
 ```
-
-Do not create every directory immediately. Create structure when the corresponding real code is added.
 
 ---
 
-# 8. Canonical domain model
+# 7. Lokale Entwicklungsumgebung — Zero to Running
 
-## 8.1 User
+Bevor Phase 1 abgeschlossen wird, muss ein neuer Entwickler GuardAI ohne versteckte lokale Abhängigkeiten starten können.
 
-Represents the authenticated person.
+Benötigt:
 
-Fields:
+- dokumentierte Node-Version,
+- dokumentierter Package Manager,
+- `.nvmrc` oder gleichwertige Versionsdatei,
+- `npm install`/Workspace-Install,
+- `.env.example`,
+- Frontend-Start,
+- Backend-Start,
+- lokale Datenbank,
+- lokale Queue,
+- lokaler Storage-Ersatz oder Dev-Bucket,
+- Seed-Daten,
+- Test-Account,
+- ein dokumentierter Reset-Befehl.
 
+Zielzustand:
+
+```bash
+cp .env.example .env
+npm install
+npm run dev
+```
+
+oder ein genauso einfacher, dokumentierter Monorepo-Befehl.
+
+Kein Entwickler darf globale, nicht dokumentierte Pakete benötigen.
+
+---
+
+# 8. Canonical API Contracts
+
+Frontend und Backend dürfen nicht mehr unabhängig eigene Scan-Typen erfinden.
+
+## 8.1 Gemeinsame Kategorien
+
+Für MVP beispielsweise:
+
+```ts
+type ComplianceCategory =
+  | 'security'
+  | 'privacy'
+  | 'accessibility'
+  | 'ai-act'
+  | 'repository';
+```
+
+Erweiterungen erfolgen nur bewusst und versioniert.
+
+## 8.2 Finding-Status
+
+```ts
+type FindingStatus =
+  | 'open'
+  | 'acknowledged'
+  | 'in_progress'
+  | 'resolved'
+  | 'accepted_risk'
+  | 'false_positive';
+```
+
+## 8.3 Detector Result
+
+```ts
+type DetectorState =
+  | 'passed'
+  | 'failed'
+  | 'warning'
+  | 'not_assessed'
+  | 'error';
+```
+
+## 8.4 API-Versionierung
+
+Vor öffentlicher API-Nutzung:
+
+```text
+/api/v1/...
+```
+
+Definieren:
+
+- Request/Response-Schemas,
+- Error-Schema,
+- Pagination,
+- Filter,
+- Sortierung,
+- Idempotency,
+- Rate-Limit-Verhalten,
+- Webhook-Schemas,
+- Deprecation-Strategie.
+
+Später: OpenAPI-Spezifikation als überprüfbare API-Quelle.
+
+---
+
+# 9. Datenmodell
+
+Mindestens:
+
+## User
 - id
 - email
 - name
+- status
 - created_at
 - last_login_at
 
-## 8.2 Organization / Workspace
-
-A customer account should be represented as a workspace/organization.
-
-Fields:
-
+## Organization
 - id
 - name
 - slug
-- owner_id
 - plan
 - created_at
 
-## 8.3 Membership
-
-Fields:
-
+## Membership
 - organization_id
 - user_id
 - role
 
-Roles for MVP:
-
-```text
-owner
-admin
-member
-viewer
-```
-
-## 8.4 Target
-
-A target is something GuardAI scans.
-
-Types:
-
-```text
-website
-repository
-asset
-```
-
-Fields:
-
+## Target
 - id
 - organization_id
-- type
+- type (`website`, `repository`, `asset`)
 - display_name
-- url
+- canonical_url
 - provider
-- external_id
+- verification_state
 - created_at
 
-## 8.5 Scan
-
-Fields:
-
+## Scan
 - id
-- target_id
 - organization_id
+- target_id
 - requested_by
 - status
 - scanner_version
 - started_at
 - completed_at
 - failed_at
-- failure_code
-- overall_score
+- overall_score nullable
 - coverage
 
-Scan states:
-
-```text
-queued
-running
-completed
-failed
-cancelled
-```
-
-## 8.6 Evidence
-
-Evidence is critical.
-
-Examples:
-
-- HTTP header value
-- cookie observed before consent
-- third-party request
-- DOM element
-- script URL
-- repository dependency
-- source file path
-- accessibility violation node
-- screenshot
-- policy text excerpt
-
-Fields:
-
+## Evidence
 - id
 - scan_id
-- evidence_type
+- detector_id
+- type
 - source
-- structured_payload
-- artifact_url
-- collected_at
+- normalized_data
+- artifact_url nullable
+- content_hash
+- captured_at
 
-## 8.7 Finding definition
-
-A reusable rule definition.
-
-Fields:
-
-- rule_id
-- title
-- category
-- description
-- severity_default
-- scanner
-- requirement_mappings
-- remediation_template
-- version
-
-## 8.8 Finding instance
-
-The result of applying a rule to a scan.
-
-Fields:
-
+## Finding
 - id
-- scan_id
 - rule_id
+- organization_id
+- target_id
+- first_seen_at
+- last_seen_at
+- status
+
+## FindingInstance
+- finding_id
+- scan_id
 - severity
 - confidence
-- status
 - evidence_ids
-- explanation
+- message
 - remediation
+
+## Rule
+- id
+- category
+- title
+- current_version
+
+## RuleVersion
+- rule_id
+- version
+- implementation_version
+- legal_source_ids
+- changed_at
+
+## LegalSource
+- id
+- jurisdiction
+- source_name
+- reference
+- effective_from
+- effective_to nullable
+- reviewed_at
+- reviewer
+
+## Subscription
+- organization_id
+- provider_customer_id
+- provider_subscription_id
+- plan
+- status
+- period_end
+
+## AuditEvent
+- organization_id
+- actor_id
+- action
+- target_type
+- target_id
+- metadata
 - created_at
 
-Finding workflow status:
+---
 
-```text
-open
-accepted_risk
-resolved
-false_positive
-needs_review
-```
+# 10. Datenbank-Sicherheitsregeln
 
-## 8.9 Requirement mapping
+- Jede Query mit Kundendaten ist workspace-/tenant-aware.
+- IDs aus dem Client sind niemals ausreichende Autorisierung.
+- Kritische Aktionen schreiben Audit Events.
+- Migrationen liegen in Git.
+- Migrationen laufen zuerst in Staging.
+- Riskante Migrationen haben Backout-Plan.
+- Tenant-Isolation bekommt eigene automatisierte Tests.
+- Sensible Felder werden nur gespeichert, wenn notwendig.
 
-Do not hard-code law text into every component.
+Später prüfen:
 
-Create a versioned mapping layer for:
-
-- framework
-- requirement identifier
-- title
-- official source/reference
-- applicability notes
-- effective dates
-- mapping version
-
-This makes legal/compliance updates maintainable.
+- Row Level Security,
+- Feldverschlüsselung,
+- Key Management,
+- Key Rotation,
+- regionale Datenhaltung.
 
 ---
 
-# 9. Shared API contract
+# 11. Scanner-Grundmodell
 
-This is one of the first major refactors.
+Jeder Scanner muss deklarieren:
 
-## 9.1 One canonical category enum
+- `scanner_id`,
+- `scanner_version`,
+- Inputs,
+- unterstützte Targets,
+- Preconditions,
+- ausgeführte Checks,
+- nicht ausgeführte Checks,
+- Evidence-Typen,
+- Timeout,
+- Fehlergründe,
+- Coverage,
+- Kostenmetriken.
 
-Example:
+## Scanner darf niemals
 
-```ts
-export const ComplianceCategory = z.enum([
-  'ai-act',
-  'gdpr',
-  'accessibility',
-  'security',
-  'legal-data',
-  'consumer-protection',
-  'supply-chain',
-  'ip-rights',
-  'dsa'
-]);
-```
-
-Only add a category when a real scanner or review workflow exists for it.
-
-## 9.2 One canonical severity enum
-
-```text
-info
-low
-medium
-high
-critical
-```
-
-Compliance workflow state and severity should not be mixed.
-
-For example, do not use `compliant` as an issue severity.
-
-## 9.3 One scan response contract
-
-Example shape:
-
-```json
-{
-  "scanId": "...",
-  "target": {
-    "id": "...",
-    "type": "website",
-    "url": "https://example.com"
-  },
-  "status": "completed",
-  "score": 72,
-  "coverage": {
-    "checksRun": 48,
-    "checksPassed": 37,
-    "checksFailed": 11
-  },
-  "categories": [],
-  "findings": [],
-  "metrics": {}
-}
-```
-
-## 9.4 Validate both directions
-
-- validate API request bodies,
-- validate environment variables,
-- validate scanner output,
-- validate AI structured output,
-- validate database writes where appropriate.
-
-Do not use `any` as the normal integration strategy.
+- bei Fehler automatisch „passed“ melden,
+- nicht ausgeführte Checks als 100 % darstellen,
+- CVEs erfinden,
+- rechtliche Tatsachen aus fehlender Evidenz ableiten,
+- versteckte Fallback-Mocks in Production nutzen.
 
 ---
 
-# 10. Phase 0 — freeze scope and clean the repository
+# 12. Scanner-Coverage-Matrix für MVP
 
-## Goal
+| Scanner | MVP | Wahrheitstyp | Ergebnis |
+|---|---:|---|---|
+| HTTP Security Headers | Ja | deterministisch | Header Evidence + Finding |
+| TLS Basisinformationen | Ja | deterministisch | Evidence |
+| Cookie Detection | Ja | beobachtet | Cookie Evidence |
+| Network Tracker Detection | Ja | beobachtet | Request Evidence |
+| Consent Interaction | Ja, begrenzt | Browser-Beobachtung | State + Confidence |
+| Accessibility | Ja | automatisierte Engine | Violations + Nodes |
+| AI Usage Indicators | Ja | Evidence + Guided Review | keine pauschale Rechtsgarantie |
+| Dependency Vulnerabilities | Ja | Datenbankgestützt | Package + Version + Advisory |
+| Secret Detection | Ja | statisch | Location + Rule |
+| SAST Basis | Ja | statisch | Rule + Location |
+| SBOM | Ja/kurz nach MVP | deterministisch | Komponentenliste |
+| PDF/Text Policy Analysis | begrenzt | Parser + AI/Klassifikation | Evidence + Review |
+| Deepfake Detection | Nein | — | Labs später |
+| Vollständiges DAST/Pentest | Nein | — | nicht behaupten |
 
-Create a stable foundation before adding functionality.
-
-## Tasks
-
-- [ ] Mark the current product as prototype internally.
-- [ ] Stop adding new mock modules temporarily.
-- [ ] Remove `.npm-cache` and `npm_cache` from Git.
-- [ ] Update `.gitignore`.
-- [ ] Add `.env` patterns.
-- [ ] Add `uploads/` ignore.
-- [ ] Add test/coverage ignores.
-- [ ] Make server dependencies complete.
-- [ ] Add root scripts for frontend + server development.
-- [ ] Document exact local setup.
-- [ ] Remove duplicate rendering in `App.tsx`.
-- [ ] Remove dead code where obvious.
-- [ ] Decide how legacy mock scan data is retained.
-
-Recommended `.gitignore` additions:
-
-```gitignore
-.env
-.env.*
-!.env.example
-uploads/
-coverage/
-.npm-cache/
-npm_cache/
-playwright-report/
-test-results/
-```
-
-## Questions
-
-- Is `mockScanEngine.ts` still needed for demo fixtures/tests?
-- Which existing components are part of MVP?
-- Which components move to "Labs" or "Coming soon"?
-
-## Acceptance criteria
-
-- clean clone installs correctly,
-- frontend starts,
-- backend starts,
-- no cache directories are versioned,
-- no secret file is committed,
-- only one copy of each main screen renders.
+Diese Matrix wird pro Release erweitert.
 
 ---
 
-# 11. Phase 1 — establish development standards
+# 13. Safe Crawler und Scan-Abuse-Schutz
 
-## Goal
+Weil GuardAI fremde URLs verarbeitet, ist dies ein Kern-Sicherheitsbereich.
 
-Make every future change safer and reviewable.
+## 13.1 SSRF-Abwehr
 
-## Required scripts
-
-At minimum we need commands equivalent to:
-
-```text
-npm run dev
-npm run build
-npm run lint
-npm run test
-npm run test:e2e
-npm run typecheck
-```
-
-Server should have equivalent commands.
-
-## Add formatting/lint rules
-
-Define conventions for:
-
-- imports,
-- unused code,
-- unsafe `any`,
-- promise handling,
-- React hooks,
-- server errors,
-- test naming.
-
-## Pull request rule
-
-No feature is "done" until:
-
-- build passes,
-- lint passes,
-- tests pass,
-- API contract is documented if changed,
-- migration is included if DB changes,
-- screenshots are included for major UI changes.
-
-## Acceptance criteria
-
-- one documented development workflow,
-- CI-ready scripts,
-- consistent code quality baseline.
-
----
-
-# 12. Phase 2 — repair frontend architecture
-
-## Goal
-
-Turn the prototype navigation into maintainable application structure.
-
-## Tasks
-
-- [ ] Add real routing.
-- [ ] Create public routes.
-- [ ] Create authenticated routes.
-- [ ] Create workspace-aware routes.
-- [ ] Add not-found page.
-- [ ] Add error boundary.
-- [ ] Add loading states.
-- [ ] Add API error states.
-- [ ] Remove duplicated screen render blocks.
-- [ ] Separate demo data from production data.
-
-Suggested route groups:
-
-```text
-/
-/pricing
-/login
-/signup
-/privacy
-/terms
-/imprint
-
-/app
-/app/scans
-/app/scans/:scanId
-/app/targets
-/app/reports
-/app/integrations
-/app/settings
-/app/billing
-
-/trust/:publicId
-```
-
-Existing experimental modules can later live under:
-
-```text
-/app/labs/ai-counsel
-/app/labs/truesight
-```
-
-until they are real.
-
-## Questions
-
-- Which navigation items are MVP?
-- Do we show unavailable features or hide them?
-- Which pages are publicly indexable?
-
-## Acceptance criteria
-
-- direct URL navigation works,
-- refresh works on all routes,
-- authenticated routes are protected,
-- no duplicate components render.
-
----
-
-# 13. Phase 3 — create a real API client and contracts
-
-## Goal
-
-Remove hard-coded fetch logic from `mockScanEngine.ts`.
-
-## Tasks
-
-Create a frontend API layer such as:
-
-```text
-src/api/client.ts
-src/api/scans.ts
-src/api/auth.ts
-src/api/billing.ts
-src/api/integrations.ts
-```
-
-Use environment configuration:
-
-```text
-VITE_API_BASE_URL=
-```
-
-For same-origin production deployments, prefer relative `/api` requests when possible.
-
-## Required behavior
-
-- timeout handling,
-- typed responses,
-- typed errors,
-- auth token/session handling,
-- request IDs where useful,
-- no silent fallback from real API failure to fake successful scan results.
-
-**Important:** API failure must look like API failure. Never convert a failed real scan into a realistic fake compliance report.
-
-## Acceptance criteria
-
-- no production API call points to localhost,
-- no scanner API response is mapped with `any`,
-- failed scans are shown as failures.
-
----
-
-# 14. Phase 4 — backend foundation
-
-## Goal
-
-Refactor `server/index.js` into a testable server application.
-
-## Suggested modules
-
-```text
-server/src/index.ts
-server/src/app.ts
-server/src/config.ts
-server/src/routes/
-server/src/middleware/
-server/src/services/
-server/src/scanners/
-server/src/jobs/
-server/src/db/
-server/src/schemas/
-```
-
-## Required middleware
-
-- request ID,
-- structured logging,
-- Helmet/security headers,
-- JSON size limit,
-- CORS allowlist,
-- rate limiting,
-- authentication,
-- centralized error handling,
-- request validation.
-
-## Error contract
-
-Errors should return a consistent structure:
-
-```json
-{
-  "error": {
-    "code": "INVALID_TARGET_URL",
-    "message": "The target URL is not allowed.",
-    "requestId": "..."
-  }
-}
-```
-
-Do not expose raw stack traces in production.
-
-## Acceptance criteria
-
-- backend can start from clean install,
-- backend is split into modules,
-- API errors use one format,
-- environment config is validated at startup.
-
----
-
-# 15. Phase 5 — authentication, organizations and authorization
-
-## Goal
-
-Turn GuardAI from a single-browser demo into a multi-user SaaS.
-
-## Required flows
-
-- signup,
-- login,
-- logout,
-- password reset or passwordless equivalent,
-- email verification,
-- workspace creation,
-- workspace switch,
-- invite team member,
-- remove team member,
-- role management.
-
-## Authorization rule
-
-Every backend access to customer data must verify:
-
-```text
-authenticated user
-        +
-organization membership
-        +
-role/permission
-```
-
-Never rely on the frontend hiding a button as authorization.
-
-## Acceptance criteria
-
-- user A cannot fetch user B's organization scans,
-- viewer cannot execute admin-only actions,
-- workspace ID is validated server-side.
-
----
-
-# 16. Phase 6 — database and persistence
-
-## Goal
-
-Store everything needed to reproduce and audit scans.
-
-## Required tables for MVP
-
-- users
-- organizations
-- memberships
-- targets
-- scans
-- scan_jobs
-- evidence
-- finding_definitions
-- findings
-- subscriptions
-- audit_events
-
-Optional later:
-
-- integrations
-- webhooks
-- reports
-- trust_center_publications
-- requirement_mappings
-- comments
-- remediation_tasks
-
-## Migration requirements
-
-- migrations stored in Git,
-- migrations reviewed,
-- staging migration tested before production,
-- rollback/backout plan for risky migrations.
-
-## Data retention questions
-
-We must explicitly decide:
-
-- How long are scan results stored?
-- How long are raw screenshots stored?
-- How long are uploaded documents stored?
-- Can customer choose deletion?
-- Are AI prompts/responses persisted?
-- What is included in account deletion?
-
-## Acceptance criteria
-
-- page refresh does not lose scans,
-- scan history is real,
-- audit events are written for sensitive account actions.
-
----
-
-# 17. Phase 7 — asynchronous scan job system
-
-## Goal
-
-Stop running deep scans inside public API requests.
-
-## API flow
-
-```text
-POST /api/scans
-  ↓
-202 Accepted
-  ↓
-scanId
-  ↓
-worker processes job
-  ↓
-GET /api/scans/:id
-```
-
-## Job requirements
-
-Each scan job needs:
-
-- unique ID,
-- organization ID,
-- target ID,
-- scanner version,
-- status,
-- progress,
-- attempts,
-- timeout,
-- failure reason,
-- timestamps.
-
-## Retry rules
-
-Do not retry every failure blindly.
-
-Examples:
-
-Retry:
-
-- transient network failure,
-- worker restart,
-- temporary provider outage.
-
-Do not automatically retry forever:
-
-- invalid domain,
-- blocked private IP,
-- unsupported target,
-- authentication-required page without credentials.
-
-## Acceptance criteria
-
-- scan API returns quickly,
-- worker can restart without corrupting scan state,
-- duplicate request/idempotency strategy is defined.
-
----
-
-# 18. Phase 8 — safe URL fetcher and crawler
-
-## Goal
-
-Build the shared foundation all website scanners depend on.
-
-## Required URL validation
-
-Only allow supported schemes:
-
-```text
-https://
-http://   # only if product intentionally supports it
-```
-
-Block:
+Blockieren:
 
 - localhost,
-- 127.0.0.0/8,
-- ::1,
-- private IPv4 ranges,
-- private IPv6 ranges,
-- link-local ranges,
-- metadata endpoints,
-- unsupported ports if desired.
+- Loopback,
+- private IPv4/IPv6-Ranges,
+- Link Local,
+- Cloud Metadata Services,
+- interne DNS-Namen,
+- DNS-Rebinding-Szenarien,
+- Redirects auf blockierte Ziele,
+- nicht erlaubte Protokolle.
 
-Validate after DNS resolution.
+Prüfung erfolgt **vor jedem Netzwerk-Hop**, nicht nur bei der ursprünglichen URL.
 
-Validate every redirect destination.
+## 13.2 Scan-Berechtigung
 
-## Fetch limits
+Für passive, öffentliche Checks können niedrigere Hürden gelten.
 
-- connection timeout,
-- total timeout,
-- max redirects,
-- maximum response body,
-- supported content types,
-- decompression limits.
+Für intensivere/aktive Checks brauchen wir eine Ownership-/Authorization-Strategie, z. B.:
 
-## Crawler MVP
+- DNS TXT,
+- HTML Meta Token,
+- Datei im Webroot,
+- verknüpftes GitHub Repository,
+- oder explizite Workspace-Verifikation.
 
-Start small:
+## 13.3 Abuse Controls
 
-- homepage,
-- privacy page if discovered,
-- imprint/legal page if discovered,
-- terms page if discovered,
-- one or two key internal pages.
-
-Do not crawl thousands of URLs in MVP.
-
-## Evidence collected
-
-- final URL,
-- status code,
-- response headers,
-- content type,
-- HTML snapshot/hash,
-- discovered scripts,
-- discovered links,
-- detected policy links.
-
-## Acceptance criteria
-
-- SSRF test suite passes,
-- redirect SSRF tests pass,
-- large response is safely rejected/truncated,
-- invalid target generates a clear failure state.
+- Crawl-Budget,
+- Seitenlimit,
+- Zeitlimit,
+- Request-Rate,
+- globale und kundenbezogene Concurrency Limits,
+- User-Agent,
+- Opt-out/Blocklist,
+- Missbrauchsmeldung,
+- keine aggressiven Exploit-Tests im normalen SaaS-Scan.
 
 ---
 
-# 19. Phase 9 — real website security scanner
+# 14. Website Security Scanner
 
-## Goal
+MVP-Basis:
 
-Replace simulated security claims with deterministic technical checks.
+- CSP,
+- HSTS,
+- X-Content-Type-Options,
+- X-Frame-Options bzw. CSP frame-ancestors,
+- Referrer-Policy,
+- Permissions-Policy,
+- Cookie Flags,
+- HTTPS/TLS Basis,
+- Mixed Content,
+- öffentlich erkennbare gefährliche Konfigurationen.
 
-## MVP checks
+Wichtig:
 
-### Transport/security headers
+`Header nicht gefunden` ist ein technischer Fakt.
 
-- HTTPS availability
-- HSTS
-- Content-Security-Policy
-- X-Frame-Options / frame-ancestors relationship
-- X-Content-Type-Options
-- Referrer-Policy
-- Permissions-Policy
-
-### Page observations
-
-- mixed content
-- insecure form targets
-- obvious exposed debug information
-- risky third-party scripts where evidence exists
-
-### Dependency detection
-
-Where feasible:
-
-- detect client libraries,
-- identify versions only when reliably observable,
-- never invent a version.
-
-## Important limitation
-
-A public black-box website scan is not the same as a source-code SAST scan.
-
-GuardAI must distinguish:
-
-- passive web checks,
-- active DAST checks,
-- authenticated scans,
-- repository/source scans.
-
-Do not claim SQL injection scanning until we intentionally build a safe active scanner with explicit user authorization and strict boundaries.
-
-## Acceptance criteria
-
-- every security finding contains evidence,
-- scanner never invents CVEs,
-- scanner records coverage/limitations.
+`Website ist unsicher` ist daraus nicht automatisch ableitbar.
 
 ---
 
-# 20. Phase 10 — real privacy scanner
+# 15. Privacy Scanner
 
-## Goal
+Nicht nur HTML-Text analysieren.
 
-Observe browser behavior instead of guessing from page text.
+Browser Worker soll erfassen:
 
-## Browser evidence
+- Cookies vor Consent,
+- Cookies nach Consent,
+- Local/Session Storage,
+- Requests zu Drittanbietern,
+- Tracker-/Analytics-Indikatoren,
+- Consent Manager,
+- Skript-Ladeverhalten,
+- relevante Screenshots/DOM-Auszüge.
 
-Capture before consent interaction:
+Consent-Interaktion braucht:
 
-- cookies,
-- localStorage keys where appropriate,
-- sessionStorage metadata where appropriate,
-- network requests,
-- third-party domains,
-- trackers/scripts,
-- consent UI presence.
+- Accept-Flow,
+- Reject-Flow,
+- optional Settings-Flow,
+- Unknown State, wenn UI nicht zuverlässig automatisiert werden kann.
 
-## Consent workflow
-
-MVP can use two states:
-
-1. initial page load,
-2. after explicit consent action when safely detectable.
-
-Later support:
-
-- reject-all flow,
-- granular consent categories,
-- CMP-specific adapters.
-
-## Findings should say what was observed
-
-Good:
-
-> A request to `analytics.example` occurred before any consent action was recorded.
-
-Bad:
-
-> Your website definitely violates GDPR.
-
-## Acceptance criteria
-
-- network log is preserved as evidence,
-- findings link to requests/cookies that triggered them,
-- unknown/ambiguous consent state is reported as uncertain rather than invented.
+**Unknown ist besser als erfundene Sicherheit.**
 
 ---
 
-# 21. Phase 11 — accessibility scanner
+# 16. Accessibility Scanner
 
-## Goal
+Echte Engine verwenden, z. B. axe-core oder gleichwertig.
 
-Use a real accessibility testing engine.
+Speichern:
 
-## MVP
+- Rule ID,
+- Impact,
+- Help URL/Referenz,
+- betroffene Nodes,
+- DOM Selector,
+- Beschreibung,
+- Screenshot optional,
+- Wiederholungen gruppiert.
 
-Run a recognized automated accessibility rule engine in the browser worker.
+Report muss klar sagen, dass automatisierte Accessibility-Tests nur einen Teil manueller Prüfung abdecken.
 
-Collect:
-
-- rule ID,
-- impact,
-- HTML selector/path,
-- affected node,
-- help text,
-- screenshot where helpful.
-
-## Important limitation
-
-Automated accessibility testing cannot prove complete accessibility.
-
-Report:
-
-- automated violations,
-- passed automated checks,
-- items requiring manual review.
-
-## Acceptance criteria
-
-- results come from actual DOM analysis,
-- the dashboard can group repeated violations,
-- report clearly states automated coverage limitations.
+GuardAI selbst muss ebenfalls Keyboard-, Screenreader- und Kontrasttests bestehen.
 
 ---
 
-# 22. Phase 12 — EU AI Act evidence scanner
+# 17. EU-AI-Act / AI-Governance Scanner
 
-## Goal
+Dieser Scanner darf nicht einfach aus einer Webseite „vollständige Konformität“ ableiten.
 
-Turn AI Act scanning into evidence-based detection and guided review.
+Er soll kombinieren:
 
-This module should combine:
+1. technische Evidence,
+2. erkannte AI-Funktionen/Provider-Hinweise,
+3. Dokument-/Policy-Hinweise,
+4. Fragen an den Kunden,
+5. Requirement Mapping,
+6. Review-State.
 
-### Automated observations
-
-Possible examples:
-
-- chatbot/AI assistant UI detected,
-- AI disclosure text detected/not detected,
-- AI-related policy language detected,
-- generated-content disclosure metadata where observable.
-
-### User questionnaire
-
-Some requirements cannot be inferred from a public page.
-
-Ask the organization questions such as:
-
-- Does this system make decisions about people?
-- Is it used in employment, credit, education, healthcare or other sensitive contexts?
-- Are users informed they are interacting with AI?
-- Is human oversight present?
-- Which model/provider is used?
-- Are logs retained?
-- What data enters the model?
-
-### Evidence upload
-
-Allow users to attach:
-
-- risk assessments,
-- model documentation,
-- policy documents,
-- screenshots,
-- internal controls.
-
-## Rule design
-
-Every AI Act rule needs:
-
-- rule ID,
-- requirement mapping,
-- applicability conditions,
-- automated evidence inputs,
-- questionnaire inputs,
-- confidence,
-- manual review flag.
-
-## Acceptance criteria
-
-- GuardAI does not infer high-risk classification solely from domain keywords,
-- applicability is explicit,
-- finding shows whether it is automated evidence or self-attested evidence.
-
----
-
-# 23. Phase 13 — GitHub/repository scanner
-
-## Goal
-
-Replace the current top-level `package.json` heuristic with a real repository analysis pipeline.
-
-## Repository connection modes
-
-### Public repository
-
-Scan with public APIs where allowed.
-
-### Private repository
-
-Use an installed GitHub App with least-privilege permissions.
-
-Avoid asking users to paste long-lived personal access tokens unless absolutely necessary.
-
-## Files to detect
-
-At minimum support common manifests/lockfiles such as:
+Beispiele für States:
 
 ```text
-package.json
-package-lock.json
-pnpm-lock.yaml
-yarn.lock
-requirements.txt
-poetry.lock
-Pipfile.lock
-go.mod
-go.sum
-Cargo.toml
-Cargo.lock
-pom.xml
-build.gradle
-Dockerfile
-*.tf
-.github/workflows/*
+Evidence found
+Evidence missing
+Customer attested
+Requires review
+Not applicable
+Not assessed
 ```
 
-## Scanner modules
-
-### Dependency/SCA
-
-- parse lockfiles,
-- map exact dependency versions,
-- query vulnerability intelligence,
-- store advisory evidence.
-
-### Secret scanning
-
-Use a real secret scanner.
-
-Do not report "no secrets" unless the configured scan actually ran successfully.
-
-### Static analysis
-
-Introduce a dedicated SAST engine rather than LLM guessing.
-
-### Infrastructure/config
-
-Later:
-
-- Dockerfile checks,
-- Terraform checks,
-- GitHub Actions checks,
-- Kubernetes manifests.
-
-### SBOM
-
-Later generate/store SBOM for supported repositories.
-
-## Acceptance criteria
-
-- exact dependency versions come from lockfiles where possible,
-- each vulnerability finding references its detected package/version,
-- failure to scan a file is visible as incomplete coverage.
+Jede rechtliche Zuordnung verweist auf versionierte `LegalSource`-Einträge.
 
 ---
 
-# 24. Phase 14 — asset/document scanner
+# 18. Repository Scanner
 
-## Goal
+Der heutige Top-Level-`package.json`-Check wird durch eine Pipeline ersetzt.
 
-Make file scanning safe, real and clearly scoped.
+## MVP Module
 
-## Supported MVP file types
+- Dependency Discovery,
+- Dependency Vulnerability Scan,
+- Secret Scan,
+- SAST Basis,
+- Config/IaC Basis,
+- Lockfile-Erkennung,
+- GitHub Actions Review,
+- SBOM-Erzeugung.
 
-Start with a narrow set:
+Mögliche Engines werden später technisch bewertet; Integration erfolgt hinter eigenen Adapter-Interfaces.
 
-- PDF
-- TXT/Markdown
+Jedes Finding muss mindestens enthalten:
 
-Add image/docx support only after the pipeline is real.
-
-## Upload controls
-
-Server-side enforce:
-
-- allowed MIME types,
-- allowed extensions,
-- max size,
-- magic-byte validation where appropriate,
-- file count,
-- processing timeout.
-
-## Storage lifecycle
-
-Decide whether uploads are:
-
-- processed in temporary storage and deleted,
-- or retained with explicit customer controls.
-
-## Cleanup rule
-
-Temporary files must be deleted in a `finally`-style cleanup path even when parsing fails.
-
-## AI role
-
-For documents, AI may:
-
-- classify clauses,
-- summarize text,
-- identify potentially missing sections,
-- explain risks.
-
-But the result should be presented as automated analysis requiring review.
-
-## Acceptance criteria
-
-- unsupported files fail clearly,
-- no fake text extraction for unsupported files,
-- user sees exactly what type of analysis was performed.
+- Datei,
+- Position wenn verfügbar,
+- Rule/Advisory,
+- Package + Version wenn relevant,
+- Severity,
+- Evidence,
+- Fix Guidance.
 
 ---
 
-# 25. Phase 15 — rule engine
+# 19. Datei-/Dokument-Scanner
 
-## Goal
+## Upload Security
 
-Move findings out of random component logic and into versioned rules.
+Serverseitig erzwingen:
 
-## Rule structure
+- maximale Dateigröße,
+- erlaubte MIME Types,
+- Extension/MIME-Abgleich,
+- zufällige Storage-Namen,
+- Quarantäne vor Verarbeitung,
+- Malware-Scan,
+- Parser-Timeout,
+- Memory-/CPU-Limit,
+- Schutz vor ZIP-Bombs/Archive Expansion,
+- keine direkte Ausführung hochgeladener Inhalte,
+- Signed URLs,
+- Retention/Löschung.
 
-Example:
+Unsupported File = klarer Fehler, **kein erfundener Inhalt**.
+
+---
+
+# 20. Rule Engine
+
+Regeln gehören nicht in zufällige React-Komponenten.
+
+Jede Rule besitzt:
+
+- stabile ID,
+- Kategorie,
+- Version,
+- Inputs/Evidence-Anforderungen,
+- Detector Logic,
+- Severity Logic,
+- Confidence Logic,
+- Message Template,
+- Remediation,
+- Requirement/Legal Mapping,
+- Tests,
+- Changelog.
+
+Gleiche Evidence + gleiche Rule-Version muss denselben deterministischen Kernbefund erzeugen.
+
+---
+
+# 21. Scoring
+
+Scoring darf keine Marketing-Zahl sein.
+
+## Regeln
+
+- Score `0` bleibt `0`.
+- Nicht ausgeführte Kategorie = `Not assessed`, nicht 100 %.
+- Coverage ist separat vom Score sichtbar.
+- Severity und Confidence werden nicht vermischt.
+- Weighting ist dokumentiert.
+- Score-Version wird gespeichert.
+- Änderungen am Modell verändern nicht heimlich historische Ergebnisse.
+
+Beispiel:
+
+```text
+Overall score: 72
+Coverage: 68 %
+High-confidence critical findings: 1
+Checks not assessed: 14
+```
+
+---
+
+# 22. Evidence Integrity
+
+Damit Reports später nachvollziehbar bleiben:
+
+Jede Evidence speichert:
+
+- Capture Time,
+- Scanner-Version,
+- Detector-Version,
+- Content Hash,
+- Source,
+- optional Artifact Hash.
+
+Ein Report speichert:
+
+- Scan ID,
+- Rule Versions,
+- Score Version,
+- Report Version,
+- Generation Time.
+
+Später möglich:
+
+- signierte Report-Manifestdateien,
+- öffentliche Verifikation eines Report-Hashes.
+
+Nicht mit „offizieller Zertifizierung“ verwechseln.
+
+---
+
+# 23. AI Layer
+
+AI darf GuardAI verbessern, aber nicht die Wahrheit ersetzen.
+
+## AI darf
+
+- Findings erklären,
+- Texte klassifizieren,
+- Remediation verständlicher machen,
+- Zusammenfassungen erzeugen,
+- ähnliche Findings clustern.
+
+## AI darf nicht ohne deterministische Grundlage
+
+- CVEs erfinden,
+- technische Scans vortäuschen,
+- Rechtskonformität garantieren,
+- fehlende Evidence als vorhanden darstellen.
+
+## AI Security
+
+Gescannten Webseiten-/Dokumentinhalt immer als **untrusted data** behandeln.
+
+Schutz gegen:
+
+- Prompt Injection,
+- Instructions in scanned pages,
+- Data Exfiltration über Tool Calls,
+- überlange Inputs,
+- versteckte HTML-Instructions,
+- Modell-Output außerhalb Schema.
+
+AI Output:
+
+- Zod/JSON-Schema validieren,
+- Max Length,
+- Timeouts,
+- Retry-Limits,
+- Kostenlimit,
+- Fehler sichtbar machen.
+
+## AI Evals
+
+Vor Production:
+
+- Golden Dataset,
+- Hallucination Tests,
+- Prompt-Injection Tests,
+- Regression Suite,
+- Provider-/Modellvergleich,
+- Kosten pro Task,
+- Qualitätsmetriken.
+
+---
+
+# 24. Authentication und Authorization
+
+MVP:
+
+- Registrierung,
+- E-Mail-Verifikation,
+- Login/Logout,
+- sichere Sessions,
+- Password Reset falls Password Auth,
+- Rate Limits,
+- Workspace Membership,
+- Rollen Owner/Admin/Member/Viewer,
+- Server-seitige Authorization.
+
+Später Business/Enterprise:
+
+- MFA Enforcement,
+- OIDC/SSO,
+- SAML,
+- SCIM,
+- Service Accounts,
+- API Keys mit Scopes,
+- Session Revocation,
+- Enterprise Audit Log.
+
+---
+
+# 25. Billing und Entitlements
+
+`CheckoutSimulation` wird vollständig ersetzt.
+
+## Backend ist Source of Truth
+
+Frontend darf Premium nie durch lokalen State freischalten.
+
+Entitlements z. B.:
 
 ```ts
-interface RuleDefinition {
-  id: string;
-  version: number;
-  category: ComplianceCategory;
-  title: string;
-  description: string;
-  defaultSeverity: Severity;
-  evaluate(context: ScanContext): RuleResult;
-  requirementMappings: RequirementMapping[];
-  remediationTemplate: string;
+{
+  maxTargets: 5,
+  scansPerMonth: 100,
+  monitoring: true,
+  monitoringFrequency: 'daily',
+  repositoryScanning: true,
+  reportExport: true,
+  seats: 3,
+  historyDays: 365
 }
 ```
 
-## Rule requirements
+## Billing Cases
 
-Every rule must have:
+Behandeln:
 
-- stable ID,
-- version,
-- unit tests,
-- evidence requirements,
-- applicability conditions,
-- remediation,
-- source/reference mapping.
-
-## Versioning
-
-When rule behavior changes materially, record the scanner/rule version so historical reports remain explainable.
-
-## Acceptance criteria
-
-- same evidence + same scanner version produces deterministic rule result,
-- rule change is tested and versioned.
-
----
-
-# 26. Phase 16 — scoring model
-
-## Goal
-
-Make scores explainable and not misleading.
-
-## Avoid
-
-Do not calculate score simply as:
-
-```text
-100 - issueCount * constant
-```
-
-without accounting for coverage and severity.
-
-## Proposed model
-
-Each category can have:
-
-- possible weighted points,
-- checks actually applicable,
-- checks actually executed,
-- weighted failures,
-- confidence.
-
-Display at least:
-
-```text
-Score: 72/100
-Coverage: 38/45 applicable checks executed
-Confidence: High
-```
-
-If coverage is too low, do not present a strong green certification state.
-
-## Acceptance criteria
-
-- score can be reproduced from stored finding/check data,
-- score never silently defaults a real zero to a high value,
-- category with no executed checks is shown as "Not assessed", not 100%.
+- Checkout,
+- Webhook Verification,
+- Trial,
+- Upgrade,
+- Downgrade,
+- Proration,
+- Cancellation,
+- Renewal,
+- Failed Payment,
+- Dunning,
+- Refund,
+- Chargeback,
+- Coupon optional,
+- Invoice,
+- VAT/USt. Darstellung,
+- B2B/B2C-Unterschiede je Markt,
+- Webhook Retry/Idempotency,
+- regelmäßige Reconciliation mit Payment Provider.
 
 ---
 
-# 27. Phase 17 — AI explanation layer
+# 26. Trust Center und Badge
 
-## Goal
+Erst öffentlich aktivieren, wenn echte Evidence existiert.
 
-Use AI where it adds value without letting it fabricate scan truth.
+Der Kunde kontrolliert:
 
-## Good AI tasks
+- welche Targets öffentlich sind,
+- welche Kategorien gezeigt werden,
+- ob Score gezeigt wird,
+- wann der Status deaktiviert wird.
 
-- explain technical evidence in simple language,
-- generate remediation steps from verified findings,
-- summarize a completed report,
-- classify long policy text,
-- suggest questions for manual review,
-- translate reports.
+Nicht anzeigen:
 
-## Bad AI tasks
+- erfundene Zertifikate,
+- erfundene `Verified`-Status,
+- pauschale Rechtskonformität.
 
-Do not let the model independently invent:
-
-- whether a header existed,
-- which dependency version was installed,
-- whether a cookie was set,
-- whether a vulnerability was exploited,
-- whether an organization is legally compliant.
-
-## Prompt architecture
-
-Separate:
-
-```text
-System instruction
-Verified structured evidence
-Rule metadata
-Customer context
-Requested output schema
-```
-
-Do not dump arbitrary webpage text into a high-trust system prompt without treating it as untrusted content.
-
-## Structured output
-
-Validate all AI JSON before using it.
-
-If validation fails:
-
-- retry only within controlled limits,
-- otherwise mark explanation unavailable,
-- never fabricate fallback findings.
-
-## Cost controls
-
-Track:
-
-- tokens/requests per organization,
-- model cost per scan,
-- daily limits,
-- retry cost,
-- paid-plan quotas.
-
-## Acceptance criteria
-
-- deterministic finding exists before AI explanation,
-- AI failure does not corrupt scan result,
-- AI usage is measurable.
+Badge muss auf einen echten, aktuellen, serverseitig verifizierbaren Status verweisen.
 
 ---
 
-# 28. Phase 18 — dashboard rebuild on real data
+# 27. Legal Source Registry
 
-## Goal
+GuardAI braucht eine eigene versionierte Rechts-/Anforderungsquelle.
 
-Keep the strong current design, replace mocks with real queries.
+Jeder Eintrag:
 
-## Dashboard data
+- Jurisdiktion,
+- Norm/Framework,
+- Artikel/Abschnitt,
+- Titel,
+- offizielle Quelle,
+- gültig ab,
+- ggf. gültig bis,
+- letzte fachliche Prüfung,
+- Reviewer,
+- verknüpfte Rules.
 
-Show:
+**Rule-Versionen dürfen nicht stillschweigend auf neue Rechtsstände wechseln.**
 
-- actual targets,
-- actual latest scan,
-- actual scan history,
-- actual open findings,
-- actual resolved findings,
-- actual plan,
-- actual usage.
+Wenn sich eine Rechtsgrundlage ändert:
 
-## Remove hard-coded personas/data
-
-Replace example users/domains with authenticated account state.
-
-## Dashboard states
-
-Design for:
-
-- new account with zero scans,
-- scan queued,
-- scan running,
-- scan failed,
-- scan completed with no findings,
-- scan completed with findings,
-- incomplete scanner coverage.
-
-## Acceptance criteria
-
-- dashboard survives empty data,
-- no customer sees another customer's data,
-- no hard-coded production metrics remain.
+1. Source aktualisieren,
+2. betroffene Rules identifizieren,
+3. fachlich prüfen,
+4. Rule-Version erhöhen,
+5. Tests anpassen,
+6. Release Notes,
+7. neue Scans verwenden neue Version.
 
 ---
 
-# 29. Phase 19 — reports
+# 28. Datenschutz und Data Governance von GuardAI
 
-## Goal
+Vor Production erstellen wir eine reale Data Map.
 
-Create reports from stored scan evidence, not demo text.
+Für jeden Datentyp dokumentieren:
 
-## Report structure
+- was,
+- Zweck,
+- Rechts-/Vertragsgrundlage nach fachlicher Prüfung,
+- Speicherort,
+- Region,
+- Subprocessor,
+- Retention,
+- Löschweg,
+- Zugriffsrollen,
+- Backup-Verhalten.
 
-1. Report identity
-2. Target
-3. Scan timestamp
-4. Scanner version
-5. Scope
-6. Coverage
-7. Executive summary
-8. Category summary
-9. Findings
-10. Evidence
-11. Remediation
-12. Limitations
-13. Methodology
+Wichtige Daten:
 
-## Report language
+- Accountdaten,
+- Domains,
+- Repository Metadata,
+- Scan Evidence,
+- Screenshots,
+- hochgeladene Dokumente,
+- AI Inputs/Outputs,
+- Billing IDs,
+- Audit Logs,
+- Supportdaten.
 
-Do not call GuardAI a verification authority.
+Prozesse:
 
-Recommended heading:
-
-> GuardAI Automated Technical Compliance Screening Report
-
-Include a visible limitation section.
-
-## Stable report IDs
-
-Generate report IDs server-side and persist them.
-
-Do not create a random document ID on every render.
-
-## PDF generation
-
-Prefer server-side or controlled browser PDF generation from a stable report snapshot.
-
-Store:
-
-- report version,
-- scan ID,
-- generated time,
-- checksum if appropriate.
-
-## Acceptance criteria
-
-- same scan can reproduce the same report data,
-- report does not change merely because page re-rendered,
-- report only contains actual scan findings.
+- Auskunft/DSAR,
+- Export/Portabilität,
+- Korrektur,
+- Löschung,
+- Account-/Workspace-Deletion,
+- Backup Expiry,
+- Data Breach Process,
+- DPIA/DSFA-Prüfung,
+- Subprocessor Register,
+- internationale Transfers/SCC/TIA falls relevant.
 
 ---
 
-# 30. Phase 20 — Trust Center and badge
+# 29. Security von GuardAI selbst
 
-## Goal
+## Web/API
 
-Turn the current attractive concept into evidence-backed public status.
+- CSP,
+- HSTS,
+- Secure Cookies,
+- CSRF-Schutz passend zur Auth-Architektur,
+- CORS-Allowlist,
+- Request Size Limits,
+- Rate Limits,
+- Input Validation,
+- Output Encoding,
+- sichere Error Messages.
 
-## Badge principle
+## Secrets
 
-A badge should say that a GuardAI scan/status exists, not guarantee legal compliance.
+- niemals in Git,
+- getrennt pro Environment,
+- Secret Manager in Production,
+- Rotation-Prozess,
+- sofortige Rotation bei Leak.
 
-Safer examples:
+## Supply Chain
 
-```text
-GuardAI Scan Active
-Last technical scan: 2026-08-16
-Security checks: 34/38 passed
-```
+- Lockfiles,
+- Dependency Scan,
+- Secret Scan,
+- SAST,
+- automatisierte Update-PRs,
+- Release Review.
 
-## Public Trust Center
+## Threat Model
 
-Customer chooses what to publish.
+Vor Beta mindestens für:
 
-Possible public items:
-
-- last scan date,
-- selected technical controls,
-- selected resolved findings,
-- scan coverage,
-- public policies,
-- vendor list supplied by customer,
-- security contact.
-
-## Never auto-publish sensitive details
-
-Do not expose:
-
-- internal URLs,
-- raw vulnerability details,
-- repository file paths,
-- secrets,
-- customer-private evidence.
-
-## Badge verification
-
-Badge script should load status from GuardAI using a public site ID.
-
-Do not generate a fake CDN URL before the badge service actually exists.
-
-## Acceptance criteria
-
-- badge status is server-backed,
-- public status can be disabled instantly,
-- customer controls published fields.
+- URL Scanner / SSRF,
+- Uploads,
+- Auth,
+- Tenant Isolation,
+- Billing Webhooks,
+- GitHub OAuth,
+- AI Prompt Injection,
+- Public Trust Center.
 
 ---
 
-# 31. Phase 21 — billing and entitlements
+# 30. Testing
 
-## Goal
+## Unit
 
-Replace `CheckoutSimulation` with real billing.
+- Rules,
+- Scoring,
+- URL Validation,
+- SSRF Guards,
+- Entitlements,
+- Mappers,
+- Parsers.
 
-## Required entities
+## Integration
 
-- customer
-- subscription
-- plan
-- entitlement
-- usage
+- API + DB,
+- Auth + Authorization,
+- Queue + Worker,
+- Billing Webhooks,
+- Storage,
+- Scanner Adapters.
 
-## Server is source of truth
+## E2E
 
-Never unlock premium based only on React state.
-
-Frontend asks backend:
-
-```text
-What plan does this workspace have?
-What features are enabled?
-What usage remains?
-```
-
-## Billing flow
-
-1. User chooses plan.
-2. Backend creates provider checkout session.
-3. User completes checkout with provider.
-4. Provider sends signed webhook.
-5. Backend verifies webhook.
-6. Subscription DB is updated.
-7. Entitlements are recalculated.
-8. Frontend refreshes account state.
-
-## Required webhook handling
-
-Support events for:
-
-- checkout completed,
-- subscription created/updated,
-- payment failed,
-- subscription cancelled,
-- refund if offered.
-
-## Customer portal
-
-Allow customers to manage:
-
-- payment method,
-- invoices,
+- Register → first scan,
+- login/logout,
+- scan success,
+- scan failure,
+- billing upgrade,
 - cancellation,
-- billing details.
+- target deletion,
+- workspace isolation,
+- Trust Center publication.
 
-## Acceptance criteria
+## Security Regression
 
-- refreshing browser does not lose premium,
-- fake client request cannot unlock plan,
-- webhook signatures are verified,
-- cancellation changes entitlements correctly.
+- SSRF corpus,
+- malicious uploads,
+- auth bypass,
+- tenant leakage,
+- webhook replay,
+- prompt injection.
 
----
+## Performance
 
-# 32. Phase 22 — lead generation
-
-## Goal
-
-Make lead capture real and privacy-conscious.
-
-## Tasks
-
-- [ ] Replace placeholder webhook.
-- [ ] Send through backend instead of trusting client-only flow.
-- [ ] Return success only after actual accepted delivery/storage.
-- [ ] Add consent/privacy language matching actual use.
-- [ ] Add bot/spam protection if public.
-- [ ] Store campaign/source attribution if needed.
-
-## Important error rule
-
-Never show:
-
-> Report successfully sent
-
-when the delivery request failed.
-
-## Acceptance criteria
-
-- successful submission is observable in backend,
-- failure produces failure UI,
-- duplicate submission behavior is defined.
+- API load,
+- queue stress,
+- worker concurrency,
+- DB load,
+- browser memory/CPU,
+- largest supported site/document/repository.
 
 ---
 
-# 33. Phase 23 — integrations
+# 31. CI/CD und Release Engineering
 
-## Goal
+Pull Requests müssen mindestens prüfen:
 
-Replace local toggle buttons with real integrations.
+- install,
+- typecheck,
+- lint,
+- unit tests,
+- integration subset,
+- build,
+- secret scan,
+- dependency scan.
 
-## Build one integration at a time
-
-Recommended order:
-
-1. GitHub
-2. email notifications
-3. Slack
-4. webhook
-5. cloud providers later
-
-## GitHub integration
-
-Use a GitHub App.
-
-Define permissions minimally.
-
-Store installation IDs and encrypted credentials/tokens where needed.
-
-## Slack integration
-
-Use OAuth and allow customer to select destination channel.
-
-## Integration states
+Production Pipeline:
 
 ```text
-not_connected
-connecting
-connected
-error
-revoked
+merge
+→ CI green
+→ build immutable artifact
+→ staging deploy
+→ smoke tests
+→ migrations
+→ production deploy
+→ smoke tests
+→ monitoring
 ```
 
-## Acceptance criteria
+Zusätzlich:
 
-- disconnect really revokes/removes access,
-- sync status comes from backend,
-- UI never shows "connected" by default without connection data.
-
----
-
-# 34. Phase 24 — notifications and continuous monitoring
-
-## Goal
-
-Make "monitoring" real.
-
-## Monitoring model
-
-Customer configures:
-
-- target,
-- frequency,
-- modules,
-- notification destinations.
-
-Scheduler creates scan jobs.
-
-## Change detection
-
-Do not notify on every scan.
-
-Compare current vs previous scan:
-
-- new finding,
-- resolved finding,
-- severity increase,
-- material score decrease,
-- new third-party domain,
-- new dependency vulnerability.
-
-## Notification example
-
-```text
-New high-severity finding
-Target: example.com
-Rule: privacy.third_party_before_consent
-First observed: 2026-08-16 07:30 CET
-```
-
-## Acceptance criteria
-
-- scheduled job actually runs,
-- notifications are deduplicated,
-- user can pause monitoring.
+- Feature Flags für riskante Features,
+- Rollback,
+- Canary/gradual rollout später,
+- Release-Version,
+- Changelog,
+- Commit SHA im Deployment,
+- Dependency Automation,
+- Migration compatibility review.
 
 ---
 
-# 35. Phase 25 — AI Counsel
+# 32. Environments
 
-## Goal
-
-Only make AI Counsel public when it uses real workspace context.
-
-## Desired behavior
-
-AI Counsel should retrieve:
-
-- selected scan,
-- selected findings,
-- verified evidence,
-- rule mappings,
-- customer-uploaded document if explicitly selected.
-
-Then answer questions grounded in that context.
-
-## Guardrails
-
-- show sources/evidence references inside the product,
-- identify when answer is general guidance,
-- never claim lawyer-client relationship,
-- no fake analysis timer,
-- document is only described as analyzed if backend actually processed it.
-
-## Acceptance criteria
-
-- counsel answer can cite finding/evidence IDs,
-- uploaded file is actually processed,
-- model error is visible, not replaced by canned legal findings.
-
----
-
-# 36. Phase 26 — Policy Manager / Audit Hub
-
-## Goal
-
-Turn the enterprise mockups into a real evidence/control system later.
-
-This is **not MVP**.
-
-## Real model
-
-```text
-Framework
-  ↓
-Requirement
-  ↓
-Control
-  ↓
-Evidence
-  ↓
-Assessment
-```
-
-## Audit Hub requires
-
-- evidence ownership,
-- evidence freshness,
-- control status,
-- reviewer,
-- notes,
-- export.
-
-## Policy-as-Code
-
-Only advertise executed OPA/Rego policies once policies are actually evaluated against real data.
-
-## Acceptance criteria
-
-- all displayed control counts come from database,
-- no static SOC 2/ISO percentages remain.
-
----
-
-# 37. Phase 27 — TrueSight
-
-## Goal
-
-Keep this as a Labs feature unless we have real detection models and defensible evaluation.
-
-Current randomized output must never reach public production as if it were analysis.
-
-## Before release we need
-
-- defined supported media types,
-- actual detection pipeline,
-- model provenance,
-- benchmark/evaluation dataset,
-- false positive/negative analysis,
-- confidence calibration,
-- clear limitations.
-
-## Acceptance criteria
-
-- identical file does not receive arbitrary random classification,
-- results come from actual model output,
-- confidence is calibrated and explained.
-
----
-
-# 38. Phase 28 — security hardening of GuardAI itself
-
-## Goal
-
-A security/compliance product must hold itself to a high standard.
-
-## Authentication security
-
-- secure session/token handling,
-- MFA roadmap for business accounts,
-- email verification,
-- rate-limited auth endpoints,
-- safe password/reset flow if passwords are used.
-
-## Authorization
-
-Test object-level authorization for every customer resource.
-
-Examples:
-
-- scans,
-- reports,
-- targets,
-- integrations,
-- members,
-- billing.
-
-## API security
-
-- schema validation,
-- rate limits,
-- request size limits,
-- SSRF protection,
-- output encoding,
-- secure headers,
-- CORS allowlist.
-
-## Secret security
-
-- no secrets in Vite environment variables,
-- no secrets in Git,
-- rotate leaked keys immediately,
-- production secret manager/environment settings,
-- separate staging and production credentials.
-
-## File security
-
-- strict upload limits,
-- object storage ACLs,
-- signed URLs,
-- retention/deletion.
-
-## Logging
-
-Never log full:
-
-- card data,
-- access tokens,
-- API keys,
-- uploaded sensitive document content,
-- authentication cookies.
-
-## Acceptance criteria
-
-- security review completed,
-- automated secret scan in CI,
-- dependency vulnerabilities reviewed,
-- SSRF tests included in CI.
-
----
-
-# 39. Phase 29 — testing strategy
-
-## Unit tests
-
-Use for:
-
-- rule evaluation,
-- scoring,
-- URL validation,
-- SSRF blocking,
-- category mapping,
-- schemas,
-- entitlement logic.
-
-## Integration tests
-
-Use for:
-
-- API + database,
-- job creation,
-- worker completion,
-- payment webhook processing,
-- authorization.
-
-## E2E tests
-
-Critical flows:
-
-### Free user
-
-```text
-signup
-→ create workspace
-→ scan website
-→ wait for result
-→ open findings
-→ view report preview
-```
-
-### Paid user
-
-```text
-login
-→ checkout
-→ webhook updates subscription
-→ premium feature available
-```
-
-### Security isolation
-
-```text
-user A creates scan
-→ user B attempts scan URL/API access
-→ access denied
-```
-
-### Failure
-
-```text
-scan worker fails
-→ UI shows failed scan
-→ no fake report generated
-```
-
-## Scanner fixtures
-
-Create controlled test websites/repos with known behavior.
-
-Examples:
-
-- missing CSP,
-- tracker before consent,
-- accessible page,
-- known accessibility violation,
-- vulnerable test dependency,
-- known secret fixture designed only for tests.
-
-## Acceptance criteria
-
-- critical business and security logic has automated tests,
-- E2E tests run in CI or staging pipeline.
-
----
-
-# 40. Phase 30 — CI/CD
-
-## Required GitHub workflows
-
-### Pull request workflow
-
-Run:
-
-1. install dependencies,
-2. typecheck,
-3. lint,
-4. unit tests,
-5. server tests,
-6. build,
-7. security/dependency scan,
-8. secret scan.
-
-### Main branch
-
-- repeat validation,
-- deploy staging/production according to release strategy,
-- run migration safely,
-- run smoke test.
-
-## Branch protection
-
-Before public launch:
-
-- require PR for production changes where practical,
-- require CI checks,
-- protect main,
-- do not allow accidental force push.
-
-## Dependency updates
-
-Enable a controlled dependency update process.
-
-Do not auto-merge major upgrades blindly.
-
-## Acceptance criteria
-
-- broken build cannot be merged unnoticed,
-- production deployment has a traceable commit SHA.
-
----
-
-# 41. Phase 31 — observability
-
-## Goal
-
-Know when GuardAI is broken before customers tell us.
-
-## Logging
-
-Structured logs should include:
-
-- timestamp,
-- level,
-- request ID,
-- organization ID where safe,
-- scan ID,
-- worker/job ID,
-- error code.
-
-## Metrics
-
-Track:
-
-- API latency,
-- API error rate,
-- scans queued,
-- scan duration,
-- scan failure rate,
-- worker utilization,
-- AI provider errors,
-- AI cost,
-- payment webhook failures,
-- signup conversion,
-- report generation failures.
-
-## Alerts
-
-Alert for:
-
-- elevated 5xx rate,
-- stuck queue,
-- repeated worker crashes,
-- payment webhook failures,
-- database connection failure,
-- storage failures.
-
-## Acceptance criteria
-
-- production errors can be traced by request/scan ID,
-- critical failure generates alert.
-
----
-
-# 42. Phase 32 — environments
-
-We need at least:
+Mindestens:
 
 ```text
 local
@@ -2577,794 +1393,818 @@ staging
 production
 ```
 
-## Separate credentials
+Getrennt pro Environment:
 
-Each environment should have separate:
+- Database,
+- Auth Config,
+- API Keys,
+- Payment Mode,
+- Storage,
+- Webhooks,
+- OAuth Apps,
+- AI Keys.
 
-- database,
-- auth config,
-- API keys,
-- payment provider environment,
-- storage bucket/project where appropriate,
-- webhooks.
-
-## Never
-
-- use production customer data for casual local testing,
-- use production payment keys locally,
-- point staging at production DB.
+Frontend-Environment-Variablen gelten grundsätzlich als öffentlich.
 
 ---
 
-# 43. Environment variables inventory
+# 33. Deployment Architecture
 
-Exact variable names depend on chosen providers, but the architecture will need categories like:
-
-## Frontend-safe
+Minimum:
 
 ```text
-VITE_API_BASE_URL
-VITE_PUBLIC_APP_URL
-VITE_PUBLIC_AUTH_*      # only provider-documented public values
-```
-
-## Backend secrets
-
-```text
-DATABASE_URL
-AUTH_SECRET / provider server secret
-AI_PROVIDER_API_KEY
-PAYMENT_SECRET_KEY
-PAYMENT_WEBHOOK_SECRET
-ENCRYPTION_KEY
-STORAGE_SECRET / service credentials
-QUEUE_URL / REDIS_URL
-EMAIL_PROVIDER_KEY
-```
-
-## Rule
-
-Any value included in the frontend bundle must be considered public.
-
----
-
-# 44. Phase 33 — deployment architecture
-
-## Minimum public architecture
-
-```text
-Public Web App
-        ↓
-HTTPS
-        ↓
-API Service
-        ↓
+CDN / Web Hosting
+      ↓
+Frontend
+      ↓
+API
+      ↓
 Postgres
-        ↓
+      ↓
 Queue
-        ↓
-Scanner Workers
-        ↓
+      ↓
+Workers
+      ↓
 Object Storage
 ```
 
-Browser-based scanner workers should be isolated from the main API where possible because they process untrusted external content.
+Für Browser-Scanner ggf. getrennte isolierte Worker-Klasse.
 
-## Deployment requirements
+Benötigt:
 
-- custom domain,
-- TLS,
-- DNS,
-- environment variables,
-- database migrations,
-- health endpoint,
-- readiness checks,
-- worker health,
+- Health endpoint,
+- Readiness endpoint,
+- Worker health,
+- migration status,
 - log access,
+- autoscaling/concurrency policy,
 - backups,
 - rollback.
 
-## Health endpoints
+---
 
-At minimum distinguish:
+# 34. Observability, SLO und Incident Management
 
-```text
-/health/live
-/health/ready
-```
+Wir müssen Fehler erkennen, bevor Kunden sie melden.
 
-Readiness should reflect dependencies required to serve traffic.
+Metriken:
+
+- API error rate,
+- API latency,
+- scan success rate,
+- scan duration,
+- queue lag,
+- worker failures,
+- browser crash rate,
+- AI error rate,
+- AI cost,
+- DB saturation,
+- billing webhook failures.
+
+Logs:
+
+- strukturiert,
+- request_id,
+- scan_id,
+- organization_id nur wenn sicher,
+- keine Secrets,
+- keine vollständigen sensiblen Dokumentinhalte.
+
+Vor Paid Beta definieren:
+
+- internes Uptime-SLO,
+- Scan Success SLO,
+- P0/P1/P2-Severity,
+- On-call/Eskalationsweg,
+- Incident Runbook,
+- Status Page Strategie.
 
 ---
 
-# 45. Phase 34 — domain, DNS and email
+# 35. Backup, Disaster Recovery und Business Continuity
 
-Before launch we need:
+Nicht nur Backup aktivieren — Restore testen.
 
-- product domain,
-- application subdomain if desired,
-- API subdomain if architecture uses one,
-- transactional email sender domain,
+Definieren:
+
+- Backup Frequenz,
+- Backup Retention,
+- Verschlüsselung,
+- Region,
+- RPO,
+- RTO,
+- Restore Procedure,
+- Reihenfolge für DB → Queue → API → Worker → Frontend,
+- Umgang mit teilweise ausgeführten Scan-Jobs,
+- regelmäßige Recovery-Übung.
+
+---
+
+# 36. Frontend-Qualität
+
+GuardAI selbst muss qualitativ besser sein als das, was es bewertet.
+
+Prüfen:
+
+- Desktop,
+- Tablet,
+- Mobile,
+- Chromium,
+- Firefox,
+- Safari/WebKit,
+- Keyboard Navigation,
+- Screenreader,
+- Focus States,
+- Kontrast,
+- Form Errors,
+- Loading States,
+- Empty States,
+- Offline/API Error,
+- 404,
+- 500,
+- Performance Budget.
+
+Marketing-Seiten:
+
+- SEO Metadata,
+- Open Graph,
+- Sitemap,
+- Robots Rules,
+- Canonical URLs,
+- Structured Data wenn sinnvoll.
+
+Später:
+
+- i18n Deutsch/Englisch,
+- Locale-Datum/Zeit,
+- Währung,
+- Rechtsraum-spezifische Rule Sets.
+
+---
+
+# 37. E-Mail, Support und Kommunikation
+
+Transactional Mail:
+
+- Verify Email,
+- Password Reset,
+- Scan completed,
+- Scan failed,
+- New critical finding,
+- Monitoring alert,
+- Invite,
+- Invoice/Payment falls Provider nicht alles übernimmt,
+- Failed payment.
+
+Domain Hygiene:
+
 - SPF,
 - DKIM,
 - DMARC,
-- support email,
-- security contact email.
+- Bounce Handling,
+- Complaint Handling.
 
-Example layout:
+Support:
+
+- Support-Adresse,
+- Help Center,
+- Bug Report,
+- Feature Request,
+- Account Recovery,
+- Abuse Report,
+- Security Contact,
+- später SLA nach Plan.
+
+---
+
+# 38. Product Analytics
+
+Nur datenschutzgerecht und transparent einsetzen.
+
+Kern-Funnel messen:
 
 ```text
-www.example.com        marketing
-app.example.com        SaaS
-api.example.com        API
-status.example.com     status page
+visit
+→ signup
+→ email verified
+→ target created
+→ first scan started
+→ first scan completed
+→ finding opened
+→ second scan
+→ upgrade
+→ retained workspace
 ```
 
-Exact domains are a business decision.
-
----
-
-# 46. Phase 35 — privacy and data governance of GuardAI
-
-Before launch document the data flows.
-
-## Data map
-
-For each data type record:
-
-- what data,
-- why collected,
-- where stored,
-- processor/provider,
-- region,
-- retention,
-- deletion path,
-- access roles.
-
-## Important GuardAI data types
-
-- account email/name,
-- billing identity,
-- target URLs,
-- scan evidence,
-- repository metadata,
-- uploaded documents,
-- AI prompts/responses,
-- logs,
-- support requests.
-
-## Customer control
-
-Implement:
-
-- account deletion request,
-- workspace deletion,
-- target deletion,
-- uploaded file deletion,
-- export where appropriate.
-
-## Acceptance criteria
-
-- privacy policy matches real system,
-- data can actually be deleted according to stated policy.
-
----
-
-# 47. Phase 36 — product legal pages and claims review
-
-Before public launch, review:
-
-- Impressum requirements,
-- privacy policy,
-- terms/AGB,
-- subscription/cancellation wording,
-- pricing incl. VAT presentation,
-- refund/withdrawal wording depending on customer type/market,
-- AI disclaimer,
-- scan limitations,
-- report language,
-- badge language,
-- Trust Center claims.
-
-## Important
-
-The UI must not claim certifications or hosting standards that are not actually true and documented.
-
-Examples to verify before showing publicly:
-
-- "ISO 27001 hosting"
-- "Made/hosted in Germany"
-- "24/7 monitoring"
-- "EU AI Act compliant"
-- "DSGVO compliant"
-- "official audit"
-
----
-
-# 48. Phase 37 — pricing and packaging
-
-Do not design pricing only around UI locks.
-
-Pricing should map to measurable backend entitlements.
-
-Possible entitlement dimensions:
-
-- scans/month,
-- monitored targets,
-- repository scans,
-- scan frequency,
-- report export,
-- team seats,
-- history retention,
-- AI explanation quota,
-- integrations,
-- public Trust Center.
-
-Example internal entitlement object:
-
-```json
-{
-  "maxTargets": 3,
-  "monthlyScans": 20,
-  "scheduledMonitoring": false,
-  "reportExport": true,
-  "teamSeats": 1
-}
-```
-
-The backend enforces this object.
-
----
-
-# 49. Phase 38 — pre-launch security review
-
-Before production release:
-
-- [ ] SSRF test complete
-- [ ] auth bypass review
-- [ ] IDOR/object authorization review
-- [ ] file upload abuse review
-- [ ] rate-limit review
-- [ ] payment webhook review
-- [ ] secret scanning review
-- [ ] dependency vulnerability review
-- [ ] CORS review
-- [ ] security header review
-- [ ] production logs review
-- [ ] backup/restore test
-- [ ] delete-account path test
-
-For a scanner product, an independent security review becomes increasingly important as real customers arrive.
-
----
-
-# 50. Phase 39 — staging release
-
-Before production, deploy the full system to staging.
-
-## Staging test matrix
-
-### Account
-
-- signup
-- verification
-- login
-- logout
-- reset
-- invite
-
-### Scanner
-
-- valid URL
-- invalid URL
-- HTTP redirect
-- blocked private IP
-- large page
-- page timeout
-- known security fixture
-- known privacy fixture
-- known accessibility fixture
-
-### Repository
-
-- public repo
-- private authorized repo
-- missing manifest
-- known vulnerable dependency fixture
-
-### Billing
-
-- successful checkout
-- failed payment
-- subscription cancellation
-- webhook replay/idempotency
-
-### Reports
-
-- free report
-- paid report
-- empty finding set
-- many findings
-
-### Authorization
-
-- cross-workspace access blocked
-
-## Acceptance criteria
-
-- no P0/P1 launch blockers,
-- production configuration is documented.
-
----
-
-# 51. Phase 40 — production launch checklist
-
-## Infrastructure
-
-- [ ] Production database created
-- [ ] Backups configured
-- [ ] API deployed
-- [ ] workers deployed
-- [ ] queue deployed/configured
-- [ ] storage configured
-- [ ] domain connected
-- [ ] TLS working
-- [ ] DNS verified
-- [ ] email domain verified
-- [ ] health checks passing
-
-## Security
-
-- [ ] Secrets added through deployment platform
-- [ ] No production secret committed
-- [ ] CORS allowlist production-only
-- [ ] SSRF protection enabled
-- [ ] Upload limits enabled
-- [ ] Rate limits enabled
-- [ ] Auth enabled
-- [ ] Authorization tests pass
-
-## Product
-
-- [ ] signup works
-- [ ] first scan works
-- [ ] failed scan works
-- [ ] report works
-- [ ] billing works
-- [ ] cancellation works
-- [ ] plan enforcement works
-- [ ] emails work
-- [ ] account deletion works
-
-## Communication/legal
-
-- [ ] Privacy policy published
-- [ ] Terms published
-- [ ] Impressum published if applicable
-- [ ] Support email works
-- [ ] Product claims reviewed
-- [ ] Scanner limitation disclaimer visible
-
-## Operations
-
-- [ ] Error monitoring enabled
-- [ ] Uptime monitoring enabled
-- [ ] Alerts configured
-- [ ] Incident contact defined
-- [ ] Rollback procedure documented
-
----
-
-# 52. Phase 41 — launch sequence
-
-Recommended launch order:
-
-## Stage 1 — internal alpha
-
-Only our own test sites/repos.
-
-Purpose:
-
-- stabilize scanner,
-- fix false positives,
-- measure scan cost,
-- improve evidence quality.
-
-## Stage 2 — private beta
-
-Small number of invited users.
-
-Collect:
-
-- scan accuracy feedback,
-- confusing findings,
-- missing evidence,
-- false positives,
-- user flow failures,
-- willingness to pay.
-
-## Stage 3 — paid beta
-
-Enable real billing after:
-
-- core reliability,
-- support process,
-- cancellation/refund process,
-- clear limitations.
-
-## Stage 4 — public launch
-
-Only after security/operations are ready.
-
----
-
-# 53. Phase 42 — post-launch operating loop
-
-Every week review:
-
-- scan failure rate,
-- false-positive reports,
-- most common findings,
-- most expensive scanner operations,
-- AI cost,
+Zusätzlich:
+
+- activation rate,
+- scan completion rate,
+- repeat scans,
+- false positive feedback,
+- time to remediation,
 - conversion,
-- churn,
-- support cases,
-- security incidents,
-- new rule requests.
+- churn.
 
-Every rule change should be traceable.
-
-Every meaningful scanner change should have a version.
+Keine Produktentscheidung nur anhand „schöner Dashboard-Zahlen“.
 
 ---
 
-# 54. MVP scope — what we should actually launch first
+# 39. FinOps / Kostenkontrolle
 
-The current repository contains many attractive modules. The first real product should be smaller.
+GuardAI kann durch Browser-Worker, AI und Scans teuer werden.
 
-## MVP MUST HAVE
+Messen pro Scan:
 
-### Account
+- API Requests,
+- Browser Minuten,
+- CPU/RAM,
+- Queue Time,
+- AI Tokens/Kosten,
+- Storage Bytes,
+- Report Generation,
+- Egress.
 
-- authentication
-- workspace
-- basic settings
+Plan-Limits müssen Backend-seitig Kosten begrenzen.
 
-### Targets
+Alarmieren bei:
 
-- website target
-- public GitHub repository target or connected GitHub target
-
-### Website scan
-
-- safe fetch
-- security headers
-- browser network/privacy observations
-- automated accessibility checks
-- limited AI Act disclosure checks
-
-### Repository scan
-
-- dependency/lockfile analysis
-- vulnerability lookup
-- secret scan
-
-### Findings
-
-- evidence
-- severity
-- confidence
-- remediation
-- requirement mapping
-
-### Dashboard
-
-- target list
-- scan history
-- findings
-
-### Reports
-
-- evidence-based PDF
-
-### Billing
-
-- free plan
-- one paid plan initially
-
-### Operations
-
-- CI
-- staging
-- monitoring
-- backups
-
-## POST-MVP
-
-Do later:
-
-- advanced Policy Graph
-- SOC 2 Audit Hub
-- broad cloud integrations
-- automatic GitHub PR fixes
-- advanced legal document generation
-- TrueSight
-- full AI Counsel
-- ESG
-- full DSA module
-- enterprise on-premise distribution
+- ungewöhnlichem Scan-Volumen,
+- AI-Kosten-Spikes,
+- Endlosschleifen,
+- Worker-Storm,
+- Missbrauch einzelner Accounts.
 
 ---
 
-# 55. P0 implementation order for the current repository
+# 40. ADRs — Architecture Decision Records
 
-This is the exact order we should start with now.
+Größere Entscheidungen werden unter `docs/adr/` dokumentiert.
 
-## P0.1 Repository cleanup
+Beispiele:
 
-- remove cache folders,
-- update `.gitignore`,
-- verify no secrets,
-- fix README setup.
+- `0001-evidence-first-product-positioning.md`
+- `0002-database-and-auth-provider.md`
+- `0003-job-queue.md`
+- `0004-browser-worker.md`
+- `0005-ai-provider-abstraction.md`
+- `0006-billing-provider.md`
 
-## P0.2 Server package correctness
+Jede ADR enthält:
 
-- declare all dependencies,
-- create development/start scripts,
-- validate env variables.
-
-## P0.3 Shared scan contract
-
-- create canonical enums,
-- normalize response shape,
-- remove `any` mapping,
-- fix `privacy`/`gdpr` and `aiAct`/`ai-act` mismatch.
-
-## P0.4 Fix dashboard stability
-
-- handle missing categories,
-- fix empty states,
-- fix score fallback bug,
-- remove duplicate renders.
-
-## P0.5 API configuration
-
-- remove hard-coded localhost,
-- add API environment config,
-- add clear failure handling.
-
-## P0.6 SSRF protection
-
-- implement network destination validator,
-- validate redirects,
-- add tests.
-
-## P0.7 Upload hardening
-
-- max file size,
-- MIME/extension validation,
-- cleanup on error.
-
-## P0.8 Honest product states
-
-Until functionality is real:
-
-- mark AI Counsel as Preview,
-- mark TrueSight as Preview or hide,
-- mark integrations as Preview or hide,
-- remove fake payment success flow from public production,
-- remove certification-style claims.
-
-When these eight blocks are complete, we have a stable base for the real MVP.
+- Problem,
+- Optionen,
+- Entscheidung,
+- Gründe,
+- Nachteile,
+- Konsequenzen,
+- Datum/Status.
 
 ---
 
-# 56. Development milestones
+# 41. Risk Register
 
-## Milestone A — stable developer baseline
+Ein lebendes Register muss mindestens diese Risiken führen:
 
-Deliverables:
+| Risiko | Priorität | Gegenmaßnahme |
+|---|---|---|
+| SSRF über URL Scanner | P0 | Safe Fetcher + Tests |
+| Tenant Data Leak | P0 | Authorization + Isolation Tests |
+| falsche Compliance-Aussage | P0 | Evidence-first + Claim Review |
+| AI Hallucination | P1 | Schemas + Evals + deterministic truth |
+| Prompt Injection | P1 | untrusted-content boundary |
+| Upload Malware | P1 | Quarantine + malware scan |
+| Payment Manipulation | P1 | server entitlements + signed webhooks |
+| Scan Abuse / DoS | P1 | ownership + quotas + budgets |
+| Datenverlust | P1 | backups + restore + DR |
+| Provider-Ausfall | P1 | retries + graceful degradation |
+| Regelwerk veraltet | P1 | Legal Source Registry + review cadence |
+| hohe Scan-Kosten | P1 | FinOps + quotas |
 
-- clean repository,
-- reproducible install,
-- frontend/server start together,
-- shared contracts,
-- tests/CI baseline.
+Owner und Status werden ergänzt, sobald Teamrollen feststehen.
 
-## Milestone B — real single website scan
+---
 
-Deliverables:
+# 42. Exakte Build-Reihenfolge
 
-- scan job,
-- safe URL fetch,
-- real evidence,
-- security + privacy + accessibility result,
-- persisted scan,
-- dashboard.
+Diese Reihenfolge ist verbindlich, kann aber mit dokumentierter Begründung angepasst werden.
 
-## Milestone C — account SaaS
+## Phase 0 — Scope Freeze & Repository Hygiene
 
-Deliverables:
+- Master Guide aktualisieren.
+- Repo Inventory aktualisieren.
+- README ehrlich auf Ist-Zustand bringen.
+- `.gitignore` härten.
+- Cache-Verzeichnisse aus Version Control entfernen.
+- Secrets prüfen.
+- ungenutzte/duplizierte Dateien identifizieren.
+- aktuelle P0/P1-Liste einfrieren.
 
-- auth,
-- workspace,
-- DB,
-- history,
-- authorization.
+**Exit:** Repo ist sauber dokumentiert und wir wissen bei jeder großen existierenden Komponente, was damit passiert.
 
-## Milestone D — paid MVP
+## Phase 1 — Development Standards
 
-Deliverables:
+- Node/Package-Manager-Version festlegen.
+- `.nvmrc`/Version File.
+- Scripts vereinheitlichen.
+- Formatting/Lint/Typecheck.
+- EditorConfig.
+- Commit/PR Standards.
+- `CONTRIBUTING.md`.
 
-- billing,
-- entitlements,
-- report export,
-- production deployment.
+## Phase 2 — Frontend Core Repair
 
-## Milestone E — repository scanning
+- echte Router-Struktur,
+- doppelte Views entfernen,
+- Error Boundary,
+- Layouts,
+- Auth/Public Route Trennung vorbereiten.
 
-Deliverables:
+## Phase 3 — Shared Contracts + API Client
 
-- GitHub connection,
-- dependency scanner,
+- canonical schemas,
+- keine `any`-Mappings,
+- API base URL config,
+- errors,
+- scan request/options wirklich übertragen.
+
+## Phase 4 — Backend Foundation
+
+- `server/index.js` modularisieren,
+- Dependencies korrigieren,
+- config validation,
+- error middleware,
+- health/readiness,
+- Tests.
+
+## Phase 5 — Auth / Workspaces / RBAC
+
+- echte Accounts,
+- Memberships,
+- serverseitige Autorisierung.
+
+## Phase 6 — Database / Persistence
+
+- Postgres,
+- migrations,
+- scan history,
+- findings/evidence,
+- audit events.
+
+## Phase 7 — Queue / Worker Runtime
+
+- async jobs,
+- retries,
+- timeout,
+- idempotency,
+- cancellation/failure states.
+
+## Phase 8 — Safe Fetcher / Crawler
+
+- SSRF,
+- redirect validation,
+- DNS/IP validation,
+- budgets,
+- ownership model für aktive Scans.
+
+## Phase 9 — Web Security Scanner
+
+- echte deterministische Checks.
+
+## Phase 10 — Privacy Browser Scanner
+
+- cookies/network/storage/consent evidence.
+
+## Phase 11 — Accessibility Scanner
+
+- echte Engine + evidence.
+
+## Phase 12 — AI Act / Governance Evidence
+
+- evidence + guided review + legal source mapping.
+
+## Phase 13 — Repository Scanner
+
+- dependencies,
+- advisories,
 - secrets,
-- findings.
+- SAST,
+- SBOM/config checks.
 
-## Milestone F — monitoring
+## Phase 14 — Asset Scanner
 
-Deliverables:
+- safe upload pipeline + echte Parser.
 
-- scheduled scans,
-- change detection,
-- notifications.
+## Phase 15 — Rule Engine
 
-## Milestone G — trust product
+- versionierte Rules.
 
-Deliverables:
+## Phase 16 — Scoring / Coverage
 
-- public Trust Center,
-- real badge,
-- publish controls.
+- transparentes Modell.
 
----
+## Phase 17 — AI Explanation Layer
 
-# 57. Questions we must continually ask ourselves
+- schema validated,
+- Evals,
+- prompt-injection safeguards.
 
-Before implementing any feature, answer these questions.
+## Phase 18 — Real Dashboard
 
-## Product truth
+- alle Mock-Zahlen entfernen.
 
-1. Is this feature real or only UI?
-2. What evidence proves the result?
-3. What happens when the scanner is uncertain?
-4. What happens when the scanner fails?
-5. Could this wording make a customer believe more was verified than actually was?
+## Phase 19 — Reports
 
-## Security
+- report from evidence.
 
-6. Does this feature process untrusted URLs/files/code?
-7. Can it access internal network resources?
-8. What authentication is required?
-9. What authorization is required?
-10. What is the abuse/cost risk?
+## Phase 20 — Trust Center / Badge
 
-## Data
+- only real state.
 
-11. What customer data is stored?
-12. For how long?
-13. Can the customer delete it?
-14. Which third parties receive it?
-15. Is sensitive data sent to an AI provider?
+## Phase 21 — Billing / Entitlements
 
-## Engineering
+- real payment provider.
 
-16. What is the API contract?
-17. What are the failure states?
-18. How is it tested?
-19. How is it monitored?
-20. How do we roll it back?
+## Phase 22 — Lead Generation
 
-## Commercial
+- real backend + privacy-safe consent.
 
-21. Which plan includes it?
-22. What measurable entitlement controls access?
-23. What does the feature cost us per use?
-24. Can a free user abuse it?
+## Phase 23 — Monitoring / Notifications
 
-## Compliance product quality
+- schedules + deduplicated alerts.
 
-25. Is the legal/reference mapping current?
-26. Is applicability actually known?
-27. Is the result deterministic or AI-generated?
-28. What confidence should be shown?
-29. Does it need human review?
-30. Can we reproduce the result later?
+## Phase 24 — Integrations
 
----
+- GitHub zuerst,
+- danach Slack/Jira/etc. nach Bedarf.
 
-# 58. Definition of Done for every scanner check
+## Phase 25 — AI Counsel
 
-A scanner check is not complete because text appears in the dashboard.
+- real workspace context.
 
-It is complete only when:
+## Phase 26 — Audit Hub / Policy Manager
 
-- [ ] stable rule ID exists,
-- [ ] rule version exists,
-- [ ] input evidence is defined,
-- [ ] applicability is defined,
-- [ ] detector implementation exists,
-- [ ] unit test exists,
-- [ ] positive fixture exists,
-- [ ] negative fixture exists,
-- [ ] severity rationale exists,
-- [ ] confidence logic exists,
-- [ ] remediation exists,
-- [ ] requirement mapping exists if relevant,
-- [ ] UI displays the evidence,
-- [ ] report displays the finding correctly,
-- [ ] failure/unknown state is defined.
+- erst nach stabilem Core.
 
----
+## Phase 27 — TrueSight Labs
 
-# 59. Definition of Done for every product feature
+- nur mit echten Modellen/Evals.
 
-A feature is complete only when:
+## Phase 28 — Security Hardening
 
-- [ ] backend exists if needed,
-- [ ] database exists if persistence is needed,
-- [ ] authorization exists,
-- [ ] loading state exists,
-- [ ] empty state exists,
-- [ ] error state exists,
-- [ ] tests exist,
-- [ ] analytics/monitoring are defined if needed,
-- [ ] mobile/responsive state is checked,
-- [ ] accessibility is checked,
-- [ ] product copy reflects real behavior,
-- [ ] documentation is updated.
+- threat model,
+- auth review,
+- tenant isolation,
+- upload review,
+- SSRF regression,
+- AI security.
 
----
+## Phase 29 — Full Test Matrix
 
-# 60. Immediate next implementation task
+- unit/integration/e2e/security/performance.
 
-The next engineering change after this document should be **GuardAI Core Stabilization**, not a new major feature.
+## Phase 30 — CI/CD
 
-Recommended first PR/change set:
+- protected quality gates.
 
-1. repository hygiene,
-2. `.gitignore`,
-3. server dependency repair,
-4. shared scan schema,
-5. API base URL configuration,
-6. `App.tsx` duplicate render cleanup,
-7. scan fallback removal,
-8. score fallback fix,
-9. dashboard null/empty state,
-10. basic tests for scan response mapping.
+## Phase 31 — Observability
 
-After that, build SSRF protection before exposing real URL scanning publicly.
+- logs/metrics/traces/alerts.
 
----
+## Phase 32 — Environments
 
-# 61. Final target
+- local/staging/prod.
 
-The finished GuardAI product should be able to answer every customer question with evidence.
+## Phase 33 — Deployment
 
-Instead of:
+- reproducible infrastructure.
 
-> "Our AI thinks your site is non-compliant."
+## Phase 34 — Domain / DNS / Mail
 
-GuardAI should be able to say:
+- production identities.
 
-> "During scan `S-123`, our browser observed request `R-44` to third-party domain `X` before any consent interaction. Rule `privacy.preconsent.third_party.v2` classified this as a high-priority privacy review item. Here is the captured evidence, the mapped requirement, the confidence level, and the remediation steps."
+## Phase 35 — Privacy / Data Governance
 
-That level of traceability is the standard we should build toward.
+- real data map + deletion/export.
+
+## Phase 36 — Legal Pages / Claims Review
+
+- Impressum/Privacy/Terms/Claims nach tatsächlichem System.
+
+## Phase 37 — Pricing / Packaging
+
+- limits auf reale Kosten/Value abbilden.
+
+## Phase 38 — Pre-Launch Security Review
+
+- P0/P1 schließen,
+- unabhängiger Review sobald sinnvoll.
+
+## Phase 39 — Staging Release
+
+- vollständige Testmatrix.
+
+## Phase 40 — Production Launch
+
+- kontrollierter Rollout.
+
+## Phase 41 — Launch Sequence
+
+```text
+Internal Alpha
+→ Private Beta
+→ Paid Beta
+→ Public Launch
+```
+
+## Phase 42 — Post-Launch Operating Loop
+
+Wöchentlich:
+
+- scan failures,
+- false positives,
+- security alerts,
+- queue health,
+- customer feedback,
+- AI costs,
+- billing failures,
+- rules needing updates.
+
+Monatlich:
+
+- rule/legal review,
+- dependency review,
+- restore spot-check,
+- FinOps review,
+- roadmap reprioritization.
 
 ---
 
-# 62. Master rule for the project
+# 43. Zero-to-Production Master Checklist
 
-**First make the scanner true. Then make it broad. Then make it enterprise.**
+Diese Liste ist der lineare Ablauf. Details stehen in den Phasen oben.
 
-The current repository already contains the product vision. Our next job is to replace each simulated promise with a real, testable, evidence-backed capability in the order defined above.
+## Foundation
+
+- [ ] 001 Master Guide aktuell
+- [ ] 002 Repo Inventory aktuell
+- [ ] 003 README korrekt
+- [ ] 004 `.gitignore` sicher
+- [ ] 005 Cache-Artefakte aus Git entfernt
+- [ ] 006 Secret Review abgeschlossen
+- [ ] 007 Node-Version festgelegt
+- [ ] 008 Package Manager festgelegt
+- [ ] 009 clean install dokumentiert
+- [ ] 010 lint/typecheck/build Scripts funktionieren
+- [ ] 011 erste CI Pipeline vorhanden
+
+## Core Application
+
+- [ ] 012 App Routing bereinigt
+- [ ] 013 duplicate renders entfernt
+- [ ] 014 Error Boundary
+- [ ] 015 API base URL konfigurierbar
+- [ ] 016 Shared Schemas
+- [ ] 017 Frontend/Backend category model identisch
+- [ ] 018 status model identisch
+- [ ] 019 Mock fallback aus Production Path entfernt
+- [ ] 020 Backend Dependencies vollständig
+- [ ] 021 Backend modularisiert
+- [ ] 022 Config startup validation
+- [ ] 023 Health/Readiness
+
+## Accounts / Data
+
+- [ ] 024 Auth
+- [ ] 025 E-Mail Verification
+- [ ] 026 Workspace
+- [ ] 027 RBAC
+- [ ] 028 Postgres
+- [ ] 029 Migrations
+- [ ] 030 Targets
+- [ ] 031 Scans
+- [ ] 032 Evidence
+- [ ] 033 Findings
+- [ ] 034 Audit Events
+- [ ] 035 Tenant Isolation Tests
+
+## Scan Runtime
+
+- [ ] 036 Queue
+- [ ] 037 Worker
+- [ ] 038 Retry/Timeout
+- [ ] 039 Idempotency
+- [ ] 040 Scan progress events
+- [ ] 041 Safe URL parser
+- [ ] 042 DNS/IP SSRF guard
+- [ ] 043 redirect guard
+- [ ] 044 crawler budgets
+- [ ] 045 ownership/authorization model
+
+## Scanner Engines
+
+- [ ] 046 HTTP/security scanner
+- [ ] 047 privacy browser worker
+- [ ] 048 consent flows
+- [ ] 049 accessibility engine
+- [ ] 050 AI evidence scanner
+- [ ] 051 GitHub auth/connection
+- [ ] 052 dependency scanner
+- [ ] 053 advisory mapping
+- [ ] 054 secret scanner
+- [ ] 055 SAST basis
+- [ ] 056 SBOM
+- [ ] 057 upload quarantine
+- [ ] 058 malware scan
+- [ ] 059 document parser limits
+
+## Intelligence / Evidence
+
+- [ ] 060 Rule Engine
+- [ ] 061 Rule Versioning
+- [ ] 062 Legal Source Registry
+- [ ] 063 Evidence Hashing
+- [ ] 064 Score Model
+- [ ] 065 Coverage Model
+- [ ] 066 AI Provider Adapter
+- [ ] 067 AI Schema Validation
+- [ ] 068 Prompt Injection Tests
+- [ ] 069 AI Eval Dataset
+
+## Product UI
+
+- [ ] 070 Dashboard real data
+- [ ] 071 Findings real data
+- [ ] 072 Evidence view
+- [ ] 073 remediation state
+- [ ] 074 re-scan
+- [ ] 075 history
+- [ ] 076 real scan progress
+- [ ] 077 reports
+- [ ] 078 Trust Center
+- [ ] 079 Badge
+
+## Monetization / Operations
+
+- [ ] 080 real checkout
+- [ ] 081 signed webhooks
+- [ ] 082 entitlements
+- [ ] 083 failed payment handling
+- [ ] 084 invoices/tax display reviewed
+- [ ] 085 lead capture real
+- [ ] 086 notifications
+- [ ] 087 monitoring schedules
+- [ ] 088 GitHub integration real
+
+## Quality / Security
+
+- [ ] 089 Unit Tests
+- [ ] 090 Integration Tests
+- [ ] 091 E2E Tests
+- [ ] 092 SSRF regression suite
+- [ ] 093 malicious upload suite
+- [ ] 094 tenant isolation suite
+- [ ] 095 billing webhook replay tests
+- [ ] 096 performance tests
+- [ ] 097 dependency scanning CI
+- [ ] 098 secret scanning CI
+- [ ] 099 security threat model review
+
+## Production Platform
+
+- [ ] 100 staging
+- [ ] 101 production database
+- [ ] 102 production storage
+- [ ] 103 queue/workers production
+- [ ] 104 secrets manager
+- [ ] 105 logs
+- [ ] 106 metrics
+- [ ] 107 alerts
+- [ ] 108 backups
+- [ ] 109 restore test
+- [ ] 110 RPO/RTO defined
+- [ ] 111 rollback tested
+
+## Customer-facing Launch
+
+- [ ] 112 production domain
+- [ ] 113 DNS/TLS
+- [ ] 114 SPF/DKIM/DMARC
+- [ ] 115 transactional email
+- [ ] 116 privacy policy matches system
+- [ ] 117 terms/AGB reviewed
+- [ ] 118 Impressum reviewed
+- [ ] 119 subprocessor list
+- [ ] 120 deletion/export works
+- [ ] 121 marketing claim review
+- [ ] 122 cross-browser/mobile test
+- [ ] 123 GuardAI accessibility test
+- [ ] 124 SEO/metadata
+- [ ] 125 support/security contact
+- [ ] 126 status/incident process
+- [ ] 127 staging sign-off
+- [ ] 128 internal alpha
+- [ ] 129 private beta
+- [ ] 130 paid beta
+- [ ] 131 public launch
+- [ ] 132 post-launch weekly operating loop active
+
+---
+
+# 44. Definition of Done für jedes Scanner-Finding
+
+Ein neues Finding ist nur fertig, wenn:
+
+- [ ] reale Evidence existiert,
+- [ ] Rule ID existiert,
+- [ ] Rule Version existiert,
+- [ ] Scanner Version gespeichert wird,
+- [ ] Severity definiert ist,
+- [ ] Confidence definiert ist,
+- [ ] Remediation existiert,
+- [ ] Coverage/Limitations klar sind,
+- [ ] keine erfundene Rechts-/Security-Aussage enthalten ist,
+- [ ] Unit Test existiert,
+- [ ] negativer Test existiert,
+- [ ] UI es korrekt darstellen kann,
+- [ ] Report es korrekt darstellen kann.
+
+---
+
+# 45. Definition of Done für jedes Produktfeature
+
+Ein Produktfeature ist nicht „fertig“, nur weil ein Button sichtbar ist.
+
+Fertig bedeutet:
+
+- [ ] UI,
+- [ ] Backend,
+- [ ] Datenmodell falls nötig,
+- [ ] Authorization,
+- [ ] Error States,
+- [ ] Loading/Empty States,
+- [ ] Audit/Logging falls relevant,
+- [ ] Tests,
+- [ ] Security Review,
+- [ ] Dokumentation,
+- [ ] Observability,
+- [ ] reale Production-Funktion.
+
+Mock-/Preview-Funktion muss ausdrücklich so gekennzeichnet sein.
+
+---
+
+# 46. GuardAI Product Claims Gate
+
+Vor jedem öffentlichen Text fragen wir:
+
+1. Können wir diese Aussage technisch beweisen?
+2. Welche Evidence erzeugt sie?
+3. Welche Limitation hat sie?
+4. Ist sie rechtlich/fachlich review-pflichtig?
+5. Könnte der Nutzer sie als Garantie verstehen?
+6. Ist die Aussage nach einem Scanner-Ausfall weiterhin korrekt?
+
+Wenn eine dieser Fragen nicht sauber beantwortet werden kann, wird die Formulierung abgeschwächt oder entfernt.
+
+---
+
+# 47. Regel für zukünftige Änderungen an dieser Anleitung
+
+Diese Datei ist absichtlich nicht eingefroren.
+
+Wir dürfen jederzeit:
+
+- neue Risiken ergänzen,
+- Phasen genauer machen,
+- eine Technologie austauschen,
+- Reihenfolgen anpassen,
+- Features verschieben,
+- neue Acceptance Criteria hinzufügen.
+
+Aber jede größere Änderung muss diese drei Fragen beantworten:
+
+1. **Warum ist die Änderung für GuardAI sinnvoll?**
+2. **Welche bestehende Phase/Architektur wird dadurch beeinflusst?**
+3. **Entsteht dadurch ein neues Security-, Legal-, Kosten- oder Betriebsrisiko?**
+
+---
+
+# 48. Aktueller nächster Schritt
+
+Wir beginnen jetzt mit **Phase 0 — Scope Freeze & Repository Hygiene**.
+
+Reihenfolge:
+
+```text
+1. Master Guide ✅
+2. README korrigieren
+3. .gitignore härten
+4. Phase-0-Tracker anlegen
+5. Repo-Bloat/Cache Removal vorbereiten
+6. Secrets/Config prüfen
+7. P0-Komponentenliste finalisieren
+8. danach Phase 1
+```
+
+Die Anleitung wird nach jedem größeren GuardAI-Meilenstein aktualisiert.
