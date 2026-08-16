@@ -1,8 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, Globe, LayoutDashboard, CreditCard, ShieldCheck, FileText, Zap, Settings, ChevronRight, ScanEye } from 'lucide-react';
+import type { ActiveTab } from '../types/navigation';
 
 interface CommandPaletteProps {
-  onNavigate: (tab: string) => void;
+  onNavigate: (tab: ActiveTab) => void;
+}
+
+interface CommandAction {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  tab: ActiveTab;
+  category: string;
 }
 
 export function CommandPalette({ onNavigate }: CommandPaletteProps) {
@@ -10,7 +19,6 @@ export function CommandPalette({ onNavigate }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Toggle with Cmd+K or Ctrl+K
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
@@ -26,7 +34,6 @@ export function CommandPalette({ onNavigate }: CommandPaletteProps) {
     return () => document.removeEventListener('keydown', down);
   }, []);
 
-  // Auto-focus input when opened
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => {
@@ -39,7 +46,7 @@ export function CommandPalette({ onNavigate }: CommandPaletteProps) {
 
   if (!isOpen) return null;
 
-  const actions = [
+  const actions: CommandAction[] = [
     { id: 'scanner', label: 'Neuen Scan starten', icon: <Search className="w-4 h-4" />, tab: 'scanner', category: 'Aktionen' },
     { id: 'dashboard', label: 'Dashboard öffnen', icon: <LayoutDashboard className="w-4 h-4" />, tab: 'dashboard', category: 'Navigation' },
     { id: 'pricing', label: 'Abrechnung & Upgrade', icon: <CreditCard className="w-4 h-4" />, tab: 'pricing', category: 'Einstellungen' },
@@ -53,23 +60,22 @@ export function CommandPalette({ onNavigate }: CommandPaletteProps) {
     { id: 'settings', label: 'Webhooks & API (Dev)', icon: <Settings className="w-4 h-4" />, tab: 'dashboard', category: 'Einstellungen' },
   ];
 
-  const filteredActions = actions.filter(action => 
-    action.label.toLowerCase().includes(query.toLowerCase())
+  const filteredActions = actions.filter((action) =>
+    action.label.toLowerCase().includes(query.toLowerCase()),
   );
 
-  const handleSelect = (tab: string) => {
+  const handleSelect = (tab: ActiveTab) => {
     onNavigate(tab);
     setIsOpen(false);
   };
 
   return (
     <>
-      <div 
-        className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 animate-in fade-in duration-200" 
+      <div
+        className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 animate-in fade-in duration-200"
         onClick={() => setIsOpen(false)}
       />
       <div className="fixed left-[50%] top-[20%] z-50 w-full max-w-2xl -translate-x-1/2 rounded-xl border bg-card shadow-2xl animate-in fade-in zoom-in-95 duration-200 overflow-hidden flex flex-col max-h-[60vh]">
-        
         <div className="flex items-center border-b px-3">
           <Search className="mr-2 h-5 w-5 shrink-0 text-muted-foreground" />
           <input
@@ -114,7 +120,7 @@ export function CommandPalette({ onNavigate }: CommandPaletteProps) {
             </div>
           )}
         </div>
-        
+
         <div className="border-t bg-muted/30 px-4 py-3 flex items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1"><Globe className="w-3 h-3" /> Navigation</span>
