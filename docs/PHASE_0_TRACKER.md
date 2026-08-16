@@ -2,64 +2,53 @@
 
 > Operational tracker for the first implementation phase of `docs/GUARDAI_MASTER_BUILD_GUIDE.md`.
 
-Status legend:
+## Status
 
-- `DONE` — implemented and checked
-- `IN PROGRESS` — actively being worked on
-- `BLOCKED` — needs another prerequisite/tooling decision
-- `TODO` — not started
+**PHASE 0: COMPLETE**
 
----
-
-## Phase 0 goal
-
-Create a clean, truthful and documented repository baseline before changing GuardAI's architecture.
-
-Phase 0 does **not** attempt to build the real scanner yet. It makes sure we know exactly what exists, what is mock-driven, what is unsafe and what each major file will become.
+Phase 0 establishes a clean, truthful and documented repository baseline before architectural changes.
 
 ---
 
-## Current status
+## Completed work
 
 | Task | Status | Notes |
 |---|---|---|
-| Upgrade master build guide | DONE | Expanded into GuardAI-specific living engineering bible |
-| Correct project README | DONE | Current prototype/rebuild state is now explicit; React version corrected |
-| Harden `.gitignore` | DONE | Secrets, runtime uploads, caches, coverage and test artifacts covered |
+| Upgrade master build guide | DONE | GuardAI-specific living engineering bible |
+| Correct project README | DONE | Prototype/rebuild state explicit; React version corrected |
+| Harden `.gitignore` | DONE | Secrets, uploads, caches, coverage and test artifacts covered |
 | Create Phase 0 tracker | DONE | This document |
 | Create dedicated repo inventory | DONE | `docs/REPO_INVENTORY.md` |
-| Freeze major component disposition | DONE | KEEP/REFACTOR/REPLACE/LATER/REMOVE decisions recorded |
-| Remove `.npm-cache/` from version control | DONE | Removed through verified Git tree cleanup |
-| Remove `npm_cache/` from version control | DONE | Removed through verified Git tree cleanup |
-| Inspect current tracked tree for secret/config risk | IN PROGRESS | No real `.env` is visible in root/server tree; automated/history scan still required |
-| Review environment/config files | IN PROGRESS | `server/.env.example` exists; production env contract expands in backend phase |
-| Review backend declared dependencies | DONE | Exact missing import/dependency list recorded in repo inventory |
-| Review duplicate/obsolete files | DONE FOR INVENTORY | Candidates frozen; actual code removal/refactor happens in Phase 2 |
-| Freeze P0/P1 engineering list | DONE | Master guide + this tracker contain initial blockers |
-| Establish repo size cleanup plan | DONE | Generated cache trees removed; ignore rules prevent recurrence |
-| Confirm no misleading production claims remain in repository docs | DONE | README corrected; UI claim remediation stays attached to implementation phases |
+| Freeze component disposition | DONE | KEEP/REFACTOR/REPLACE/LATER/REMOVE recorded |
+| Remove `.npm-cache/` | DONE | Removed from current Git tree after isolated verification |
+| Remove `npm_cache/` | DONE | Removed from current Git tree after isolated verification |
+| Review current tree for secret/config risk | DONE | No real `.env` found in current root/server tree |
+| Review relevant pre-rebuild history for obvious secrets | DONE | Backend-introduction commit contains only the documented placeholder `GEMINI_API_KEY=dein_api_key_hier`; targeted Google/private-key checks found no real key |
+| Review environment/config files | DONE FOR PHASE 0 | Current `.env.example` identified; validated production config belongs to backend phase |
+| Review backend declared dependencies | DONE | Exact missing dependency list recorded |
+| Review duplicate/obsolete files | DONE FOR INVENTORY | Actual refactor occurs in Phase 2 |
+| Freeze initial P0/P1 list | DONE | Master guide + tracker |
+| Repository bloat cleanup | DONE FOR KNOWN CACHE BLOAT | Generated npm cache trees removed and ignored |
+| Correct repository documentation claims | DONE | README now reflects actual implementation state |
 
 ---
 
-## Known P0 engineering blockers frozen for the rebuild
+## Important secret-review limitation
+
+The Phase 0 review is a **targeted manual repository/history review**, not a substitute for continuous automated detection. Phase 1 therefore adds secret scanning to CI. If a future automated scan finds a previously committed real credential, that credential must be revoked/rotated and the incident handled even if the file was later deleted.
+
+---
+
+## Frozen P0 engineering blockers
 
 ### P0-01 — Scanner data contract mismatch
-
-Frontend and backend currently use incompatible category/status shapes.
-
-**Target:** one shared validated contract used by both sides.
+Frontend and backend use incompatible category/status shapes.
 
 ### P0-02 — Production API configuration
-
-Frontend currently contains a hard-coded localhost API path.
-
-**Target:** validated environment/API client configuration.
+Frontend contains a hard-coded localhost API endpoint.
 
 ### P0-03 — Backend clean-install failure risk
-
-Backend imports are not fully represented by `server/package.json`.
-
-Current missing declarations used by `server/index.js`:
+`server/index.js` uses packages not declared in `server/package.json`:
 
 - `dotenv`
 - `cheerio`
@@ -70,116 +59,46 @@ Current missing declarations used by `server/index.js`:
 - `multer`
 - `pdf-parse`
 
-**Target:** a clean clone installs and starts without undeclared dependencies.
-
 ### P0-04 — SSRF exposure
+User-controlled URLs reach backend HTTP fetching without the required production-safe network boundary.
 
-User-controlled URLs can reach backend HTTP fetching.
-
-**Target:** safe fetcher with DNS/IP/redirect validation and automated tests before public scanning.
-
-### P0-05 — Unsafe/incomplete upload boundary
-
-UI limits are not sufficient when server-side enforcement is incomplete.
-
-**Target:** strict upload size/type handling, quarantine/storage policy and later malware scanning.
+### P0-05 — Upload boundary incomplete
+Server-side size/type/quarantine/malware controls are not production-ready.
 
 ### P0-06 — Mock results in production path
-
-Mock/fallback data can look like a real scan result.
-
-**Target:** mocks become explicit fixtures/demo mode only; production failure is shown as failure.
+Fallback/demo results can be mistaken for measured scan truth.
 
 ### P0-07 — Misleading product state
-
-Several components visually imply real monitoring, integrations, compliance verification, deepfake analysis, billing or document analysis while implementation is still simulated.
-
-**Target:** either implement a capability or mark/remove it from public production flows until real.
+Several UI surfaces visually imply real monitoring, integrations, compliance verification, deepfake analysis, billing or document analysis while still simulated.
 
 ### P0-08 — Tenant/auth foundation missing
-
-Current UI state is not a real multi-user SaaS security model.
-
-**Target:** authentication, organizations, roles and server-side authorization before customer data is trusted.
-
----
-
-## Phase 0 repository decisions
-
-### Keep and evolve
-
-- React/TypeScript frontend
-- Vite for the current MVP rebuild
-- Tailwind/component system
-- visual dashboard language
-- scan-progress visual concept
-- report visual concept
-- target input UX
-
-### Replace as source of truth
-
-- `src/data/mockScanEngine.ts`
-- local premium boolean/state
-- simulated checkout state
-- simulated integration state
-- random TrueSight classification
-- canned AI Counsel findings
-- hard-coded audit metrics
-- fixed Trust Center compliance state
-
-### Refactor
-
-- `src/App.tsx`
-- `src/types/scanner.ts`
-- `server/index.js`
-- API adapters
-- dashboard data access
-- report generation
-- lead generation
-
-### Post-MVP / Labs
-
-- full Audit Hub
-- Policy Manager enterprise depth
-- TrueSight production detector
-- on-prem appliance
-- SAML/SCIM
-- advanced document generation
+The current app does not yet have a real multi-user SaaS authorization model.
 
 ---
 
 ## Phase 0 exit criteria
 
-Phase 0 is complete only when:
-
-- [x] Master Guide reflects GuardAI rather than a generic SaaS.
-- [x] README describes the real current state.
+- [x] Master Guide is GuardAI-specific.
+- [x] README describes reality.
 - [x] `.gitignore` protects obvious local/secret/runtime artifacts.
-- [x] Major existing features have a KEEP/REFACTOR/REPLACE/LATER decision.
-- [x] Both committed npm cache directories are removed from version control.
-- [ ] Current tree + relevant history have been reviewed for accidentally committed secrets.
-- [x] Backend dependency mismatch is documented with an exact fix list.
-- [x] Repository bloat cleanup for known npm cache artifacts is complete.
-- [x] Initial static audit has no unclassified P0 blocker; newly discovered blockers are added here immediately.
+- [x] Major existing features have a disposition decision.
+- [x] Committed npm cache directories are removed from the current tree.
+- [x] Current tree and relevant early history received a targeted secret review.
+- [x] Backend dependency mismatch has an exact fix list.
+- [x] Known npm-cache repository bloat is cleaned up.
+- [x] Initial static audit has no unclassified P0 blocker.
 
 ---
 
-## Remaining Phase 0 item
+## Handoff to Phase 1
 
-The only required close-out item is the secret/history review. We will not claim this complete merely because `.env` is ignored now; previous commits must also be considered and automated secret scanning will become a permanent CI control.
+Phase 1 now establishes the reproducible development baseline:
 
----
-
-## Next after Phase 0
-
-Phase 1 establishes the development baseline:
-
-1. Node/package-manager version,
-2. reproducible install,
+1. Node/npm versions,
+2. clean-install contract,
 3. unified scripts,
-4. formatting/lint/typecheck rules,
+4. formatting/lint/typecheck standards,
 5. EditorConfig,
-6. contribution/PR rules,
-7. first CI quality gate.
-
-We do **not** jump directly into adding new scanner features before this baseline exists.
+6. contribution rules,
+7. CI quality gate,
+8. automated secret scanning.
