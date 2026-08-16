@@ -115,9 +115,10 @@ async function scanWebsite(targetUrl, options) {
 
   const categories = {};
   const notices = [];
+  const html = typeof response.data === 'string' ? response.data : null;
 
   if (options.security) {
-    categories.security = buildSecurityCategory(response.headers, finalUrl);
+    categories.security = buildSecurityCategory(response.headers, finalUrl, html);
   }
 
   if (options.wcag) {
@@ -125,10 +126,10 @@ async function scanWebsite(targetUrl, options) {
   }
 
   if (options.gdpr || options.aiAct) {
-    if (typeof response.data !== 'string') {
+    if (html === null) {
       notices.push('AI-assisted text screening was skipped because the target did not return parseable HTML text.');
     } else {
-      const extractedText = extractVisibleText(response.data);
+      const extractedText = extractVisibleText(html);
       const aiScreening = await runWebAiScreening(finalUrl, extractedText, options);
       Object.assign(categories, aiScreening.categories);
       notices.push(...aiScreening.notices);
