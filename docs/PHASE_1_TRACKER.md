@@ -12,24 +12,17 @@ CI currently runs on pull requests and manual dispatch to avoid a guaranteed fai
 
 ---
 
-## Goal
-
-Make GuardAI reproducible to install, consistent to edit and automatically checked before larger architecture work.
-
----
-
 ## Runtime baseline
 
 | Item | Decision |
 |---|---|
-| Node.js | `24.18.1` LTS baseline via `.nvmrc` |
+| Node.js | `24.18.1` LTS via `.nvmrc` |
 | Package manager | npm |
 | npm baseline | `11.16.0` |
-| Frontend framework | React 19 + TypeScript + Vite 8 |
+| Frontend | React 19 + TypeScript + Vite 8 |
 | Root lockfile | `package-lock.json` required |
-| Backend lockfile | must be regenerated after a real clean backend install |
-
-`package.json` permits compatible Node 24/npm 11 updates while `.nvmrc` defines the reproducible project/CI baseline.
+| Backend lockfile | regenerate after a verified clean backend install |
+| MVP persistence/auth | dedicated GuardAI Supabase/Postgres/Auth project; see ADR 0001 |
 
 ---
 
@@ -37,235 +30,172 @@ Make GuardAI reproducible to install, consistent to edit and automatically check
 
 | Task | Status | Notes |
 |---|---|---|
-| Pin Node runtime | DONE | `.nvmrc` |
-| Declare Node/npm compatibility | DONE | root `package.json` engines + packageManager |
-| Add dedicated typecheck command | DONE | `npm run typecheck` |
-| Add aggregate check command | DONE | `npm run check` |
-| Add EditorConfig | DONE | UTF-8/LF/2-space baseline |
-| Add contribution/development rules | DONE | `CONTRIBUTING.md` |
-| Add frontend env example | DONE | `VITE_API_BASE_URL`; `VITE_*` values are public |
-| Define backend env contract | DONE | `PORT`, `CORS_ORIGIN`, `GEMINI_API_KEY` documented |
-| Repair backend dependency declarations | DONE | all imports used by current server declared in `server/package.json` |
-| Remove stale backend lockfile | DONE | old lock described only axios/cors/express and was not truthful |
-| Regenerate backend lockfile | BLOCKED | requires a real clean install with the selected backend package set |
-| Add PR CI quality gate | DONE | root install/lint/typecheck/build |
-| Add automated history secret scan | DONE | Gitleaks with full history checkout |
-| Pin external Actions to immutable SHAs | DONE | checkout/setup-node/gitleaks |
-| Register workflow with GitHub Actions | DONE | GitHub reports `GuardAI CI` active |
-| Execute/observe first CI run | BLOCKED | jobs created, runner never assigned because of GitHub billing/spending state |
-| Confirm clean install | BLOCKED | needs working runner or equivalent clean environment |
-| Confirm lint/typecheck/build | BLOCKED | no runner step has executed yet |
-| Review TypeScript strictness | WAITING | do not enable blindly before baseline build runs |
-| Review oxlint rules | IN PROGRESS | existing React hook protection remains |
-| README runtime setup | DONE | Node/npm/CI status documented |
+| Runtime/package-manager baseline | DONE | `.nvmrc`, root package metadata |
+| Typecheck/check scripts | DONE | root quality commands |
+| Editor/contribution rules | DONE | `.editorconfig`, `CONTRIBUTING.md` |
+| Frontend env contract | DONE | `VITE_API_BASE_URL` |
+| Backend env contract | DONE | PORT/CORS/Gemini/fail-safe AI gate |
+| Backend dependency declarations | DONE | active runtime imports declared |
+| Stale backend lockfile removal | DONE | regeneration still BLOCKED pending clean install |
+| PR CI quality gate | DONE | install/lint/typecheck/build |
+| History secret scan | DONE | Gitleaks configured |
+| Immutable Action SHAs | DONE | external Actions pinned |
+| First CI execution | BLOCKED | no runner assigned because of GitHub billing/spending state |
+| Clean install/build verification | BLOCKED | no executable clean environment yet |
+| TypeScript strictness review | WAITING | after real baseline build |
+| Oxlint hardening | IN PROGRESS | current hook correctness remains enabled |
 
 ---
 
-## Safe implementation progress while CI is externally blocked
+## Frontend integrity work completed
 
-We continue only on already-confirmed GuardAI defects, keep the changes narrow, and explicitly mark runtime validation as pending.
+- [x] duplicate main-view rendering removed
+- [x] central `ActiveTab` typing; central navigation `as any` removed
+- [x] global `AppErrorBoundary`
+- [x] root bootstrap validation
+- [x] preview definitions extracted from `App.tsx`
+- [x] unsupported product surfaces isolated behind `FeaturePreview`
+- [x] active scanner uses `src/api/scanApi.ts`
+- [x] `VITE_API_BASE_URL` instead of mandatory hardcoded production URL
+- [x] typed scan options from UI to API
+- [x] Security/Privacy/AI-Governance selector restored truthfully
+- [x] Accessibility visible but disabled until real browser/axe scanner
+- [x] API/network failures remain failures; no fake result fallback
+- [x] backend coverage notices shown in UI
+- [x] fake timed crawler/SAST/DAST progress removed
+- [x] evidence-first result dashboard
+- [x] no fake industry benchmark in active result path
+- [x] no automatic `fully compliant` / `no vulnerabilities` wording
+- [x] technical report replaces verification-authority report in active runtime
 
-### Frontend shell
+---
 
-- [x] duplicate main-view rendering removed from `App.tsx`
-- [x] canonical `ActiveTab` type created
-- [x] App/Navbar/CommandPalette navigation path no longer depends on central `as any`
-- [x] global `AppErrorBoundary` added
-- [x] root element is validated before React bootstrap
-- [x] preview feature definitions moved out of the growing App component
-- [x] unverified ISO/DSGVO/AI-Act-ready claims removed from global footer
-- [x] visible product state identifies GuardAI as prototype/rebuild
+## Backend integrity/security work completed
 
-### Scan request lifecycle
+### Honest scanner behavior
 
-- [x] `src/api/scanApi.ts` is used by the active scan path
-- [x] API base is configurable through `VITE_API_BASE_URL`
-- [x] typed `ScanOptions` travel from UI to API
-- [x] Security, Privacy and AI-Governance module selection is visible in the active scanner
-- [x] Accessibility remains disabled until a real browser/axe scanner exists
-- [x] backend `privacy` → frontend `gdpr` and `aiAct` → `ai-act` normalization added
-- [x] score zero is preserved; no `score || 100` behavior in the active adapter
-- [x] API/network failure throws a real scan error instead of generating a fake result
-- [x] backend coverage notices are displayed to the user
-- [x] actual client request duration is measured instead of hardcoded `1500ms`
+- [x] requested modules enforced server-side
+- [x] no fake Accessibility score
+- [x] old fabricated GitHub repository scoring disabled with HTTP 501
+- [x] AI output schema validation
+- [x] arbitrary AI-provided scores ignored
+- [x] untrusted webpage/document prompt boundaries
+- [x] explicit server-side Gemini key configuration
+- [x] AI-assisted anonymous cost paths disabled by default
+- [x] file upload is rejected in the Multer filter before disk write when anonymous AI is disabled
 
-### Scan UX / result integrity
+### Target/network safety
 
-- [x] fake timed Deep-Crawler/SAST/DAST/registry progress removed
-- [x] progress is indeterminate until real backend job events exist
-- [x] landing/hero no longer promise automatic legal review, certification or guaranteed fine avoidance
-- [x] unsupported image analysis removed from active upload UI; PDF/TXT boundary is explicit
-- [x] active result screen uses evidence-first `ScanResultsDashboard`
-- [x] missing check coverage displays `Nicht bewertet` rather than 100%
-- [x] fake industry benchmark removed from active result view
-- [x] `vollständig konform / keine Sicherheitslücken` wording removed from active path
-
-### Backend truthfulness / request safety
-
-- [x] scan options are validated server-side and control which modules run
-- [x] Accessibility no longer receives a fake score when no Accessibility scanner exists
-- [x] old GitHub repository scan with fabricated 90/100 categories is disabled with HTTP 501
-- [x] AI-provided JSON is schema-validated before inclusion
-- [x] AI-provided arbitrary scores are ignored; current screening score is deterministic from validated issue severity
-- [x] webpage/document content is explicitly treated as untrusted prompt data
-- [x] Gemini client receives the server-side API key explicitly when configured
-- [x] CORS origin is environment-controlled instead of universally permissive
-- [x] `X-Powered-By` is disabled
-- [x] target URL rejects credentials and nonstandard ports
-- [x] loopback/private/link-local/reserved IPv4/IPv6 targets are blocked
-- [x] every redirect target is validated before following
-- [x] Axios auto-redirects and proxy environment routing are disabled for scanner fetches
-- [x] socket-level DNS lookup validates resolved IPs before connection to reduce DNS-rebinding risk
-- [x] target-safety rules moved into `server/lib/targetSafety.js`
-- [x] Node regression tests added for URL/IP/DNS safety rules
+- [x] HTTP/HTTPS only
+- [x] embedded URL credentials rejected
+- [x] nonstandard target ports rejected
+- [x] private/loopback/link-local/reserved IPv4 blocked
+- [x] ULA/link-local/documentation/multicast/mapped IPv6 blocked conservatively
+- [x] every redirect target revalidated
+- [x] Axios auto-redirects disabled
+- [x] environment proxy routing disabled for scanner requests
+- [x] socket-level DNS lookup validates addresses before connection
+- [x] target-safety module extracted
+- [x] Node regression tests added for URL/IP/DNS/socket lookup rules
 
 ### Upload boundary
 
-- [x] server enforces one file, maximum 10 MB
-- [x] only PDF/TXT accepted in current path
-- [x] extension + MIME boundary enforced before processing
-- [x] PDF magic signature checked
-- [x] binary/null-byte TXT input rejected
-- [x] temporary files cleaned in `finally`
-- [x] image/presentation mock extraction removed
-- [x] fake 100% web categories removed from file results
-- [ ] malware/quarantine scanner remains a later production requirement
-- [ ] parser isolation/resource limits need deeper hardening before arbitrary public document processing
-
-### Legacy feature isolation
-
-The design prototypes remain in Git but are no longer executed from the main App runtime for normal navigation:
-
-- User Dashboard
-- Audit Hub
-- Badge Generator
-- simulated Pricing/Checkout
-- AI Counsel
-- Public Trust Center
-- Smart Docs
-- Templates Hub
-- Integrations Hub
-- Policy Manager
-- TrueSight
-
-Navigation displays an explicit `FeaturePreview` boundary describing what must exist before each module becomes production functionality.
-
-### Report
-
-- [x] old verification-authority report removed from active runtime
-- [x] `TechnicalScanReport` renders from the current `ScanResult`
-- [x] report states automated technical-screening limitations
-- [x] no official certification claim
+- [x] one file, max 10 MB
+- [x] PDF/TXT only in current path
+- [x] extension + MIME boundary
+- [x] PDF magic signature check
+- [x] binary/null-byte TXT rejection
+- [x] cleanup in `finally`
+- [x] old image/presentation mock extraction removed
+- [ ] malware quarantine remains required before broad public uploads
+- [ ] stronger parser isolation/resource controls remain required
 
 ---
 
-## Remaining high-priority blockers before public scanner exposure
+## API contract progress
 
-1. **Authentication / quotas:** scan endpoints remain unauthenticated and can currently trigger paid AI usage.
-2. **Backend install validation:** selected package set and new backend lockfile have not yet been installed/regenerated in a clean environment.
-3. **Executable security tests:** target-safety tests exist but have not run in the blocked CI environment.
-4. **Canonical shared contract:** frontend/backend still normalize across two shapes instead of importing one versioned schema.
-5. **Server decomposition:** `server/index.js` is still too broad and must be split into app/routes/middleware/services/scanners.
-6. **Persistent jobs:** scans are still synchronous request/response operations.
+- [x] shared metadata source: `shared/scan-contract.json`
+- [x] current contract version: `0.1.0`
+- [x] frontend rejects incompatible contract versions
+- [x] backend validates successful scan responses before sending
+- [x] backend injects contract version centrally
+- [x] contract regression tests added
+- [ ] legacy frontend `ScanResult` still needs replacement with a model that represents `not_assessed` natively
+- [ ] error envelope/versioning still needs canonicalization
+- [ ] final `/api/v1/...` public API shape remains to be introduced before external API release
 
 ---
 
-## Important validation status
+## Persistence/Auth architecture decision
 
-All implementation work above is **statically reviewed but not yet clean-build/runtime-verified** because GitHub has not provided a runner. We intentionally do not claim:
+ADR: `docs/adr/0001-dedicated-supabase-postgres-auth.md`
+
+Decision:
+
+- dedicated GuardAI Supabase project,
+- do not reuse the existing connected multi-application Supabase database,
+- Postgres + Supabase Auth for MVP,
+- RLS as defense in depth on exposed tenant data,
+- server-side organization authorization remains mandatory,
+- no service-role/secret key in browser code,
+- real cloud provisioning deferred until the dedicated project is explicitly created.
+
+---
+
+## Remaining high-priority blockers
+
+1. **Real authentication/authorization:** temporary AI cost gate is safe-by-default but is not user auth.
+2. **Durable usage quotas/entitlements:** memory IP rate limiting is not a billing/security boundary.
+3. **Backend install verification:** package set + new lockfile need a clean install.
+4. **Executable tests:** new Node tests exist but have not run in blocked CI.
+5. **Contract model migration:** replace legacy frontend status/benchmark fields with native coverage/detector states.
+6. **Server decomposition:** `server/index.js` remains too broad.
+7. **Persistent scans/jobs:** request/response scanning must become DB + queue + workers.
+
+---
+
+## Validation status
+
+Do **not** claim any of the following until they actually execute:
 
 ```text
 npm ci passes
-backend npm install passes
+backend install passes
 lint passes
 typecheck passes
-build passes
+frontend build passes
 backend tests pass
 ```
 
-until they actually execute.
-
----
-
-## First CI attempt
-
-Both jobs were created but never started:
-
-```text
-Frontend quality → failure before runner start
-Secret scan     → failure before runner start
-runner_id       → 0
-steps           → []
-```
-
-GitHub annotation:
-
-```text
-The job was not started because recent account payments have failed
-or your spending limit needs to be increased.
-```
-
----
-
-## CI design
-
-Current workflow: `.github/workflows/ci.yml`
-
-Triggers:
-
-- pull request,
-- manual workflow dispatch.
-
-Frontend quality:
-
-```text
-checkout
-→ Node from .nvmrc
-→ npm ci
-→ npm run lint
-→ npm run typecheck
-→ npm run build
-```
-
-Secret scan:
-
-```text
-full Git history checkout
-→ Gitleaks
-```
-
-Backend install/check/test is added to CI once the backend lockfile is regenerated from a verified clean install.
+The first GitHub Actions run had `runner_id = 0` and `steps = []` because GitHub blocked runner allocation for account billing/spending reasons.
 
 ---
 
 ## Phase 1 exit criteria
 
-- [x] Runtime pinned/documented.
-- [x] Package manager defined.
-- [x] Editor conventions exist.
-- [x] Contribution rules exist.
-- [x] CI quality workflow exists and is registered.
-- [x] Automated secret scanning configured.
-- [x] Current backend runtime imports are declared.
-- [x] Initial scanner target-safety test suite exists.
-- [ ] GitHub runner access restored or equivalent clean execution environment available.
-- [ ] Root clean environment executes `npm ci` successfully.
-- [ ] Backend dependency install is verified and lockfile regenerated.
-- [ ] Lint green.
-- [ ] Typecheck green.
-- [ ] Production frontend build green.
-- [ ] Backend syntax/tests green.
-- [ ] Genuine baseline failures fixed rather than suppressed.
+- [x] runtime/package baseline documented
+- [x] editor/contribution rules
+- [x] CI workflow registered
+- [x] secret scanning configured
+- [x] backend imports declared
+- [x] target safety tests exist
+- [x] versioned scan response boundary exists
+- [x] dedicated persistence/auth architecture chosen
+- [ ] GitHub runner or equivalent clean environment available
+- [ ] root `npm ci` verified
+- [ ] backend install + lockfile verified
+- [ ] lint/typecheck/build verified
+- [ ] backend syntax/tests verified
 
 ---
 
 ## Next implementation order
 
-While CI remains externally blocked, continue only with isolated fixes to confirmed P0 risks:
+While CI remains externally blocked:
 
-1. protect paid/expensive scan paths with an explicit server-side access/usage boundary,
-2. introduce canonical scanner response schemas,
-3. split backend responsibilities without changing behavior,
-4. prepare job/persistence architecture.
+1. decompose backend without changing intended behavior,
+2. design the dedicated GuardAI database/RLS schema in-repo,
+3. replace temporary access gate with real Auth/organization/entitlement design,
+4. prepare persistent scan/job lifecycle.
 
-When runner access returns, validation takes priority over additional feature work.
+When an executable clean environment returns, validation takes priority immediately.
