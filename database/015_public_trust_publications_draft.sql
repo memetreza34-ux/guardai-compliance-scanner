@@ -20,6 +20,7 @@ create table public.trust_publications (
   status public.guardai_trust_publication_status not null default 'published',
   created_by uuid not null references auth.users(id),
   published_at timestamptz not null default now(),
+  revoked_by uuid references auth.users(id),
   revoked_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -37,8 +38,8 @@ create table public.trust_publications (
     check (char_length(btrim(organization_name_snapshot)) between 1 and 160),
   constraint trust_publications_revocation_state
     check (
-      (status = 'published' and revoked_at is null)
-      or (status = 'revoked' and revoked_at is not null)
+      (status = 'published' and revoked_at is null and revoked_by is null)
+      or (status = 'revoked' and revoked_at is not null and revoked_by is not null)
     )
 );
 
@@ -80,5 +81,60 @@ $$;
 create trigger trust_publications_identity_immutable
 before update on public.trust_publications
 for each row execute function private.guardai_protect_trust_publication_identity();
+
+create trigger trust_publications_set_updated_at
+before update on public.trust_publications
+for each row execute function private.set_updated_at();
+
+create or replace function private.guardai_audit_trust_publication()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if tg_op = 'INSERT' then
+    insert into public.audit_events (
+      organization_id, actor_id, action, target_type, target_id, metadata
+    ) values (
+      new.organization_id,
+      new.created_by,
+      'trust.publication_published',
+      'trust_publication',
+      new.id::text,
+      jsonb_build_object(
+        'reportSnapshotId', new.report_snapshot_id,
+        'targetId', new.target_id
+      )
+    );
+    return new;
+  end if;
+
+  if old.status = 'published' and new.status = 'revoked' then
+    insert into public.audit_events (
+      organization_id, actor_id, action, target_type, target_id, metadata
+    ) values (
+      new.organization_id,
+      new.revoked_by,
+      'trust.publication_revoked',
+      'trust_publication',
+      new.id::text,
+      jsonb_build_object(
+        'reportSnapshotId', new.report_snapshot_id,
+        'targetId', new.target_id
+      )
+    );
+  end if;
+  return new;
+end;
+$$;
+
+create trigger trust_publications_audit_insert
+after insert on public.trust_publications
+for each row execute function private.guardai_audit_trust_publication();
+
+create trigger trust_publications_audit_revoke
+after update of status on public.trust_publications
+for each row execute function private.guardai_audit_trust_publication();
 
 commit;
