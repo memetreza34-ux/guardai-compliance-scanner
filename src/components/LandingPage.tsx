@@ -1,192 +1,205 @@
 import { useState } from 'react';
+import {
+  AlertTriangle,
+  Bot,
+  ChevronDown,
+  Eye,
+  FileSearch,
+  GitBranch,
+  Lock,
+  SearchCheck,
+  ShieldCheck,
+} from 'lucide-react';
 import { UrlInputHero } from './UrlInputHero';
-import { ShieldAlert, AlertTriangle, ServerCrash, Eye, Bot, FileCheck, Lock, Sparkles, ChevronDown, Building2 } from 'lucide-react';
+import type { ScanOptions } from '../types/scanOptions';
 
 interface LandingPageProps {
-  onStartScan: (url: string | File, options: any) => void;
+  onStartScan: (target: string | File, options: ScanOptions) => void | Promise<void>;
   isScanning: boolean;
 }
 
 function FaqItem({ question, answer }: { question: string; answer: string }) {
   const [open, setOpen] = useState(false);
+
   return (
     <div className="border-b border-border last:border-0">
       <button
-        onClick={() => setOpen(!open)}
+        type="button"
+        onClick={() => setOpen((value) => !value)}
         className="w-full flex items-center justify-between py-5 text-left group"
+        aria-expanded={open}
       >
         <span className="font-semibold text-base group-hover:text-primary transition-colors">{question}</span>
-        <ChevronDown className={`w-5 h-5 text-muted-foreground shrink-0 transition-transform duration-300 ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown
+          className={`w-5 h-5 text-muted-foreground shrink-0 transition-transform duration-300 ${open ? 'rotate-180' : ''}`}
+        />
       </button>
-      <div
-        className="overflow-hidden transition-all duration-300"
-        style={{ maxHeight: open ? '200px' : '0', opacity: open ? 1 : 0 }}
-      >
-        <p className="pb-5 text-muted-foreground text-sm leading-relaxed">{answer}</p>
+      <div className={`grid transition-all duration-300 ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+        <div className="overflow-hidden">
+          <p className="pb-5 text-muted-foreground text-sm leading-relaxed">{answer}</p>
+        </div>
       </div>
     </div>
   );
 }
 
 export function LandingPage({ onStartScan, isScanning }: LandingPageProps) {
+  const featureCards = [
+    {
+      icon: Lock,
+      title: 'Security Evidence',
+      description: 'Technische Hinweise aus tatsächlich ausgeführten Security-Checks statt pauschaler Sicherheitsversprechen.',
+    },
+    {
+      icon: SearchCheck,
+      title: 'Privacy Evidence',
+      description: 'Der Ausbau zielt auf beobachtbare Cookies, Requests, Storage und Consent-Verhalten im Browser.',
+    },
+    {
+      icon: Eye,
+      title: 'Accessibility',
+      description: 'Automatisierte Accessibility-Checks werden als Teilabdeckung dargestellt und nicht mit manueller Prüfung verwechselt.',
+    },
+    {
+      icon: Bot,
+      title: 'AI Governance',
+      description: 'AI-bezogene Evidenz und geführte Prüfung statt automatischer Behauptung vollständiger EU-AI-Act-Konformität.',
+    },
+    {
+      icon: GitBranch,
+      title: 'Repository Analysis',
+      description: 'Geplant sind nachvollziehbare Dependency-, Secret-, SAST- und Supply-Chain-Findings mit Datei- und Versionsbezug.',
+    },
+    {
+      icon: FileSearch,
+      title: 'Evidence-first Reports',
+      description: 'Berichte sollen aus gespeicherten Findings, Evidence und Scanner-Versionen entstehen — nicht aus statischen Demo-Texten.',
+    },
+  ];
+
   return (
-    <div className="animate-in fade-in duration-700">
-      {/* 1. Hero Section with Scanner */}
+    <div className="animate-in fade-in duration-500">
       <UrlInputHero onStartScan={onStartScan} isScanning={isScanning} />
 
-      {/* 2. How it works / Intro (Einleitung) */}
-      <div className="py-16 bg-muted/30 border-y border-border">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-2xl md:text-3xl font-bold mb-4">In 3 einfachen Schritten zur Compliance</h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
-              Unser System nimmt dir die manuelle rechtliche Prüfung ab. Vollautomatisiert und immer auf dem neuesten Stand der Gesetze.
-            </p>
-          </div>
-          
-          <div className="grid md:grid-cols-3 gap-8 text-center max-w-4xl mx-auto">
-            <div className="flex flex-col items-center">
-              <div className="w-12 h-12 bg-primary/10 text-primary rounded-full flex items-center justify-center font-bold text-xl mb-4">1</div>
-              <h3 className="font-bold mb-2">URL eingeben</h3>
-              <p className="text-sm text-muted-foreground">Gib einfach die Domain deiner App oder Website in den Scanner ein. Keine Code-Integration nötig.</p>
+      <section className="py-14 border-y border-border bg-muted/20">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="rounded-2xl border bg-card/50 p-6">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-4">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <h2 className="font-bold text-lg">1. Target erfassen</h2>
+              <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+                Website, Repository oder unterstützte Datei auswählen. GuardAI trennt künftig unterschiedliche Scanner-Pipelines sauber voneinander.
+              </p>
             </div>
-            <div className="flex flex-col items-center">
-              <div className="w-12 h-12 bg-primary/10 text-primary rounded-full flex items-center justify-center font-bold text-xl mb-4">2</div>
-              <h3 className="font-bold mb-2">KI-Analyse läuft</h3>
-              <p className="text-sm text-muted-foreground">Unsere autonomen Agenten prüfen DSGVO, AI Act, ESG & mehr in Echtzeit.</p>
+
+            <div className="rounded-2xl border bg-card/50 p-6">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-4">
+                <SearchCheck className="w-5 h-5" />
+              </div>
+              <h2 className="font-bold text-lg">2. Technische Checks ausführen</h2>
+              <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+                Nur ausgeführte Detectoren zählen. Fehlende Checks werden als nicht bewertet angezeigt und nicht künstlich als bestanden gewertet.
+              </p>
             </div>
-            <div className="flex flex-col items-center">
-              <div className="w-12 h-12 bg-primary/10 text-primary rounded-full flex items-center justify-center font-bold text-xl mb-4">3</div>
-              <h3 className="font-bold mb-2">Report & Zertifikat</h3>
-              <p className="text-sm text-muted-foreground">Erhalte 1-Click Fixes für Fehler und ein Trust-Badge für deine konforme Seite.</p>
+
+            <div className="rounded-2xl border bg-card/50 p-6">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-4">
+                <FileSearch className="w-5 h-5" />
+              </div>
+              <h2 className="font-bold text-lg">3. Findings nachvollziehen</h2>
+              <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+                Zielbild sind Findings mit Evidence, Severity, Confidence, Rule-Version und Remediation statt einer nicht erklärbaren Ampel.
+              </p>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* 3. Features Deep Dive */}
-      <div className="py-24 max-w-7xl mx-auto px-4">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-5xl font-extrabold mb-4">Was unsere Engine erkennt.</h2>
-          <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-            GuardAI kombiniert rechtliches Fachwissen mit autonomer KI-Analyse. Keine Checkliste – ein lebendes System.
+      <section className="py-20 max-w-7xl mx-auto px-4">
+        <div className="max-w-3xl mb-12">
+          <p className="text-sm font-semibold text-primary uppercase tracking-wider">GuardAI Product Direction</p>
+          <h2 className="text-3xl md:text-4xl font-extrabold mt-3">Was wir aus dem Prototype bauen</h2>
+          <p className="text-muted-foreground mt-4 text-lg leading-relaxed">
+            Die Oberfläche ist bereits weit entwickelt. Jetzt wird jede wichtige Produktfläche schrittweise mit echter Scanner-Technik,
+            Backend-Zustand, Security, Persistenz und Tests verbunden.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[
-            { icon: <Eye className="w-6 h-6" />, title: 'Dark Pattern Erkennung', desc: 'Identifiziert irreführende UI-Muster wie manipulative Cookie-Banner, Hidden Costs und Trick Questions.', color: 'text-violet-500', bg: 'bg-violet-500/10', border: 'border-violet-500/20' },
-            { icon: <Lock className="w-6 h-6" />, title: 'DSGVO & Cookie Scanner', desc: 'Prüft Cookie-Consent-Flows, Datenschutzerklärungen, Auftragsverarbeitungsverträge und Third-Party Tracker.', color: 'text-blue-500', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
-            { icon: <Bot className="w-6 h-6" />, title: 'EU AI Act Compliance', desc: 'Erkennt fehlende KI-Transparenzpflichten (Art. 50), Risikoklassifizierung und Dokumentationslücken.', color: 'text-cyan-500', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20' },
-            { icon: <ShieldAlert className="w-6 h-6" />, title: 'Security Audit (OWASP)', desc: 'Scannt auf XSS, SQL Injection, veraltete Libraries, unsichere HTTP-Header und Prototype Pollution.', color: 'text-rose-500', bg: 'bg-rose-500/10', border: 'border-rose-500/20' },
-            { icon: <FileCheck className="w-6 h-6" />, title: 'Barrierefreiheit (WCAG)', desc: 'Prüft Kontrastverhältnisse, ARIA-Labels, Keyboard-Navigation und Screen-Reader-Kompatibilität.', color: 'text-emerald-500', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
-            { icon: <Sparkles className="w-6 h-6" />, title: 'ESG & Nachhaltigkeitsreport', desc: 'Bewertet CO₂-Fußabdruck, Green Hosting, CSRD-Berichtspflichten und nachhaltige UX-Praktiken.', color: 'text-amber-500', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
-          ].map((feature, i) => (
-            <div key={i} className={`${feature.bg} border ${feature.border} p-8 rounded-2xl hover:scale-[1.02] transition-transform duration-300`}>
-              <div className={`w-12 h-12 ${feature.bg} ${feature.color} rounded-xl flex items-center justify-center mb-6`}>
-                {feature.icon}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {featureCards.map(({ icon: Icon, title, description }) => (
+            <div key={title} className="rounded-2xl border bg-card/40 p-6 hover:bg-card/70 transition-colors">
+              <div className="w-11 h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                <Icon className="w-5 h-5" />
               </div>
-              <h3 className="text-lg font-bold mb-3">{feature.title}</h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">{feature.desc}</p>
+              <h3 className="font-bold text-lg mt-5">{title}</h3>
+              <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{description}</p>
             </div>
           ))}
         </div>
-      </div>
+      </section>
 
-      {/* 4. The "Pain" / Fear Section */}
-      <div className="py-24 bg-muted/30 border-y border-border">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-5xl font-extrabold mb-4">Warum ein manuelles Audit nicht mehr reicht.</h2>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              Abmahnwellen durch den neuen EU AI Act und automatisierte DSGVO-Crawler bedrohen ungesicherte Webanwendungen.
+      <section className="py-16 bg-muted/20 border-y border-border">
+        <div className="max-w-5xl mx-auto px-4 grid lg:grid-cols-[1.1fr_0.9fr] gap-10 items-start">
+          <div>
+            <p className="text-sm font-semibold text-primary uppercase tracking-wider">Aktueller Status</p>
+            <h2 className="text-3xl font-extrabold mt-3">Prototype mit aktivem Production-Rebuild</h2>
+            <p className="text-muted-foreground mt-4 leading-relaxed">
+              GuardAI ist noch keine fertige Compliance-Plattform. Einige bestehende Module sind Demo-/Preview-Flächen und werden erst dann
+              als reale Produktfunktion behandelt, wenn Backend, Datenmodell, Tests und Security dazu existieren.
             </p>
-          </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="bg-destructive/5 border border-destructive/20 p-8 rounded-2xl">
-              <div className="w-12 h-12 bg-destructive/10 text-destructive rounded-xl flex items-center justify-center mb-6">
-                <ShieldAlert className="w-6 h-6" />
+            <div className="mt-6 rounded-xl border border-amber-500/25 bg-amber-500/10 p-4 flex gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold">Keine Rechts- oder Sicherheitsgarantie</p>
+                <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                  Automatisierte technische Checks können Risiken sichtbar machen, ersetzen aber weder eine vollständige manuelle Prüfung noch Rechtsberatung oder einen Penetrationstest.
+                </p>
               </div>
-              <h3 className="text-xl font-bold mb-3">EU AI Act Strafen</h3>
-              <p className="text-muted-foreground">
-                Fehlende Transparenz bei KI-Systemen (Art. 50) kann Strafen von bis zu 35 Millionen Euro oder 7% des weltweiten Jahresumsatzes nach sich ziehen.
-              </p>
-            </div>
-
-            <div className="bg-orange-500/5 border border-orange-500/20 p-8 rounded-2xl">
-              <div className="w-12 h-12 bg-orange-500/10 text-orange-500 rounded-xl flex items-center justify-center mb-6">
-                <AlertTriangle className="w-6 h-6" />
-              </div>
-              <h3 className="text-xl font-bold mb-3">Abmahnwellen</h3>
-              <p className="text-muted-foreground">
-                Automatisierte Kanzlei-Bots scannen massenhaft nach fehlenden Kündigungsbuttons (BGB) und fehlerhaften Cookie-Bannern.
-              </p>
-            </div>
-
-            <div className="bg-emerald-500/5 border border-emerald-500/20 p-8 rounded-2xl">
-              <div className="w-12 h-12 bg-emerald-500/10 text-emerald-500 rounded-xl flex items-center justify-center mb-6">
-                <ServerCrash className="w-6 h-6" />
-              </div>
-              <h3 className="text-xl font-bold mb-3">Supply-Chain Attacks</h3>
-              <p className="text-muted-foreground">
-                Veraltete Frontend-Libraries (React, jQuery) sind das Haupteinfallstor für XSS und Prototype Pollution in SaaS-Plattformen.
-              </p>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* 5. Social Proof / Logos */}
-      <div className="py-12 border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-          <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-8">
-            Vertraut von Legal-Teams und Agenturen weltweit
-          </p>
-          <div className="flex flex-wrap justify-center gap-8 md:gap-16 opacity-50 grayscale">
-            <div className="flex items-center gap-2 font-bold text-xl"><Building2 className="w-6 h-6" /> Acme Corp</div>
-            <div className="flex items-center gap-2 font-black text-xl tracking-tighter">TECH<span className="text-primary">GUARD</span></div>
-            <div className="flex items-center gap-2 font-serif text-xl font-bold italic">Lex Consult</div>
-            <div className="flex items-center gap-2 font-mono text-xl">./sec_ops</div>
-            <div className="flex items-center gap-2 font-bold text-xl tracking-wide">DATA<span className="text-emerald-500">SHIELD</span></div>
+          <div className="rounded-2xl border bg-card p-6">
+            <h3 className="font-bold">Was im Rebuild priorisiert wird</h3>
+            <ul className="mt-4 space-y-3 text-sm text-muted-foreground">
+              <li className="flex gap-2"><ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" /> Gemeinsame Frontend-/Backend-Contracts</li>
+              <li className="flex gap-2"><ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" /> Sichere URL- und Upload-Grenzen</li>
+              <li className="flex gap-2"><ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" /> Echte Evidence statt Mock-Resultate</li>
+              <li className="flex gap-2"><ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" /> Auth, Workspaces und Tenant-Isolation</li>
+              <li className="flex gap-2"><ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" /> Persistenz, Queue/Worker und Monitoring</li>
+              <li className="flex gap-2"><ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" /> Tests, CI/CD und reproduzierbares Deployment</li>
+            </ul>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* 6. FAQ Section */}
-      <div className="py-24 max-w-3xl mx-auto px-4">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-extrabold mb-4">Häufig gestellte Fragen</h2>
-          <p className="text-muted-foreground">Alles, was du vor dem Start wissen musst.</p>
+      <section className="py-20 max-w-4xl mx-auto px-4">
+        <div className="text-center mb-10">
+          <h2 className="text-3xl font-extrabold">Häufige Fragen</h2>
+          <p className="text-muted-foreground mt-3">Zum aktuellen GuardAI-Produktstatus.</p>
         </div>
 
-        <div className="border border-border rounded-2xl px-6 bg-card">
+        <div className="rounded-2xl border bg-card/40 px-6">
           <FaqItem
-            question="Ersetzt GuardAI einen echten Anwalt?"
-            answer="GuardAI ersetzt keine individuelle Rechtsberatung. Unser System identifiziert und priorisiert potenzielle Compliance-Verstöße automatisiert, liefert Code-Fixes und generiert rechtskonforme Vorlagen. Für komplexe Einzelfälle empfehlen wir die Zusammenarbeit mit einer spezialisierten Kanzlei – unser AI Counsel kann dabei als Vorarbeit genutzt werden."
+            question="Ist GuardAI bereits eine fertige Compliance-Zertifizierung?"
+            answer="Nein. GuardAI wird als technische Evidence- und Risk-Screening-Plattform aufgebaut. Ein automatisierter Scan ist keine offizielle Zertifizierung und keine Garantie rechtlicher Konformität."
           />
           <FaqItem
-            question="Wie oft wird meine Website gescannt?"
-            answer="Im Free-Plan kannst du 1 Scan pro Woche durchführen. Im Pro-Plan sind unbegrenzte Scans enthalten, inklusive 24/7 Live-Monitoring. Sobald sich etwas ändert (z.B. ein neuer Tracker wird eingebaut), wirst du sofort per E-Mail oder Slack benachrichtigt."
+            question="Warum zeigt GuardAI manche Bereiche als nicht bewertet?"
+            answer="Weil fehlende oder nicht ausgeführte Checks nicht als bestanden dargestellt werden sollen. Coverage und Ergebnis müssen getrennt bleiben."
           />
           <FaqItem
-            question="Was passiert, wenn ein neues Gesetz in Kraft tritt?"
-            answer="Unsere KI-Agenten synchronisieren sich täglich mit den aktuellen Rechtsquellen (EU-Amtsblatt, BSI, BfDI). Sobald ein neues Gesetz oder eine Verordnung relevant wird, erhältst du proaktiv eine Warnung mit konkreten Handlungsempfehlungen – noch bevor die meisten Anwaltskanzleien reagieren."
+            question="Welche Scanner sollen im MVP real werden?"
+            answer="Priorisiert sind technische Web-Security-Checks, Privacy-/Browser-Evidence, Accessibility, geführte AI-Governance-Evidence sowie Repository-Checks für Dependencies, Secrets und SAST-Basis."
           />
           <FaqItem
-            question="Welche Daten werden bei einem Scan erhoben?"
-            answer="Wir analysieren ausschließlich die öffentlich zugängliche Oberfläche deiner Website (HTML, CSS, JS, HTTP-Header). Es werden keine personenbezogenen Nutzerdaten deiner Besucher erhoben. Alle Scan-Ergebnisse werden verschlüsselt auf ISO-27001-zertifizierten Servern in Deutschland gespeichert."
-          />
-          <FaqItem
-            question="Kann ich GuardAI in meine CI/CD-Pipeline integrieren?"
-            answer="Ja! Im Business-Plan erhältst du API-Keys und Webhook-Endpoints, die du direkt in GitHub Actions, GitLab CI oder Bitbucket Pipelines einbinden kannst. So wird bei jedem Deployment automatisch ein Compliance-Check ausgeführt."
-          />
-          <FaqItem
-            question="Gibt es eine Geld-zurück-Garantie?"
-            answer="Ja, wir bieten eine 14-tägige Geld-zurück-Garantie auf alle kostenpflichtigen Pläne. Wenn du nicht zufrieden bist, erstatten wir dir den vollen Betrag – ohne Fragen."
+            question="Was passiert mit AI Counsel, Trust Center und TrueSight?"
+            answer="Diese Oberflächen bleiben Teil der Produktvision, werden aber erst dann als echte Funktion freigeschaltet, wenn ihre Daten- und Modellgrundlage real, getestet und nachvollziehbar ist."
           />
         </div>
-      </div>
+      </section>
     </div>
   );
 }
