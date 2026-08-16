@@ -6,6 +6,7 @@ const {
   calculateRetryDelaySeconds,
   sanitizeJobError,
 } = require('../domain/jobLifecycle');
+const { computeWeightedScanScore, getScoringProfile } = require('../domain/scoringPolicy');
 const { REQUESTABLE_SCAN_MODULES } = require('../domain/scanSubmission');
 const {
   createFindingFingerprint,
@@ -226,7 +227,8 @@ function createJobRepository(pool) {
       const locked = await client.query(
         `select j.id, j.organization_id, j.scan_id, j.job_type, j.status,
                 j.worker_id, (j.lease_expires_at > now()) as lease_valid,
-                s.status as scan_status, s.target_id
+                s.status as scan_status, s.target_id,
+                s.scoring_profile_id, s.scoring_profile_version
            from public.scan_jobs j
            join public.scans s
              on s.id = j.scan_id and s.organization_id = j.organization_id
@@ -390,17 +392,24 @@ function createJobRepository(pool) {
       );
 
       const aggregate = await client.query(
-        `select
-           count(*) filter (where status <> 'completed')::int as unfinished_jobs,
-           round(avg((result_summary->>'score')::numeric)
-             filter (where status = 'completed' and result_summary ? 'score'))::int as overall_score
-         from public.scan_jobs
-        where scan_id = $1 and organization_id = $2`,
+        `select job_type, status, result_summary
+           from public.scan_jobs
+          where scan_id = $1 and organization_id = $2
+          order by job_type asc`,
         [row.scan_id, row.organization_id],
       );
 
-      const allCompleted = aggregate.rows[0].unfinished_jobs === 0;
+      const allCompleted = aggregate.rowCount > 0 && aggregate.rows.every((job) => job.status === 'completed');
       if (allCompleted) {
+        const scoringProfile = getScoringProfile(
+          row.scoring_profile_id,
+          row.scoring_profile_version,
+        );
+        const moduleResults = Object.fromEntries(
+          aggregate.rows.map((job) => [job.job_type, job.result_summary || {}]),
+        );
+        const scoringResult = computeWeightedScanScore(moduleResults, scoringProfile);
+
         await client.query(
           `update public.scans
               set status = 'completed',
@@ -413,7 +422,7 @@ function createJobRepository(pool) {
             where id = $1
               and organization_id = $2
               and status = 'running'`,
-          [row.scan_id, row.organization_id, aggregate.rows[0].overall_score],
+          [row.scan_id, row.organization_id, scoringResult.score],
         );
       }
 
