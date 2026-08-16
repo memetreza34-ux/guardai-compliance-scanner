@@ -55,6 +55,7 @@ function createBillingService({
   billingRepository,
   organizationAuthorization,
   stripeProvider,
+  runtimeConfig = config,
 }) {
   if (!billingRepository) throw new TypeError('Billing service requires Billing repository.');
   if (!organizationAuthorization || typeof organizationAuthorization.requireRole !== 'function') {
@@ -74,14 +75,15 @@ function createBillingService({
       status: subscription.status,
       cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
       periodEnd: subscription.periodEnd,
-      billingEnabled: config.billingProvider === 'stripe',
+      billingEnabled: runtimeConfig.billingProvider === 'stripe',
+      availablePlans: Object.keys(runtimeConfig.stripePlanPriceMap || {}).sort(),
     };
   }
 
   async function createCheckout({ organizationId, userId, email, plan }) {
     await organizationAuthorization.requireRole(organizationId, userId, 'admin');
     stripeProvider.assertStripeConfigured();
-    const priceId = resolveStripePriceId(config.stripePlanPriceMap, plan);
+    const priceId = resolveStripePriceId(runtimeConfig.stripePlanPriceMap, plan);
 
     let subscription = await billingRepository.getSubscriptionForOrganization(organizationId);
     if (!subscription) {
@@ -149,7 +151,10 @@ function createBillingService({
       }
 
       const stripeSubscription = await stripeProvider.retrieveSubscription(subscriptionId);
-      const normalized = normalizeStripeSubscription(stripeSubscription, config.stripePlanPriceMap);
+      const normalized = normalizeStripeSubscription(
+        stripeSubscription,
+        runtimeConfig.stripePlanPriceMap,
+      );
       const organizationId = await billingRepository.findOrganizationByStripeCustomer(
         normalized.providerCustomerId,
       );
