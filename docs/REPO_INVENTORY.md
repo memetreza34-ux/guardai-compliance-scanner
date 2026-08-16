@@ -7,6 +7,7 @@ Status values:
 - `KEEP` — concept/implementation remains
 - `REFACTOR` — keep value, change architecture/data flow
 - `REPLACE` — current implementation must not remain the production source of truth
+- `LEGACY` — retained only as reference/fixture until safe removal
 - `LATER` — valuable but not MVP
 - `REMOVE` — repository/runtime artifact that should not remain tracked
 
@@ -14,65 +15,75 @@ Status values:
 
 ## Root
 
-| Path | Decision | Why / Future state |
+| Path | Decision | Current GuardAI state |
 |---|---|---|
-| `.gitignore` | KEEP | Hardened in Phase 0; keep synchronized with runtime/test tooling |
-| `.npm-cache/` | REMOVE | Generated npm cache; repo bloat; now ignored but still tracked until removed |
-| `npm_cache/` | REMOVE | Generated npm cache; repo bloat; now ignored but still tracked until removed |
-| `.oxlintrc.json` | KEEP / REVIEW | Existing lint baseline; validate during Phase 1 |
-| `README.md` | KEEP | Rewritten in Phase 0 to reflect real prototype/rebuild state |
+| `.gitignore` | KEEP | Hardened; protects env files, uploads, generated caches, coverage and test artifacts |
+| `.npm-cache/` | REMOVE / DONE | Removed from current Git tree |
+| `npm_cache/` | REMOVE / DONE | Removed from current Git tree |
+| `.nvmrc` | KEEP | Node `24.18.1` project baseline |
+| `.editorconfig` | KEEP | UTF-8/LF/2-space editor baseline |
+| `.env.example` | KEEP / EXPAND | Frontend `VITE_API_BASE_URL` documented; never store secrets in `VITE_*` |
+| `.oxlintrc.json` | KEEP / REVIEW | Existing hook rules; deeper rule review still pending |
+| `.github/workflows/ci.yml` | KEEP | PR/manual quality + history secret scan; execution currently blocked by GitHub runner billing/spending state |
+| `CONTRIBUTING.md` | KEEP | GuardAI-specific engineering/security rules |
+| `README.md` | KEEP | Reflects prototype/rebuild reality and runtime baseline |
 | `components.json` | KEEP | UI tooling configuration |
-| `index.html` | KEEP / REVIEW | Vite entry; review external fonts, metadata, CSP and SEO later |
-| `package.json` | KEEP / REFACTOR | Current frontend package; unify dev/test scripts during Phase 1 |
-| `package-lock.json` | KEEP | Reproducible dependency lock |
-| `tsconfig*.json` | KEEP / HARDEN | Review strictness in Phase 1 |
-| `vite.config.*` | KEEP / REFACTOR | Add environment/API/deployment config as architecture evolves |
-| `public/` | KEEP | Review assets and production-only files before launch |
+| `index.html` | KEEP / REVIEW | Vite entry; metadata/fonts/CSP/SEO review later |
+| `package.json` | KEEP / REFACTOR | Runtime/package manager and quality scripts now defined |
+| `package-lock.json` | KEEP | Reproducible frontend dependency lock |
+| `tsconfig*.json` | KEEP / HARDEN | Full strictness review waits for executable clean build |
+| `vite.config.*` | KEEP / REFACTOR | Deployment/proxy details evolve later |
+| `public/` | KEEP | Review before production launch |
 | `docs/` | KEEP | Canonical engineering documentation |
 
 ---
 
 ## Frontend application core
 
-| Path | Decision | Why / Future state |
+| Path | Decision | Current GuardAI state |
 |---|---|---|
-| `src/App.tsx` | REFACTOR | Remove duplicate view rendering; introduce real routing/layout/auth boundaries |
-| `src/main.tsx` | KEEP | Small provider/bootstrap refactors only |
-| `src/data/mockScanEngine.ts` | REPLACE | Keep only as explicit fixture/demo/reference; never production scan truth |
-| `src/types/scanner.ts` | REFACTOR | Move to canonical shared API/domain contracts |
-| `src/lib/` | KEEP / EXPAND | Shared utilities; later API/error/security helpers |
+| `src/App.tsx` | REFACTOR / ACTIVE | Duplicate view block removed; typed navigation; real scan request/error lifecycle now used |
+| `src/main.tsx` | KEEP | Small provider/bootstrap refactors later |
+| `src/api/scanApi.ts` | KEEP / ACTIVE | New productive scanner API adapter; maps backend categories, validates basic runtime shapes, throws on failure instead of returning fake scan results |
+| `src/vite-env.d.ts` | KEEP | Types `VITE_API_BASE_URL` |
+| `src/data/mockScanEngine.ts` | LEGACY | No longer used by the active App scan lifecycle; retain temporarily for fixtures/reference until all remaining imports are removed |
+| `src/types/scanner.ts` | REFACTOR | Old result model still contains legacy concepts such as mandatory benchmark/risk-status fields; replace with canonical contracts in Phase 3 |
+| `src/types/navigation.ts` | KEEP | Canonical active-tab type and guard |
+| `src/types/scanOptions.ts` | KEEP / EVOLVE | Central typed scan-request options; backend enforcement still needs Phase 3/4 work |
+| `src/lib/` | KEEP / EXPAND | Shared utilities later |
 
 ---
 
 ## Product components
 
-| Component | Decision | GuardAI-specific future |
+| Component | Decision | Current GuardAI state / future |
 |---|---|---|
 | `AiCounsel.tsx` | LATER / REBUILD | Real workspace/evidence context; no canned legal findings |
 | `AuditHub.tsx` | LATER / REBUILD | Database-backed controls/evidence after MVP core |
-| `BadgeGenerator.tsx` | REFACTOR LATER | Generate only from real public Trust Center state |
-| `CheckoutSimulation.tsx` | REPLACE | Real payment provider + server-side entitlements |
-| `CommandPalette.tsx` | KEEP / REFACTOR | Wire to real routes/actions |
-| `ComplianceDashboard.tsx` | REFACTOR | Preserve visual language; replace mocks/hardcoded assumptions with query data |
+| `BadgeGenerator.tsx` | REFACTOR LATER | Only real public Trust Center state may become a public badge |
+| `CheckoutSimulation.tsx` | REPLACE | Real billing + server entitlements |
+| `CommandPalette.tsx` | KEEP / REFACTOR | Navigation now centrally typed; future routes later |
+| `ComplianceDashboard.tsx` | LEGACY | Removed from active scan-result path because of hardcoded benchmark/strong compliance claims; keep temporarily for visual reference |
+| `ScanResultsDashboard.tsx` | KEEP / ACTIVE | New evidence-first productive result view; no industry benchmark or automatic compliance guarantee |
 | `DocumentGenerator.tsx` | LATER / REBUILD | Evidence-backed documents; no blanket legal-validity claims |
 | `IntegrationsHub.tsx` | LATER / REBUILD | Real OAuth/API connection state |
-| `LandingPage.tsx` | KEEP / REFACTOR | Preserve design; claims must track real product capability |
-| `LeadGenModal.tsx` | REFACTOR | Real backend, consent, failure state, deduplication |
-| `Navbar.tsx` | KEEP / REFACTOR | Real routes/auth/workspace state |
+| `LandingPage.tsx` | KEEP / ACTIVE | Rewritten to describe actual prototype/rebuild state and technical screening limitations |
+| `LeadGenModal.tsx` | REFACTOR | Real backend, consent, real failure state, deduplication |
+| `Navbar.tsx` | KEEP / REFACTOR | Central navigation typing; visible Prototype state; real auth/workspaces later |
 | `PolicyManager.tsx` | LATER / REBUILD | Real versioned policy/control data after core |
 | `PricingModal.tsx` | REFACTOR | Real plans/entitlements and correct billing language |
 | `PrintableReport.tsx` | REBUILD | Generate from stored evidence + scanner/rule/report versions |
-| `PublicTrustCenter.tsx` | REBUILD | Public view only of customer-approved real evidence/status |
+| `PublicTrustCenter.tsx` | REBUILD | Customer-approved real evidence/status only |
 | `RemediationModal.tsx` | REFACTOR | Real finding/remediation workflow |
-| `ScanProgressModal.tsx` | REFACTOR | Real queue/worker progress events, not timed simulation |
+| `ScanProgressModal.tsx` | KEEP / ACTIVE | Fake timed SAST/DAST/legal steps removed; now indeterminate and truthful until real job events exist |
 | `TemplatesHub.tsx` | REVIEW / LATER | Version templates and legal sources before public claims |
 | `ThemeProvider.tsx` | KEEP | UI infrastructure |
 | `ThemeToggle.tsx` | KEEP | UI infrastructure |
 | `TrueSight.tsx` | LATER / LABS | No production release until real model + calibrated evaluation exists |
-| `UrlInputHero.tsx` | REFACTOR | Preserve UX; options must be sent/enforced by scanner backend |
+| `UrlInputHero.tsx` | KEEP / ACTIVE | Typed target/file input; no fake sample domains; PDF/TXT prototype limitation explicit |
 | `UserDashboard.tsx` | REBUILD | Real user/workspace/target/scan statistics |
 | `WorkspaceSwitcher.tsx` | REFACTOR | Connect to real organizations/memberships |
-| `ui/` | KEEP | Reusable presentation primitives; accessibility review later |
+| `ui/` | KEEP | Presentation primitives; accessibility review later |
 
 ---
 
@@ -83,7 +94,7 @@ Status values:
 | `server/index.js` | REFACTOR | Split into app/routes/middleware/services/scanners/jobs/db/ai/observability |
 | `server/package.json` | FIX / REFACTOR | Complete dependencies/scripts, then evolve with backend structure |
 | `server/package-lock.json` | REGENERATE WHEN PACKAGE FIXED | Must match declared backend dependencies |
-| `server/.env.example` | EXPAND | Document validated server config without secrets |
+| `server/.env.example` | EXPAND | Validated server config without secrets |
 
 ### Imports currently used by `server/index.js`
 
@@ -108,26 +119,38 @@ Node built-in:
 
 - `fs`
 
-**Rule:** Versions are chosen and lockfile regenerated during the backend foundation work; do not add arbitrary unverified versions merely to silence the mismatch.
+**Rule:** Dependency versions are deliberately selected and the server lockfile regenerated during Backend Foundation. Do not insert arbitrary versions just to hide the mismatch.
 
 ---
 
-## Current prototype behaviors that must not survive as production truth
+## Prototype behaviors already removed from the active scan path
 
-- random/heuristic scan findings presented as if measured,
+- [x] duplicate main-view rendering in `App.tsx`
+- [x] untyped `as any` navigation in App/Navbar/Command Palette path
+- [x] hardcoded production-certification claims in the global footer
+- [x] fake timer-based scanner stages before the API call
+- [x] API-error fallback that looked like a real compliance result
+- [x] active use of legacy `ComplianceDashboard` with fake industry benchmark
+- [x] landing-page promise of fully automated legal review/certification
+- [x] image-upload UI pretending unsupported image analysis is already real
+
+---
+
+## Prototype behaviors still requiring removal/rebuild
+
 - client-local premium state,
-- simulated payment success,
+- simulated checkout/payment success,
 - fake integration connection state,
-- hard-coded team/user/domain metrics,
-- hard-coded vendor risk data,
+- hard-coded user/team/domain metrics,
 - fixed Trust Center compliance statuses,
-- timed scan progress unrelated to worker state,
 - random TrueSight classification,
 - canned AI Counsel analysis,
-- static generated document pretending to be scan-specific,
-- success UI after failed lead-delivery attempt,
-- default high scores when data is missing,
-- `Not scanned` situations represented as `passed` or `100%`.
+- static/generated document pretending to be evidence-specific,
+- LeadGen success despite delivery failure,
+- legacy mock engine and legacy dashboard files,
+- scanner contract fields that cannot represent `not_assessed` cleanly,
+- backend scores/check coverage that are not yet based on robust detector evidence,
+- scan option UI/request semantics not yet enforced by backend.
 
 ---
 
@@ -137,5 +160,6 @@ Whenever a component is substantially changed:
 
 1. update its row here,
 2. update the active phase tracker,
-3. update the master guide only if architecture/order/requirements changed,
-4. ensure public product claims match the new implementation.
+3. update the master guide if architecture/order/requirements changed,
+4. ensure visible product claims match the implementation,
+5. never mark a build/test condition as passed unless it actually executed.
