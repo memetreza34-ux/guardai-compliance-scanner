@@ -18,11 +18,15 @@ test('website target adds https and strips query/fragment for stable identity', 
 test('website target rejects local and IP hosts', () => {
   assert.throws(
     () => normalizeWebsiteTargetInput({ url: 'http://localhost', displayName: 'Local' }),
-    /public domain hostname/i,
+    /public DNS hostname/i,
   );
   assert.throws(
     () => normalizeWebsiteTargetInput({ url: 'https://127.0.0.1', displayName: 'IP' }),
-    /public domain hostname/i,
+    /public DNS hostname/i,
+  );
+  assert.throws(
+    () => normalizeWebsiteTargetInput({ url: 'http://[::1]', displayName: 'IPv6' }),
+    /public DNS hostname/i,
   );
 });
 
