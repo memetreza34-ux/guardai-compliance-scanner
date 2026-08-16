@@ -26,6 +26,7 @@ function parseStripePlanPriceMap(rawValue) {
   }
 
   const normalized = {};
+  const seenPrices = new Set();
   for (const [plan, priceId] of Object.entries(parsed)) {
     if (!PLAN_CODE_PATTERN.test(plan) || plan === 'free') {
       throw new TypeError(`Stripe billing plan code is invalid: ${plan}`);
@@ -33,6 +34,10 @@ function parseStripePlanPriceMap(rawValue) {
     if (typeof priceId !== 'string' || !STRIPE_PRICE_PATTERN.test(priceId)) {
       throw new TypeError(`Stripe Price ID is invalid for plan: ${plan}`);
     }
+    if (seenPrices.has(priceId)) {
+      throw new TypeError(`Stripe Price ID is mapped to more than one GuardAI plan: ${priceId}`);
+    }
+    seenPrices.add(priceId);
     normalized[plan] = priceId;
   }
   return Object.freeze(normalized);
@@ -49,9 +54,25 @@ function resolveStripePriceId(priceMap, plan) {
   return priceId;
 }
 
+function resolvePlanForStripePriceId(priceMap, priceId) {
+  if (typeof priceId !== 'string' || !STRIPE_PRICE_PATTERN.test(priceId)) {
+    throw new HttpError(502, 'Stripe subscription contains an invalid Price ID.', 'BILLING_PROVIDER_RESPONSE_INVALID');
+  }
+  const match = Object.entries(priceMap || {}).find(([, configuredPriceId]) => configuredPriceId === priceId);
+  if (!match) {
+    throw new HttpError(
+      409,
+      'Stripe subscription Price is not mapped to a GuardAI plan.',
+      'BILLING_PRICE_NOT_MAPPED',
+    );
+  }
+  return match[0];
+}
+
 module.exports = {
   BILLING_PROVIDERS,
   normalizeBillingProvider,
   parseStripePlanPriceMap,
+  resolvePlanForStripePriceId,
   resolveStripePriceId,
 };
