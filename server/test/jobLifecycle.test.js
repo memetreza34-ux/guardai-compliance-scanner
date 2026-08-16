@@ -5,6 +5,7 @@ const {
   assertWorkerId,
   calculateRetryDelaySeconds,
   sanitizeJobError,
+  shouldRetryWorkerError,
 } = require('../domain/jobLifecycle');
 
 
@@ -44,4 +45,12 @@ test('worker errors are bounded and normalized', () => {
   const invalidCode = new Error('oops');
   invalidCode.code = 'not valid';
   assert.equal(sanitizeJobError(invalidCode).code, 'WORKER_EXECUTION_FAILED');
+});
+
+
+test('programming and target-verification failures are terminal', () => {
+  assert.equal(shouldRetryWorkerError({ code: 'TARGET_FETCH_FAILED' }), true);
+  assert.equal(shouldRetryWorkerError({ code: 'TARGET_VERIFICATION_LOST' }), false);
+  assert.equal(shouldRetryWorkerError({ code: 'WORKER_JOB_TYPE_MISMATCH' }), false);
+  assert.equal(shouldRetryWorkerError({ code: 'INVALID_WORKER_RESULT' }), false);
 });
