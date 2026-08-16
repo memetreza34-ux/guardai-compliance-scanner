@@ -1,0 +1,11 @@
+{
+  "profileId": "security-mvp",
+  "version": 1,
+  "description": "Initial GuardAI scoring profile for the only currently enabled persistent module: security.",
+  "modules": {
+    "security": {
+      "weight": 1
+    }
+  },
+  "minimumAssessedModules": 1
+}
