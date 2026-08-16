@@ -61,6 +61,19 @@ function providerCreatedAt(event) {
   return new Date(event.created * 1000).toISOString();
 }
 
+function assertStripeEventMode(event, expectedLivemode) {
+  if (typeof event?.livemode !== 'boolean') {
+    throw new HttpError(400, 'Stripe webhook event mode is missing.', 'BILLING_WEBHOOK_MODE_INVALID');
+  }
+  if (event.livemode !== expectedLivemode) {
+    throw new HttpError(
+      409,
+      'Stripe webhook event mode does not match this GuardAI billing environment.',
+      'BILLING_WEBHOOK_MODE_MISMATCH',
+    );
+  }
+}
+
 function createBillingService({
   billingRepository,
   organizationAuthorization,
@@ -174,12 +187,13 @@ function createBillingService({
     if (typeof event?.id !== 'string' || typeof event?.type !== 'string') {
       throw new HttpError(400, 'Stripe webhook event is invalid.', 'BILLING_WEBHOOK_EVENT_INVALID');
     }
+    assertStripeEventMode(event, runtimeConfig.stripeLivemode === true);
 
     const claim = await billingRepository.claimWebhookEvent({
       eventId: event.id,
       eventType: event.type,
       providerCreatedAt: providerCreatedAt(event),
-      livemode: event.livemode === true,
+      livemode: event.livemode,
       payloadHash: sha256Hex(rawBody),
     });
 
@@ -260,6 +274,7 @@ function createBillingService({
 
 module.exports = {
   ACTIVE_OR_RECOVERABLE_STATUSES,
+  assertStripeEventMode,
   checkoutSessionIdFromEvent,
   createBillingService,
   providerCreatedAt,
