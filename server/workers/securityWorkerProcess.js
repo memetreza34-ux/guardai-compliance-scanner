@@ -3,6 +3,7 @@ const { setTimeout: delay } = require('node:timers/promises');
 const { config } = require('../config');
 const { closePostgresPool } = require('../database/postgres');
 const { assertLeaseSeconds, assertWorkerId } = require('../domain/jobLifecycle');
+const { assertSafeRuntimeConfiguration } = require('../lib/runtimeSafety');
 const { getPersistenceServices } = require('../services/persistenceServices');
 const { processOneSecurityJob } = require('./securityWorker');
 
@@ -12,6 +13,7 @@ function createWorkerId() {
 }
 
 function assertWorkerConfig() {
+  assertSafeRuntimeConfiguration();
   assertLeaseSeconds(config.workerLeaseSeconds);
   if (!Number.isInteger(config.workerPollMs) || config.workerPollMs < 100 || config.workerPollMs > 60000) {
     throw new Error('WORKER_POLL_MS must be an integer between 100 and 60000.');
