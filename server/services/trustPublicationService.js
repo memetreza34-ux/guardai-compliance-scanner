@@ -62,7 +62,11 @@ function createTrustPublicationService({
 
   async function revoke({ organizationId, userId, publicationId }) {
     await organizationAuthorization.requireRole(organizationId, userId, 'admin');
-    const publication = await trustPublicationRepository.revokePublication(organizationId, publicationId);
+    const publication = await trustPublicationRepository.revokePublication({
+      organizationId,
+      publicationId,
+      revokedBy: userId,
+    });
     if (!publication) {
       throw new HttpError(404, 'Trust publication was not found in this organization.', 'TRUST_PUBLICATION_NOT_FOUND');
     }
