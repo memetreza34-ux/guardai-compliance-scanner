@@ -22,18 +22,19 @@ async function executeSecurityJob(context) {
     },
   });
 
-  const security = buildSecurityAssessment(response.headers, finalUrl);
+  const html = typeof response.data === 'string' ? response.data : null;
+  const security = buildSecurityAssessment(response.headers, finalUrl, html);
 
   return {
     detectorId: security.detectorId,
     detectorVersion: security.detectorVersion,
-    evidenceType: 'http-security-headers',
+    evidenceType: 'website-security-baseline',
     source: finalUrl,
     normalizedData: security.evidence,
     score: security.category.score,
     issues: security.category.issues,
     notices: [
-      'Security result is an automated HTTP-header screening of the observed response, not a penetration test or proof that no vulnerabilities exist.',
+      'Security result is an automated technical screening of the observed HTTP response and document, not a penetration test or proof that no vulnerabilities exist.',
     ],
   };
 }
