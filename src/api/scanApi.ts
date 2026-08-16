@@ -66,6 +66,7 @@ interface BackendScanResponse {
   timestamp?: unknown;
   overallScore?: unknown;
   categories?: unknown;
+  notices?: unknown;
 }
 
 export class ScanApiError extends Error {
@@ -81,6 +82,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function readString(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback;
+}
+
+function readStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
 }
 
 function readScore(value: unknown): number | null {
@@ -235,12 +241,11 @@ function normalizeResponse(
     targetDomain: deriveTargetDomain(target, responseUrl),
     scannedAt,
     overallScore,
-    // Temporary legacy field. The production dashboard must not display a benchmark
-    // until GuardAI has a real benchmark data source. Phase 2 removes this UI dependency.
     industryAverageScore: 0,
     riskStatus: createRiskStatus(overallScore),
     categories,
     issues,
+    notices: readStringArray(data.notices),
     detectedTech: {
       aiFrameworks: [],
       trackers: [],
