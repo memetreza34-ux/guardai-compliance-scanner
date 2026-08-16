@@ -15,6 +15,7 @@ function mapPublicationRow(row) {
     status: row.status,
     createdBy: row.created_by,
     publishedAt: row.published_at,
+    revokedBy: row.revoked_by,
     revokedAt: row.revoked_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -71,7 +72,7 @@ function createTrustPublicationRepository(pool) {
        on conflict do nothing
        returning id, organization_id, target_id, report_snapshot_id, public_slug,
                  organization_name_snapshot, status, created_by,
-                 published_at, revoked_at, created_at, updated_at`,
+                 published_at, revoked_by, revoked_at, created_at, updated_at`,
       [organizationId, targetId, reportSnapshotId, publicSlug, createdBy],
     );
 
@@ -82,7 +83,7 @@ function createTrustPublicationRepository(pool) {
     const existing = await pool.query(
       `select id, organization_id, target_id, report_snapshot_id, public_slug,
               organization_name_snapshot, status, created_by,
-              published_at, revoked_at, created_at, updated_at
+              published_at, revoked_by, revoked_at, created_at, updated_at
          from public.trust_publications
         where organization_id = $1
           and report_snapshot_id = $2
@@ -113,7 +114,7 @@ function createTrustPublicationRepository(pool) {
     const result = await pool.query(
       `select id, organization_id, target_id, report_snapshot_id, public_slug,
               organization_name_snapshot, status, created_by,
-              published_at, revoked_at, created_at, updated_at
+              published_at, revoked_by, revoked_at, created_at, updated_at
          from public.trust_publications
         where organization_id = $1
           ${cursorClause}
@@ -131,10 +132,11 @@ function createTrustPublicationRepository(pool) {
     };
   }
 
-  async function revokePublication(organizationId, publicationId) {
+  async function revokePublication({ organizationId, publicationId, revokedBy }) {
     const updated = await pool.query(
       `update public.trust_publications
           set status = 'revoked',
+              revoked_by = $3,
               revoked_at = now(),
               updated_at = now()
         where organization_id = $1
@@ -142,15 +144,15 @@ function createTrustPublicationRepository(pool) {
           and status = 'published'
         returning id, organization_id, target_id, report_snapshot_id, public_slug,
                   organization_name_snapshot, status, created_by,
-                  published_at, revoked_at, created_at, updated_at`,
-      [organizationId, publicationId],
+                  published_at, revoked_by, revoked_at, created_at, updated_at`,
+      [organizationId, publicationId, revokedBy],
     );
     if (updated.rowCount > 0) return mapPublicationRow(updated.rows[0]);
 
     const existing = await pool.query(
       `select id, organization_id, target_id, report_snapshot_id, public_slug,
               organization_name_snapshot, status, created_by,
-              published_at, revoked_at, created_at, updated_at
+              published_at, revoked_by, revoked_at, created_at, updated_at
          from public.trust_publications
         where organization_id = $1 and id = $2
         limit 1`,
@@ -163,7 +165,8 @@ function createTrustPublicationRepository(pool) {
     const result = await pool.query(
       `select p.id, p.organization_id, p.target_id, p.report_snapshot_id,
               p.public_slug, p.organization_name_snapshot, p.status,
-              p.created_by, p.published_at, p.revoked_at, p.created_at, p.updated_at,
+              p.created_by, p.published_at, p.revoked_by, p.revoked_at,
+              p.created_at, p.updated_at,
               r.id as report_id, r.scan_id, r.schema_version as report_schema_version,
               r.report_type, r.snapshot as report_snapshot,
               r.snapshot_hash as report_snapshot_hash,
