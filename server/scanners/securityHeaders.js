@@ -1,8 +1,31 @@
-function buildSecurityCategory(headers) {
+const DETECTOR_ID = 'security.headers';
+const DETECTOR_VERSION = '1.0.0';
+
+function buildSecurityAssessment(headers, finalUrl) {
   const contentSecurityPolicy = String(headers['content-security-policy'] || '');
+  const secureTransport = new URL(finalUrl).protocol === 'https:';
+  const hstsPresent = Boolean(headers['strict-transport-security']);
+  const xFrameOptionsPresent = Boolean(headers['x-frame-options']);
+  const cspFrameAncestorsPresent = /(?:^|;)\s*frame-ancestors\b/i.test(contentSecurityPolicy);
+  const frameProtectionPresent = xFrameOptionsPresent || cspFrameAncestorsPresent;
+
   const checks = [
     {
-      present: Boolean(contentSecurityPolicy),
+      id: 'https-transport',
+      applicable: true,
+      passed: secureTransport,
+      issue: {
+        id: 'insecure-http-transport',
+        title: 'Ziel endet nicht auf HTTPS',
+        description: 'Nach den erlaubten Redirects wurde die analysierte Ressource weiterhin über unverschlüsseltes HTTP erreicht.',
+        severity: 'critical',
+        fixSuggestion: 'Leite HTTP konsequent auf HTTPS um und stelle sicher, dass die Zielressource ausschließlich verschlüsselt ausgeliefert wird.',
+      },
+    },
+    {
+      id: 'content-security-policy',
+      applicable: true,
+      passed: Boolean(contentSecurityPolicy),
       issue: {
         id: 'missing-csp',
         title: 'Content-Security-Policy fehlt',
@@ -12,7 +35,9 @@ function buildSecurityCategory(headers) {
       },
     },
     {
-      present: Boolean(headers['strict-transport-security']),
+      id: 'strict-transport-security',
+      applicable: secureTransport,
+      passed: hstsPresent,
       issue: {
         id: 'missing-hsts',
         title: 'Strict-Transport-Security fehlt',
@@ -22,7 +47,9 @@ function buildSecurityCategory(headers) {
       },
     },
     {
-      present: Boolean(headers['x-frame-options']) || contentSecurityPolicy.includes('frame-ancestors'),
+      id: 'frame-protection',
+      applicable: true,
+      passed: frameProtectionPresent,
       issue: {
         id: 'missing-frame-protection',
         title: 'Kein eindeutiger Frame-Schutz erkannt',
@@ -33,13 +60,14 @@ function buildSecurityCategory(headers) {
     },
   ];
 
-  const issues = checks.filter((check) => !check.present).map((check) => check.issue);
-  const passedChecks = checks.length - issues.length;
-  const score = Math.round((passedChecks / checks.length) * 100);
+  const applicableChecks = checks.filter((check) => check.applicable);
+  const issues = applicableChecks.filter((check) => !check.passed).map((check) => check.issue);
+  const passedChecks = applicableChecks.length - issues.length;
+  const score = Math.round((passedChecks / applicableChecks.length) * 100);
 
-  return {
+  const category = {
     score,
-    totalChecks: checks.length,
+    totalChecks: applicableChecks.length,
     passedChecks,
     status: issues.some((issue) => issue.severity === 'critical')
       ? 'critical'
@@ -48,6 +76,41 @@ function buildSecurityCategory(headers) {
         : 'compliant',
     issues,
   };
+
+  return {
+    detectorId: DETECTOR_ID,
+    detectorVersion: DETECTOR_VERSION,
+    category,
+    evidence: {
+      finalUrl,
+      secureTransport,
+      contentSecurityPolicyPresent: Boolean(contentSecurityPolicy),
+      hsts: {
+        applicable: secureTransport,
+        present: hstsPresent,
+      },
+      frameProtection: {
+        present: frameProtectionPresent,
+        mechanism: cspFrameAncestorsPresent
+          ? 'csp-frame-ancestors'
+          : xFrameOptionsPresent
+            ? 'x-frame-options'
+            : null,
+      },
+      score,
+      totalChecks: applicableChecks.length,
+      passedChecks,
+    },
+  };
 }
 
-module.exports = { buildSecurityCategory };
+function buildSecurityCategory(headers, finalUrl = 'https://invalid.local/') {
+  return buildSecurityAssessment(headers, finalUrl).category;
+}
+
+module.exports = {
+  buildSecurityAssessment,
+  buildSecurityCategory,
+  DETECTOR_ID,
+  DETECTOR_VERSION,
+};
