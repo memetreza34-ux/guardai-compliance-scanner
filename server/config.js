@@ -6,6 +6,7 @@ const config = Object.freeze({
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean),
+  scannerVersion: process.env.SCANNER_VERSION || '0.1.0',
   geminiApiKey: process.env.GEMINI_API_KEY || '',
   geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
   supabaseUrl: process.env.SUPABASE_URL || '',
