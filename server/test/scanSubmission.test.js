@@ -15,10 +15,10 @@ const organizationAuthorization = {
   },
 };
 
-test('normalizeRequestedModules deduplicates valid modules', () => {
+test('normalizeRequestedModules deduplicates implemented modules', () => {
   assert.deepEqual(
-    normalizeRequestedModules(['security', 'privacy', 'security']),
-    ['security', 'privacy'],
+    normalizeRequestedModules(['security', 'security']),
+    ['security'],
   );
 });
 
@@ -26,6 +26,13 @@ test('normalizeRequestedModules rejects unknown modules', () => {
   assert.throws(
     () => normalizeRequestedModules(['security', 'pentest']),
     (error) => error.code === 'INVALID_SCAN_MODULE' && error.statusCode === 400,
+  );
+});
+
+test('normalizeRequestedModules rejects known modules until their worker exists', () => {
+  assert.throws(
+    () => normalizeRequestedModules(['privacy']),
+    (error) => error.code === 'SCAN_MODULE_NOT_AVAILABLE' && error.statusCode === 422,
   );
 });
 
@@ -55,7 +62,7 @@ test('scan submission authorizes organization and persists queue request', async
     organizationAuthorization,
     scanRepository,
     scannerVersion: '0.1.0',
-    contractVersion: '0.1.0',
+    contractVersion: '0.2.0',
   });
 
   const result = await service.submit({
@@ -73,7 +80,7 @@ test('scan submission authorizes organization and persists queue request', async
     requestedBy: 'user-a',
     requestedModules: ['security'],
     scannerVersion: '0.1.0',
-    contractVersion: '0.1.0',
+    contractVersion: '0.2.0',
     idempotencyKey: 'request-12345',
   });
 });
