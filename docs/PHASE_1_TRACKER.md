@@ -1,84 +1,84 @@
-# GuardAI Phase 1 Tracker — Development Standards & Safe Foundation
+# GuardAI Phase 1 Tracker — Safe Foundation
 
-> Active implementation tracker for Phase 1 of `GUARDAI_MASTER_BUILD_GUIDE.md`.
+> Active tracker for the foundation work in `GUARDAI_MASTER_BUILD_GUIDE.md`.
 
 ## Status
 
-**PHASE 1: IN PROGRESS — implementation advanced; clean execution still externally blocked by GitHub runner billing/spending settings.**
+**PHASE 1: IN PROGRESS — foundation implementation is advanced; clean execution remains externally blocked by GitHub runner billing/spending settings.**
 
-GitHub registered the workflow but assigned no runner to the first jobs. Therefore no claim is made that install/lint/typecheck/build/tests pass.
+No install/lint/typecheck/build/test result is marked green until it actually executes.
 
 ---
 
-## Runtime baseline
+## Baseline
 
-| Item | Decision |
+| Item | Current decision |
 |---|---|
-| Node.js | `24.18.1` LTS via `.nvmrc` |
-| Package manager | npm 11 baseline |
+| Node | `24.18.1` LTS |
 | Frontend | React 19 + TypeScript + Vite 8 |
-| Backend | Node/Express CommonJS, now modular |
-| Active application API | `/api/v1/...` |
-| Operational health endpoint | `/api/health` |
-| Scan contract | `0.1.0` via `shared/scan-contract.json` |
-| MVP persistence/auth | dedicated GuardAI Supabase/Postgres/Auth project; ADR 0001 |
-| Existing connected Supabase project | **must not be reused for GuardAI** |
+| Backend | Node/Express CommonJS, modular |
+| API | application routes under `/api/v1`; health at `/api/health` |
+| Scan contract | `0.1.0` |
+| Database/Auth | dedicated GuardAI Supabase/Postgres/Auth project |
+| Backend DB access | native PostgreSQL repository/transaction layer, ADR 0002 |
+| Existing connected Supabase DB | **never reuse for GuardAI** |
 
 ---
 
-# Completed foundation work
+# Completed engineering foundation
 
 ## Repository / quality
 
-- [x] Node/package-manager baseline documented
-- [x] EditorConfig and contribution rules
+- [x] runtime/package-manager baseline
+- [x] `.nvmrc`, `.editorconfig`, contribution rules
 - [x] hardened `.gitignore`
 - [x] generated npm cache trees removed
-- [x] root typecheck/check scripts
-- [x] GitHub Actions quality workflow registered
+- [x] root quality commands
+- [x] PR/manual GitHub Actions workflow registered
 - [x] full-history Gitleaks configured
-- [x] external Actions pinned to immutable SHAs
-- [x] recursive backend JavaScript syntax-check script added
-- [x] stale/incomplete backend lockfile removed instead of pretending it was reproducible
-- [ ] backend lockfile regenerated from verified clean install
-- [ ] actual CI/local clean execution completed
+- [x] immutable GitHub Action SHAs
+- [x] recursive server JavaScript syntax-check script
+- [x] stale/incomplete backend lockfile removed instead of trusted
+- [ ] regenerate backend lockfile from real clean install
+- [ ] actual root/backend quality execution
 
-## Frontend integrity
+## Frontend truthfulness / integrity
 
 - [x] duplicate App rendering removed
-- [x] central typed navigation
-- [x] global AppErrorBoundary
-- [x] truthful product/landing claims
-- [x] legacy mock product surfaces isolated behind FeaturePreview
-- [x] active scanner uses real API errors, never fake-success fallback
+- [x] typed central navigation
+- [x] global Error Boundary
+- [x] truthful landing/footer/result/report wording
+- [x] legacy mock surfaces isolated behind FeaturePreview
+- [x] no fake API fallback result
 - [x] typed scan options
-- [x] Security/Privacy/AI selection visible
-- [x] Accessibility remains explicitly unavailable until real engine
-- [x] evidence-first result dashboard
-- [x] absent coverage = `Nicht bewertet`
-- [x] fake industry benchmark removed from active result UI
-- [x] technical report replaces verification/certification-style report
-- [x] backend notices shown to user
-- [x] frontend calls versioned `/api/v1/scan` and `/api/v1/scan-file`
+- [x] Accessibility explicitly unavailable until real engine exists
+- [x] evidence-first active result screen
+- [x] missing coverage shown as `Nicht bewertet`
+- [x] fake industry benchmark removed from active UI
+- [x] backend notices rendered
+- [x] active prototype client now calls `/api/v1/scan` and `/api/v1/scan-file`
 
-## API contract
+---
 
-- [x] shared contract metadata source
+# API contract / errors
+
+- [x] shared `shared/scan-contract.json`
 - [x] contract version `0.1.0`
-- [x] successful backend responses validated before send
-- [x] backend injects contractVersion centrally
+- [x] backend validates successful scan responses
 - [x] frontend rejects incompatible contract versions
-- [x] contract regression tests exist
-- [x] public application API now mounted below `/api/v1`
-- [ ] canonical versioned error envelope
-- [ ] replace legacy frontend `ScanResult` compatibility fields
+- [x] application API mounted below `/api/v1`
+- [x] canonical API error envelope: `error.code`, `error.message`, optional `error.details`
+- [x] rate-limit, 404, validation, upload and HttpError paths use structured errors
+- [x] frontend parses structured error code/message
+- [x] API error regression tests exist
+- [ ] replace legacy frontend ScanResult benchmark/risk compatibility fields
 - [ ] native detector states including `not_assessed` and `error`
 
 ---
 
-# Backend modularization — completed structural step
+# Backend modularization
 
-`server/index.js` is now only the process bootstrap. Responsibilities are split into:
+`server/index.js` is now process bootstrap only. Active structure includes:
 
 ```text
 server/
@@ -87,186 +87,257 @@ server/
 ├── config.js
 ├── runtime.js
 ├── auth/
-│   ├── supabaseAuth.js
-│   └── roles.js
+├── database/
 ├── domain/
-│   └── scanLifecycle.js
 ├── lib/
 ├── middleware/
-│   ├── errorHandler.js
-│   ├── scanLimiter.js
-│   └── upload.js
+├── repositories/
 ├── routes/
-│   ├── authRoutes.js
-│   ├── healthRoutes.js
-│   └── scanRoutes.js
 ├── scanners/
-│   ├── fileScanner.js
-│   ├── schemas.js
-│   ├── scoring.js
-│   ├── securityHeaders.js
-│   └── webScanner.js
 ├── services/
-│   └── safeFetch.js
 ├── scripts/
-│   └── checkSource.js
 └── test/
 ```
 
-This decomposition is intentionally a stepping stone toward DB repositories + workers; it does not claim the current synchronous scanner is the final architecture.
+Responsibilities are separated across Auth/RBAC, target safety, safe HTTP, scanners, upload/rate-limit/error middleware, repositories and routes.
 
 ---
 
-# Scanner/security work completed
+# Scanner / security foundation
 
 ## Truthfulness
 
-- [x] requested modules enforced server-side
+- [x] requested modules enforced
 - [x] no fake Accessibility score
-- [x] old fabricated GitHub scan disabled with HTTP 501
-- [x] AI output schema validated
-- [x] model-provided arbitrary scores ignored
-- [x] webpage/document contents marked as untrusted prompt data
-- [x] anonymous paid-AI access disabled by default
-- [x] missing AI access/key produces notice/error rather than fake passed result
+- [x] fabricated GitHub scoring disabled
+- [x] AI response schemas validated
+- [x] AI-provided arbitrary scores ignored
+- [x] untrusted webpage/document prompt boundary
+- [x] anonymous paid-AI paths disabled by default
 
-## Target/network safety
+## SSRF / target safety
 
 - [x] HTTP/HTTPS only
-- [x] credentials in target URLs rejected
+- [x] URL credentials rejected
 - [x] nonstandard ports rejected
 - [x] private/loopback/link-local/reserved IPv4 blocked
-- [x] risky IPv6 ranges/mapped addresses blocked conservatively
-- [x] every redirect target revalidated
-- [x] axios auto-redirect disabled
-- [x] environment proxy routing disabled for target fetches
-- [x] target response size/time bounded
-- [x] socket-level DNS lookup validates the actual connection address
-- [x] regression tests exist for URL/IP/DNS/socket rules
+- [x] risky/mapped IPv6 ranges blocked conservatively
+- [x] redirects revalidated
+- [x] proxy environment routing disabled for scan targets
+- [x] bounded target time/size
+- [x] socket-level DNS address validation
+- [x] URL/IP/DNS regression tests exist
 
-## File boundary
+## Upload
 
-- [x] one file only
-- [x] max 10 MB
-- [x] PDF/TXT only
+- [x] one PDF/TXT only, max 10 MB
 - [x] extension + MIME boundary
-- [x] PDF signature validation
+- [x] PDF signature check
 - [x] binary/null-byte TXT rejection
-- [x] temporary cleanup in `finally`
-- [x] image/presentation mock extraction removed
-- [x] current parser code and dependency aligned on `pdf-parse 2.4.5` v2 API
-- [x] parser lifecycle calls `destroy()`
-- [ ] malware/quarantine layer
-- [ ] parser sandbox / stronger resource isolation
+- [x] temp cleanup
+- [x] fake image/presentation extraction removed
+- [x] `pdf-parse 2.4.5` v2 lifecycle + `destroy()`
+- [ ] malware quarantine
+- [ ] parser sandbox/resource isolation
 
 ---
 
-# Persistence / tenant architecture preparation
+# Dedicated GuardAI database design
 
-ADR: `docs/adr/0001-dedicated-supabase-postgres-auth.md`
+ADRs:
 
-Completed:
+- `docs/adr/0001-dedicated-supabase-postgres-auth.md`
+- `docs/adr/0002-native-postgres-backend-transactions.md`
 
-- [x] existing connected Supabase database inspected read-only and confirmed unrelated/multi-application
-- [x] dedicated GuardAI Supabase project selected architecturally
-- [x] existing shared project explicitly excluded from GuardAI use
-- [x] `database/001_guardai_core_schema_draft.sql` created as design source
-- [x] `database/README.md` documents promotion to a real generated migration
-- [x] schema includes profiles, organizations, memberships, targets, scans, jobs, evidence, rules, legal sources, findings, subscriptions and audit events
-- [x] RLS enabled in design on exposed GuardAI tables
-- [x] organization membership helper isolated in private schema
-- [x] browser access intentionally read-mostly; privileged mutations backend-first
-- [x] queue/job table intentionally unavailable to browser roles
-- [ ] dedicated GuardAI cloud project created
-- [ ] real migration generated by Supabase CLI
-- [ ] migration applied to staging
-- [ ] Supabase security/performance advisors clean
-- [ ] multi-user/cross-tenant RLS tests executed
+Design sources:
 
----
+- `database/001_guardai_core_schema_draft.sql`
+- `database/002_scan_queue_invariants_draft.sql`
+- `database/README.md`
 
-# Auth / authorization preparation
+Completed design:
 
-- [x] `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` server env boundary documented
-- [x] no Supabase secret/service key planned for Vite/browser env
-- [x] Bearer parser + tests
-- [x] fail-closed token verification through Supabase Auth user endpoint
-- [x] `/api/v1/auth/me` identity endpoint prepared
-- [x] no request-body/user-metadata role trust
-- [x] canonical organization roles: owner/admin/member/viewer
-- [x] role hierarchy helper + tests
-- [ ] dedicated GuardAI Auth project configured
-- [ ] frontend Supabase client/login UI
-- [ ] workspace membership repository connected to Postgres
-- [ ] route-level organization authorization middleware
-- [ ] entitlements/quotas linked to authenticated organization
+- [x] profiles / organizations / memberships
+- [x] targets
+- [x] scans / scan_jobs
+- [x] evidence
+- [x] rules / rule_versions / legal_sources
+- [x] findings / finding_instances
+- [x] subscriptions / audit_events
+- [x] RLS design
+- [x] private role helper design
+- [x] browser read-mostly model
+- [x] composite tenant foreign-key design
+- [x] requested-module constraints
+- [x] organization-scoped idempotency key
+- [x] unique scan/job module constraint
+- [ ] dedicated GuardAI Supabase project provisioned
+- [ ] drafts consolidated into generated real migration
+- [ ] staging migration applied
+- [ ] Supabase advisors clean
+- [ ] cross-tenant/RLS integration tests executed
 
 ---
 
-# Scan lifecycle preparation
+# Auth / organization authorization
 
-- [x] explicit statuses: queued/running/completed/failed/cancelled
-- [x] legal transition state machine + tests
-- [x] DB draft includes scans + scan_jobs
-- [ ] repository layer
-- [ ] persistent scan creation transaction
-- [ ] worker leasing/claiming
-- [ ] retry/dead-letter behavior
-- [ ] progress/status API
-- [ ] current synchronous scanner moved behind worker execution
+- [x] dedicated Supabase URL/publishable-key server config boundary
+- [x] bearer parsing + tests
+- [x] fail-closed Supabase Auth user validation path
+- [x] `/api/v1/auth/me`
+- [x] owner/admin/member/viewer domain roles
+- [x] role hierarchy tests
+- [x] repository-independent organization authorization service
+- [x] non-member/insufficient-role/invalid-role tests
+- [x] Postgres membership repository
+- [ ] GuardAI Supabase Auth project configured
+- [ ] frontend login/session shell
+- [ ] real membership integration tested against staging
+- [ ] entitlements/quotas linked to organization
 
 ---
 
-# Existing test files
+# Native Postgres repository layer
 
-- `targetSafety.test.js`
-- `scanAccess.test.js`
-- `scanContract.test.js`
-- `authHeader.test.js`
-- `roles.test.js`
-- `scanLifecycle.test.js`
+Backend-only configuration:
 
-**Tests exist but are not marked passing until actually executed.**
+```text
+DATABASE_URL
+DATABASE_POOL_MAX
+```
+
+Implemented:
+
+- [x] bounded Postgres pool factory
+- [x] membership repository
+- [x] scan repository
+- [x] scan read/status repository
+- [x] repository-independent persistence service composition
+- [x] all current SQL parameterized
+- [x] database unavailable/config-invalid paths fail closed
+- [x] idempotent scan request matching helpers + tests
+
+`pg 8.22.0` is selected in `server/package.json`; lockfile/install validation remains pending.
+
+---
+
+# Persistent async scan lifecycle — first real path
+
+## Domain
+
+- [x] statuses: queued/running/completed/failed/cancelled
+- [x] legal state transitions + tests
+- [x] allowed target→module matrix + tests
+- [x] requestable scanner modules
+- [x] idempotency-key validation
+- [x] repository-independent Scan Submission service + tests
+
+## Atomic Scan + Jobs creation
+
+`createQueuedScanWithJobs` now designs/implements:
+
+- [x] Target must belong to requested organization
+- [x] Target type must support requested modules
+- [x] one DB transaction for Scan + Jobs
+- [x] organization-scoped idempotency
+- [x] concurrent idempotency conflict handling
+- [x] same key + different logical request → `409 IDEMPOTENCY_KEY_REUSED`
+
+## Worker job claim
+
+`claimNextJob` implements:
+
+- [x] queued jobs whose `available_at` is ready
+- [x] reclaim expired running leases
+- [x] attempt limit check
+- [x] `FOR UPDATE SKIP LOCKED`
+- [x] worker ID + lease timestamps
+- [x] increments attempt count
+- [x] queued Scan transitions to running on first claim
+
+## Authenticated HTTP contract
+
+Prepared routes:
+
+```text
+POST /api/v1/organizations/:organizationId/targets/:targetId/scans
+GET  /api/v1/organizations/:organizationId/scans/:scanId
+```
+
+POST:
+
+- [x] requires Supabase-authenticated user
+- [x] requires organization role `member+`
+- [x] accepts validated modules
+- [x] accepts `Idempotency-Key`
+- [x] returns 202 on creation / 200 on idempotent replay
+
+GET:
+
+- [x] requires authenticated `viewer+`
+- [x] tenant-scoped Scan lookup
+- [x] returns user-safe job status without worker secret/internal ID data
+
+These routes are fail-closed until the dedicated GuardAI Auth/DB environment exists.
+
+---
+
+# Test source inventory
+
+Current Node test sources include:
+
+- target safety
+- scan access
+- scan contract
+- auth header parsing
+- organization roles
+- organization authorization
+- scan lifecycle
+- scan submission
+- target/module compatibility
+- API error envelope
+- scan repository idempotency helpers
+
+**They are not marked passing until actually executed.**
 
 ---
 
 ## Current blockers
 
-1. GitHub Actions runner allocation is still blocked externally.
-2. Backend dependency install has not run after package changes; no new lockfile yet.
-3. Dedicated GuardAI Supabase project has not yet been provisioned.
-4. Therefore DB/Auth integration cannot yet be end-to-end verified.
-5. Scanner requests are still synchronous until persistent job/worker work lands.
+1. GitHub Actions runner allocation remains externally blocked.
+2. Backend clean install has not run after dependency changes; backend lockfile is intentionally absent.
+3. Dedicated GuardAI Supabase project is not yet provisioned.
+4. DB/Auth routes therefore cannot yet be end-to-end integration tested.
+5. Job completion/failure/retry and Evidence persistence are the next implementation block.
+6. Current public prototype scan endpoints are still synchronous and are not yet replaced by the worker path.
 
 ---
 
 ## Phase 1 exit criteria
 
-- [x] runtime/package baseline
-- [x] repository hygiene/contribution standards
-- [x] CI/secret-scan workflow registered
-- [x] modular backend structure
-- [x] target safety + regression test sources
-- [x] versioned API/scan contract boundary
-- [x] dedicated GuardAI persistence/auth architecture chosen
-- [x] initial DB/RLS design source
-- [x] initial fail-closed Auth/RBAC domain foundation
-- [x] scan lifecycle domain foundation
+- [x] repository/runtime standards
+- [x] modular backend foundation
+- [x] versioned API + structured errors
+- [x] scanner target/upload safety foundation
+- [x] dedicated DB/Auth architecture
+- [x] DB/RLS design sources
+- [x] Auth/RBAC/tenant authorization foundation
+- [x] native Postgres repository foundation
+- [x] persistent Scan submission/status/worker-claim foundation
 - [ ] root `npm ci` verified
 - [ ] backend clean install + lockfile verified
-- [ ] lint/typecheck/frontend build verified
+- [ ] frontend lint/typecheck/build verified
 - [ ] backend syntax/tests verified
 
 ---
 
 ## Next implementation order
 
-While clean execution remains externally unavailable:
+1. worker job completion/failure/retry semantics,
+2. Evidence + Finding persistence transaction layer,
+3. worker handler registry and first real Security worker,
+4. scanner progress/coverage aggregation,
+5. migrate frontend from synchronous prototype request to authenticated persistent Scan flow after Auth/DB staging exists,
+6. provision dedicated GuardAI staging Supabase project when cloud provisioning is explicitly reached.
 
-1. add database repository interfaces and workspace-authorization boundary,
-2. design persistent async scan creation/job claim contracts,
-3. canonicalize API errors + detector assessment state,
-4. prepare frontend Auth shell without connecting to the unrelated Supabase project,
-5. once cloud provisioning is reached, create a **dedicated GuardAI** staging project and turn the schema draft into a real migration.
-
-As soon as a clean runner/environment becomes available, validation takes priority over adding more features.
+If a clean runner becomes available first, validation takes priority immediately.
