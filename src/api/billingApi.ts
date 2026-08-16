@@ -30,7 +30,13 @@ function assertBillingStatus(value: unknown): BillingStatus {
 }
 
 function assertCheckout(value: unknown): BillingCheckout {
-  if (!isRecord(value) || typeof value.sessionId !== 'string' || typeof value.url !== 'string') {
+  if (
+    !isRecord(value) ||
+    typeof value.sessionId !== 'string' ||
+    typeof value.url !== 'string' ||
+    typeof value.expiresAt !== 'string' ||
+    typeof value.idempotentReplay !== 'boolean'
+  ) {
     throw new GuardApiError('Billing checkout response is invalid.', 'INVALID_API_RESPONSE', 200);
   }
   let parsed;
@@ -41,6 +47,9 @@ function assertCheckout(value: unknown): BillingCheckout {
   }
   if (parsed.protocol !== 'https:') {
     throw new GuardApiError('Billing checkout URL is not HTTPS.', 'INVALID_API_RESPONSE', 200);
+  }
+  if (Number.isNaN(new Date(value.expiresAt).getTime())) {
+    throw new GuardApiError('Billing checkout expiration is invalid.', 'INVALID_API_RESPONSE', 200);
   }
   return value as unknown as BillingCheckout;
 }
@@ -61,12 +70,16 @@ export function createBillingApi(getAccessToken: AccessTokenProvider) {
   async function createCheckout(
     organizationId: string,
     plan: string,
+    idempotencyKey: string,
   ): Promise<BillingCheckout> {
     const payload = await client.request(
       `/organizations/${encodeURIComponent(organizationId)}/billing/checkout-session`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey,
+        },
         body: JSON.stringify({ plan }),
       },
     );
@@ -77,6 +90,10 @@ export function createBillingApi(getAccessToken: AccessTokenProvider) {
   }
 
   return { createCheckout, getStatus };
+}
+
+export function createBillingIdempotencyKey(): string {
+  return crypto.randomUUID();
 }
 
 export type BillingApi = ReturnType<typeof createBillingApi>;
