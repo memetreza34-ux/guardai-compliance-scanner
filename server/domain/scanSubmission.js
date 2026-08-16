@@ -9,6 +9,12 @@ const REQUESTABLE_SCAN_MODULES = Object.freeze([
   'asset',
 ]);
 
+// This list is intentionally narrower than the known module registry. A module only
+// becomes externally requestable after its worker, persistence semantics and tests exist.
+const ENABLED_PERSISTENT_SCAN_MODULES = Object.freeze([
+  'security',
+]);
+
 function normalizeRequestedModules(value) {
   if (!Array.isArray(value) || value.length === 0) {
     throw new HttpError(400, 'At least one scan module is required.', 'SCAN_MODULES_REQUIRED');
@@ -25,6 +31,21 @@ function normalizeRequestedModules(value) {
       'One or more requested scan modules are invalid.',
       'INVALID_SCAN_MODULE',
       { invalid },
+    );
+  }
+
+  const unavailable = modules.filter(
+    (moduleId) => !ENABLED_PERSISTENT_SCAN_MODULES.includes(moduleId),
+  );
+  if (unavailable.length > 0) {
+    throw new HttpError(
+      422,
+      'One or more requested scan modules are not available in the persistent GuardAI pipeline yet.',
+      'SCAN_MODULE_NOT_AVAILABLE',
+      {
+        unavailable,
+        enabled: [...ENABLED_PERSISTENT_SCAN_MODULES],
+      },
     );
   }
 
@@ -97,6 +118,7 @@ function createScanSubmissionService({
 
 module.exports = {
   createScanSubmissionService,
+  ENABLED_PERSISTENT_SCAN_MODULES,
   normalizeIdempotencyKey,
   normalizeRequestedModules,
   REQUESTABLE_SCAN_MODULES,
