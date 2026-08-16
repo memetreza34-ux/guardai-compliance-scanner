@@ -6,8 +6,10 @@ const { createJobRepository } = require('../repositories/jobRepository');
 const { createMembershipRepository } = require('../repositories/membershipRepository');
 const { createScanReadRepository } = require('../repositories/scanReadRepository');
 const { createScanRepository } = require('../repositories/scanRepository');
+const { createTargetVerificationRepository } = require('../repositories/targetVerificationRepository');
 const { createJobFailureService } = require('./jobFailureService');
 const { createOrganizationAuthorizationService } = require('./organizationAuthorization');
+const { createTargetVerificationService } = require('./targetVerificationService');
 
 let services = null;
 
@@ -19,6 +21,11 @@ function createPersistenceServices() {
   const organizationAuthorization = createOrganizationAuthorizationService(membershipRepository);
   const scanRepository = createScanRepository(pool);
   const scanReadRepository = createScanReadRepository(pool);
+  const targetVerificationRepository = createTargetVerificationRepository(pool);
+  const targetVerificationService = createTargetVerificationService({
+    organizationAuthorization,
+    targetVerificationRepository,
+  });
   const scanSubmission = createScanSubmissionService({
     organizationAuthorization,
     scanRepository,
@@ -35,6 +42,8 @@ function createPersistenceServices() {
     scanReadRepository,
     scanRepository,
     scanSubmission,
+    targetVerificationRepository,
+    targetVerificationService,
   };
 }
 
