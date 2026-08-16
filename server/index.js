@@ -1,8 +1,8 @@
 require('dotenv').config();
 
-const dns = require('node:dns').promises;
 const fs = require('node:fs');
-const net = require('node:net');
+const http = require('node:http');
+const https = require('node:https');
 const path = require('node:path');
 const express = require('express');
 const cors = require('cors');
@@ -14,6 +14,12 @@ const rateLimit = require('express-rate-limit');
 const { z } = require('zod');
 const multer = require('multer');
 const pdfParse = require('pdf-parse');
+const { HttpError } = require('./lib/httpError');
+const {
+  assertPublicHttpTarget,
+  createSafeLookup,
+  normalizeHttpUrl,
+} = require('./lib/targetSafety');
 
 const app = express();
 const PORT = Number(process.env.PORT || 3001);
@@ -22,19 +28,22 @@ const MAX_HTML_BYTES = 2 * 1024 * 1024;
 const MAX_EXTRACTED_TEXT_CHARS = 30000;
 const MAX_REDIRECTS = 3;
 
-class HttpError extends Error {
-  constructor(statusCode, message) {
-    super(message);
-    this.name = 'HttpError';
-    this.statusCode = statusCode;
-  }
-}
+const safeLookup = createSafeLookup();
+const safeHttpAgent = new http.Agent({
+  keepAlive: false,
+  lookup: safeLookup,
+});
+const safeHttpsAgent = new https.Agent({
+  keepAlive: false,
+  lookup: safeLookup,
+});
 
 const configuredOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+app.disable('x-powered-by');
 app.use(helmet());
 app.use(cors({
   origin(origin, callback) {
@@ -121,111 +130,6 @@ function resolveWebScanOptions(options) {
   };
 }
 
-function normalizeHttpUrl(rawUrl) {
-  const value = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
-  let parsed;
-
-  try {
-    parsed = new URL(value);
-  } catch {
-    throw new HttpError(400, 'Target must be a valid HTTP or HTTPS URL.');
-  }
-
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new HttpError(400, 'Only HTTP and HTTPS targets are supported.');
-  }
-
-  if (parsed.username || parsed.password) {
-    throw new HttpError(400, 'URLs containing credentials are not allowed.');
-  }
-
-  if (parsed.port && !['80', '443'].includes(parsed.port)) {
-    throw new HttpError(400, 'Only standard HTTP/HTTPS ports are allowed.');
-  }
-
-  return parsed;
-}
-
-function isBlockedIpv4(address) {
-  const parts = address.split('.').map(Number);
-  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
-    return true;
-  }
-
-  const [a, b, c] = parts;
-
-  return (
-    a === 0 ||
-    a === 10 ||
-    a === 127 ||
-    (a === 100 && b >= 64 && b <= 127) ||
-    (a === 169 && b === 254) ||
-    (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 168) ||
-    (a === 192 && b === 0 && c === 0) ||
-    (a === 192 && b === 0 && c === 2) ||
-    (a === 198 && (b === 18 || b === 19)) ||
-    (a === 198 && b === 51 && c === 100) ||
-    (a === 203 && b === 0 && c === 113) ||
-    a >= 224
-  );
-}
-
-function isBlockedIpv6(address) {
-  const normalized = address.toLowerCase().split('%')[0];
-
-  if (normalized === '::' || normalized === '::1') return true;
-
-  if (normalized.startsWith('::ffff:')) {
-    const mappedIpv4 = normalized.slice('::ffff:'.length);
-    if (net.isIP(mappedIpv4) === 4) return isBlockedIpv4(mappedIpv4);
-  }
-
-  const firstHextet = Number.parseInt(normalized.split(':')[0] || '0', 16);
-  const isUniqueLocal = firstHextet >= 0xfc00 && firstHextet <= 0xfdff;
-  const isLinkLocal = firstHextet >= 0xfe80 && firstHextet <= 0xfebf;
-  const isDocumentation = normalized.startsWith('2001:db8:') || normalized === '2001:db8::';
-
-  return isUniqueLocal || isLinkLocal || isDocumentation;
-}
-
-function isBlockedIp(address) {
-  const version = net.isIP(address);
-  if (version === 4) return isBlockedIpv4(address);
-  if (version === 6) return isBlockedIpv6(address);
-  return true;
-}
-
-async function assertPublicHttpTarget(parsedUrl) {
-  const hostname = parsedUrl.hostname.toLowerCase();
-
-  if (
-    hostname === 'localhost' ||
-    hostname.endsWith('.localhost') ||
-    hostname.endsWith('.local')
-  ) {
-    throw new HttpError(400, 'Local and private network targets are not allowed.');
-  }
-
-  if (net.isIP(hostname)) {
-    if (isBlockedIp(hostname)) {
-      throw new HttpError(400, 'Private, loopback, link-local, reserved and metadata targets are not allowed.');
-    }
-    return;
-  }
-
-  let addresses;
-  try {
-    addresses = await dns.lookup(hostname, { all: true, verbatim: true });
-  } catch {
-    throw new HttpError(400, 'Target hostname could not be resolved.');
-  }
-
-  if (addresses.length === 0 || addresses.some(({ address }) => isBlockedIp(address))) {
-    throw new HttpError(400, 'Target resolves to a private, loopback, link-local or reserved address.');
-  }
-}
-
 async function safeGet(rawUrl, requestConfig = {}, redirectsRemaining = MAX_REDIRECTS) {
   const parsedUrl = normalizeHttpUrl(rawUrl);
   await assertPublicHttpTarget(parsedUrl);
@@ -233,14 +137,21 @@ async function safeGet(rawUrl, requestConfig = {}, redirectsRemaining = MAX_REDI
   let response;
   try {
     response = await axios.get(parsedUrl.toString(), {
+      ...requestConfig,
       timeout: 10000,
       maxRedirects: 0,
       maxContentLength: MAX_HTML_BYTES,
       maxBodyLength: MAX_HTML_BYTES,
       validateStatus: () => true,
-      ...requestConfig,
+      proxy: false,
+      httpAgent: safeHttpAgent,
+      httpsAgent: safeHttpsAgent,
     });
   } catch (error) {
+    if (error instanceof HttpError) {
+      throw error;
+    }
+
     console.error('[SafeFetch] Request failed:', error.message);
     throw new HttpError(502, 'Target could not be fetched safely.');
   }
@@ -299,9 +210,10 @@ function calculateOverallScore(categories) {
 }
 
 function buildSecurityCategory(headers) {
+  const contentSecurityPolicy = String(headers['content-security-policy'] || '');
   const checks = [
     {
-      present: Boolean(headers['content-security-policy']),
+      present: Boolean(contentSecurityPolicy),
       issue: {
         id: 'missing-csp',
         title: 'Content-Security-Policy fehlt',
@@ -321,7 +233,7 @@ function buildSecurityCategory(headers) {
       },
     },
     {
-      present: Boolean(headers['x-frame-options']) || Boolean(headers['content-security-policy']?.includes('frame-ancestors')),
+      present: Boolean(headers['x-frame-options']) || contentSecurityPolicy.includes('frame-ancestors'),
       issue: {
         id: 'missing-frame-protection',
         title: 'Kein eindeutiger Frame-Schutz erkannt',
