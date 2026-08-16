@@ -38,8 +38,9 @@ router.post('/organizations/:organizationId/billing/checkout-session', requireAu
       userId: req.auth.userId,
       email: req.auth.email,
       plan: body.plan,
+      idempotencyKey: req.get('Idempotency-Key'),
     });
-    res.status(201).json({ checkout });
+    res.status(checkout.idempotentReplay ? 200 : 201).json({ checkout });
   } catch (error) {
     sendRouteError(res, error, 'Billing Checkout');
   }
