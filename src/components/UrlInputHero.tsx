@@ -1,272 +1,168 @@
 import React, { useState } from 'react';
-import { Search, Globe, CheckCircle2, SlidersHorizontal, Bot, Scale, Lock, Eye, ShieldCheck } from 'lucide-react';
-import { SAMPLE_URLS } from '../data/mockScanEngine';
+import { FileText, Globe, Search, ShieldCheck, Upload } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
-import { Label } from './ui/label';
+import type { ScanOptions } from '../types/scanOptions';
+import { DEFAULT_SCAN_OPTIONS } from '../types/scanOptions';
 
 interface UrlInputHeroProps {
-  onStartScan: (url: string | File, options: { aiAct: boolean; gdpr: boolean; wcag: boolean; security: boolean; fileMode: boolean }) => void;
+  onStartScan: (target: string | File, options: ScanOptions) => void | Promise<void>;
   isScanning: boolean;
+}
+
+const MAX_CLIENT_FILE_BYTES = 10 * 1024 * 1024;
+const ALLOWED_FILE_EXTENSIONS = ['.pdf', '.txt'];
+
+function hasAllowedExtension(fileName: string): boolean {
+  const lowerName = fileName.toLowerCase();
+  return ALLOWED_FILE_EXTENSIONS.some((extension) => lowerName.endsWith(extension));
 }
 
 export const UrlInputHero: React.FC<UrlInputHeroProps> = ({ onStartScan, isScanning }) => {
   const [inputUrl, setInputUrl] = useState('');
-  const [scanOptions, setScanOptions] = useState({
-    aiAct: true,
-    gdpr: true,
-    wcag: true,
-    security: true,
-    fileMode: false
-  });
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [mode, setMode] = useState<'web' | 'file'>('web');
+  const [localError, setLocalError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputUrl.trim()) return;
-    onStartScan(inputUrl, scanOptions);
+  const buildOptions = (fileMode: boolean): ScanOptions => ({
+    ...DEFAULT_SCAN_OPTIONS,
+    fileMode,
+  });
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    const value = inputUrl.trim();
+    if (!value || isScanning) return;
+
+    setLocalError(null);
+    void onStartScan(value, buildOptions(false));
   };
 
-  const handleSelectPreset = (presetUrl: string) => {
-    setInputUrl(presetUrl);
-    onStartScan(presetUrl, scanOptions);
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || isScanning) return;
+
+    if (file.size > MAX_CLIENT_FILE_BYTES) {
+      setLocalError('Die Datei ist größer als 10 MB.');
+      event.target.value = '';
+      return;
+    }
+
+    if (!hasAllowedExtension(file.name)) {
+      setLocalError('Der aktuelle Prototype akzeptiert hier nur PDF- und TXT-Dateien.');
+      event.target.value = '';
+      return;
+    }
+
+    setLocalError(null);
+    void onStartScan(file, buildOptions(true));
+    event.target.value = '';
   };
 
   return (
-    <div className="py-16 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto text-center">
-      
-      {/* Category Pill Badge */}
-      <Badge variant="secondary" className="mb-8 px-4 py-1">
+    <section className="py-16 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto text-center">
+      <Badge variant="secondary" className="mb-7 px-4 py-1">
         <ShieldCheck className="w-4 h-4 mr-2 text-primary" />
-        Kontinuierliches Web & Compliance Monitoring
+        GuardAI Technical Screening · Prototype
       </Badge>
 
-      {/* Main Headline */}
       <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight leading-tight mb-6 text-foreground">
-        Prüfe deine App & Website auf <br />
-        <span className="text-primary">
-          EU AI Act, DSGVO & Barrierefreiheit
-        </span>
+        Technische Risiken erkennen. <br />
+        <span className="text-primary">Evidence statt Compliance-Versprechen.</span>
       </h1>
 
-      <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-10 font-normal leading-relaxed">
-        Vermeide teure Abmahnungen und Bußgelder. GuardAI scannt deine Web-Anwendungen kontinuierlich auf Transparenz-Pflichten, Datenschutzverstöße und Barrierefreiheit.
+      <p className="text-lg text-muted-foreground max-w-3xl mx-auto mb-10 leading-relaxed">
+        GuardAI wird zu einer Plattform für technische Security-, Privacy-, Accessibility- und
+        AI-Governance-Prüfungen ausgebaut. Der aktuelle Scanner ist noch im aktiven Produktaufbau.
       </p>
 
-      {/* Hero URL Input Card */}
       <Card className="max-w-3xl mx-auto text-left border-muted/50 bg-card/50 backdrop-blur-sm shadow-xl">
         <CardContent className="p-6">
-          {/* Tabs for Mode Selection */}
-          <div className="flex gap-4 mb-6 border-b pb-2">
-            <button 
+          <div className="flex gap-2 mb-6 p-1 rounded-lg bg-muted/50 w-fit">
+            <button
               type="button"
-              className={`pb-2 text-sm font-medium transition-colors ${!scanOptions.fileMode ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground'}`}
-              onClick={() => setScanOptions({ ...scanOptions, fileMode: false })}
+              onClick={() => {
+                setMode('web');
+                setLocalError(null);
+              }}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
+                mode === 'web' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground'
+              }`}
             >
-              🌐 Web & Code Scan
+              <Globe className="w-4 h-4" /> Website / Repository
             </button>
-            <button 
+            <button
               type="button"
-              className={`pb-2 text-sm font-medium transition-colors ${scanOptions.fileMode ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground'}`}
-              onClick={() => setScanOptions({ ...scanOptions, fileMode: true })}
+              onClick={() => {
+                setMode('file');
+                setLocalError(null);
+              }}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
+                mode === 'file' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground'
+              }`}
             >
-              📄 Datei & Asset Scan
+              <FileText className="w-4 h-4" /> Datei
             </button>
           </div>
 
-          {!scanOptions.fileMode ? (
+          {mode === 'web' ? (
             <form onSubmit={handleSubmit}>
-              <div className="flex flex-col sm:flex-row gap-3">
+              <label htmlFor="guardai-target" className="text-sm font-medium">
+                Öffentliche URL oder GitHub-Repository
+              </label>
+              <div className="flex flex-col sm:flex-row gap-3 mt-2">
                 <div className="relative flex-1">
                   <Globe className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
                   <Input
+                    id="guardai-target"
                     type="text"
                     value={inputUrl}
-                    onChange={(e) => setInputUrl(e.target.value)}
-                    placeholder="https://deine-domain.de ODER github.com/user/repo"
+                    onChange={(event) => setInputUrl(event.target.value)}
+                    placeholder="https://example.com oder https://github.com/org/repo"
                     className="pl-11 h-12 text-base bg-background/50"
+                    autoComplete="url"
                   />
                 </div>
-                <Button type="submit" disabled={isScanning} className="h-12 px-6" size="lg">
+                <Button type="submit" disabled={isScanning || !inputUrl.trim()} className="h-12 px-6" size="lg">
                   <Search className="w-4 h-4 mr-2" />
-                  {isScanning ? 'Scan läuft...' : 'Kostenlos Prüfen'}
+                  {isScanning ? 'Scan läuft …' : 'Technischen Scan starten'}
                 </Button>
               </div>
+              <p className="text-xs text-muted-foreground mt-3">
+                Welche Checks tatsächlich ausgeführt wurden, wird erst im Ergebnis als Coverage angezeigt.
+              </p>
             </form>
           ) : (
-            <div className="border-2 border-dashed border-muted-foreground/25 rounded-xl p-10 text-center bg-muted/10 hover:bg-muted/20 transition-colors cursor-pointer relative">
-              <input 
-                type="file" 
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                accept=".pdf,image/*"
-                onChange={(e) => {
-                  if (e.target.files && e.target.files[0]) {
-                    onStartScan(e.target.files[0] as any, scanOptions);
-                  }
-                }}
-              />
-              <div className="flex flex-col items-center gap-2">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
-                  <Search className="w-6 h-6 text-primary" />
+            <div>
+              <p className="text-sm font-medium mb-2">PDF oder TXT analysieren</p>
+              <label className="relative flex flex-col items-center justify-center border-2 border-dashed border-muted-foreground/25 rounded-xl p-10 text-center bg-muted/10 hover:bg-muted/20 transition-colors cursor-pointer">
+                <input
+                  type="file"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  accept=".pdf,.txt,text/plain,application/pdf"
+                  onChange={handleFileChange}
+                  disabled={isScanning}
+                />
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                  <Upload className="w-6 h-6 text-primary" />
                 </div>
-                <h3 className="text-lg font-semibold">PDF, Flyer oder Bild hochladen</h3>
-                <p className="text-sm text-muted-foreground">KI prüft auf Urheberrecht & IP (Max 10MB)</p>
-              </div>
+                <span className="font-semibold">Datei auswählen oder hier ablegen</span>
+                <span className="text-xs text-muted-foreground mt-2">PDF/TXT · clientseitig maximal 10 MB · Prototype</span>
+              </label>
+              <p className="text-xs text-muted-foreground mt-3">
+                Die vollständige serverseitige Upload-Härtung und Malware-Quarantäne ist Bestandteil der Build-Roadmap.
+              </p>
             </div>
           )}
 
-          {/* Quick Options Header */}
-          <div className="mt-5 flex items-center justify-between flex-wrap gap-3">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowAdvanced(!showAdvanced)}
-                className="text-muted-foreground h-8 text-xs"
-              >
-                <SlidersHorizontal className="w-3.5 h-3.5 mr-2" />
-                {showAdvanced ? 'Prüf-Module verbergen' : 'Prüf-Module anpassen'}
-              </Button>
-
-              <div className="flex items-center gap-4 text-xs text-muted-foreground font-medium">
-                <span className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-primary" /> Web & GitHub Support
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-primary" /> Supply-Chain Analyse
-                </span>
-              </div>
+          {localError && (
+            <div role="alert" className="mt-4 rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
+              {localError}
             </div>
-
-            {/* Advanced Checkbox Options */}
-            {showAdvanced && (
-              <div className="mt-4 pt-4 border-t grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                <Label className="flex items-center gap-2 cursor-pointer font-normal">
-                  <input
-                    type="checkbox"
-                    checked={scanOptions.aiAct}
-                    onChange={(e) => setScanOptions({ ...scanOptions, aiAct: e.target.checked })}
-                    className="rounded border-input text-primary focus:ring-primary accent-primary"
-                  />
-                  <Bot className="w-4 h-4 text-muted-foreground" /> EU AI Act
-                </Label>
-
-                <Label className="flex items-center gap-2 cursor-pointer font-normal">
-                  <input
-                    type="checkbox"
-                    checked={scanOptions.gdpr}
-                    onChange={(e) => setScanOptions({ ...scanOptions, gdpr: e.target.checked })}
-                    className="rounded border-input text-primary focus:ring-primary accent-primary"
-                  />
-                  <Scale className="w-4 h-4 text-muted-foreground" /> DSGVO Privacy
-                </Label>
-
-                <Label className="flex items-center gap-2 cursor-pointer font-normal">
-                  <input
-                    type="checkbox"
-                    checked={scanOptions.wcag}
-                    onChange={(e) => setScanOptions({ ...scanOptions, wcag: e.target.checked })}
-                    className="rounded border-input text-primary focus:ring-primary accent-primary"
-                  />
-                  <Eye className="w-4 h-4 text-muted-foreground" /> Barrierefreiheit
-                </Label>
-
-                <Label className="flex items-center gap-2 cursor-pointer font-normal">
-                  <input
-                    type="checkbox"
-                    checked={scanOptions.security}
-                    onChange={(e) => setScanOptions({ ...scanOptions, security: e.target.checked })}
-                    className="rounded border-input text-primary focus:ring-primary accent-primary"
-                  />
-                  <Lock className="w-4 h-4 text-muted-foreground" /> Security
-                </Label>
-              </div>
-            )}
-
-
-          {/* Demo Preset Buttons */}
-          <div className="mt-6 pt-5 border-t">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-3">
-              Schnelltest-Websites wählen:
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {SAMPLE_URLS.map((preset, idx) => (
-                <Button
-                  key={idx}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleSelectPreset(preset.url)}
-                  className="h-7 text-xs px-2.5 bg-background/50"
-                >
-                  <Globe className="w-3 h-3 mr-1.5 text-muted-foreground" /> {preset.label}
-                </Button>
-              ))}
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
-
-      {/* Feature Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-16 text-left">
-        <Card className="bg-card/50 border-muted/50">
-          <CardHeader className="pb-2">
-            <div className="w-8 h-8 rounded bg-muted flex items-center justify-center text-foreground mb-2">
-              <Bot className="w-4 h-4" />
-            </div>
-            <CardTitle className="text-sm">EU AI Act Transparenz</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Prüft automatisch, ob Chatbots & KI-Komponenten ordnungsgemäß deklariert sind.
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card/50 border-muted/50">
-          <CardHeader className="pb-2">
-            <div className="w-8 h-8 rounded bg-muted flex items-center justify-center text-foreground mb-2">
-              <Scale className="w-4 h-4" />
-            </div>
-            <CardTitle className="text-sm">DSGVO & Privacy</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Erkennt illegalen Datenabfluss an Drittserver und Cookie-Tracker.
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card/50 border-muted/50">
-          <CardHeader className="pb-2">
-            <div className="w-8 h-8 rounded bg-muted flex items-center justify-center text-foreground mb-2">
-              <ShieldCheck className="w-4 h-4" />
-            </div>
-            <CardTitle className="text-sm">Audit-Zertifikat</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Generiere ein Compliance-Zertifikat als Nachweis für deine Kunden und Nutzer.
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card/50 border-muted/50">
-          <CardHeader className="pb-2">
-            <div className="w-8 h-8 rounded bg-muted flex items-center justify-center text-foreground mb-2">
-              <Globe className="w-4 h-4" />
-            </div>
-            <CardTitle className="text-sm">Kontinuierliches Audit</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Automatische Re-Scans der gesamten Domain. Bei Fehlern schlägt das System Alarm.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+    </section>
   );
 };
