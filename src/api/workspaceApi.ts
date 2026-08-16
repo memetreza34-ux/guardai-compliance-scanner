@@ -5,6 +5,7 @@ import type {
   PersistentScanSubmission,
   TargetVerificationChallenge,
   TargetVerificationCheck,
+  WorkspaceAuditPage,
   WorkspaceOrganization,
   WorkspaceTarget,
 } from '../types/workspace';
@@ -160,18 +161,40 @@ export function createWorkspaceApi(getAccessToken: AccessTokenProvider) {
     return payload as unknown as PersistentScanResult;
   }
 
+  async function listAuditEvents(
+    organizationId: string,
+    options: { limit?: number; cursor?: string } = {},
+  ): Promise<WorkspaceAuditPage> {
+    const search = new URLSearchParams();
+    if (options.limit !== undefined) search.set('limit', String(options.limit));
+    if (options.cursor) search.set('cursor', options.cursor);
+    const suffix = search.size > 0 ? `?${search.toString()}` : '';
+
+    const payload = requireRecord(
+      await client.request(
+        `/organizations/${encodeURIComponent(organizationId)}/audit-events${suffix}`,
+      ),
+      'Audit history',
+    );
+    requireArray(payload.events, 'Audit history');
+    return payload as unknown as WorkspaceAuditPage;
+  }
+
   return {
     checkTargetVerification,
     createOrganization,
     createWebsiteTarget,
     getScanStatus,
     getTarget,
+    listAuditEvents,
     listOrganizations,
     listTargets,
     startTargetVerification,
     submitScan,
   };
 }
+
+export type WorkspaceApi = ReturnType<typeof createWorkspaceApi>;
 
 export function createScanIdempotencyKey(): string {
   return crypto.randomUUID();
