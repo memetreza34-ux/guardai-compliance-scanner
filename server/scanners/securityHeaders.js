@@ -1,13 +1,111 @@
-const DETECTOR_ID = 'security.headers';
-const DETECTOR_VERSION = '1.0.0';
+const cheerio = require('cheerio');
 
-function buildSecurityAssessment(headers, finalUrl) {
-  const contentSecurityPolicy = String(headers['content-security-policy'] || '');
+const DETECTOR_ID = 'security.headers';
+const DETECTOR_VERSION = '1.1.0';
+const MAX_MIXED_CONTENT_SAMPLES = 20;
+
+function headerValue(headers, name) {
+  const value = headers?.[name];
+  if (Array.isArray(value)) return value.join(', ');
+  return value === undefined || value === null ? '' : String(value);
+}
+
+function normalizeSetCookieHeaders(headers) {
+  const raw = headers?.['set-cookie'];
+  if (!raw) return [];
+  return Array.isArray(raw) ? raw.map(String) : [String(raw)];
+}
+
+function analyzeCookieAttributes(headers, secureTransport) {
+  const cookies = normalizeSetCookieHeaders(headers);
+  let missingSecure = 0;
+  let missingHttpOnly = 0;
+  let missingSameSite = 0;
+
+  for (const cookie of cookies) {
+    const attributes = cookie.split(';').slice(1).map((part) => part.trim().toLowerCase());
+    if (secureTransport && !attributes.some((part) => part === 'secure')) missingSecure += 1;
+    if (!attributes.some((part) => part === 'httponly')) missingHttpOnly += 1;
+    if (!attributes.some((part) => part.startsWith('samesite='))) missingSameSite += 1;
+  }
+
+  return {
+    observed: cookies.length,
+    missingSecure,
+    missingHttpOnly,
+    missingSameSite,
+  };
+}
+
+function sanitizeMixedContentUrl(value, baseUrl) {
+  try {
+    const parsed = new URL(value, baseUrl);
+    if (parsed.protocol !== 'http:') return null;
+    parsed.username = '';
+    parsed.password = '';
+    parsed.search = '';
+    parsed.hash = '';
+    return parsed.toString().slice(0, 2048);
+  } catch {
+    return null;
+  }
+}
+
+function analyzeMixedContent(html, finalUrl) {
+  if (typeof html !== 'string' || new URL(finalUrl).protocol !== 'https:') {
+    return { applicable: false, count: 0, activeCount: 0, samples: [] };
+  }
+
+  const $ = cheerio.load(html);
+  const selectors = [
+    ['script[src]', 'src', true],
+    ['iframe[src]', 'src', true],
+    ['form[action]', 'action', true],
+    ['link[href]', 'href', true],
+    ['img[src]', 'src', false],
+    ['source[src]', 'src', false],
+    ['video[src]', 'src', false],
+    ['audio[src]', 'src', false],
+  ];
+
+  let count = 0;
+  let activeCount = 0;
+  const samples = [];
+
+  for (const [selector, attribute, active] of selectors) {
+    $(selector).each((_index, element) => {
+      const value = $(element).attr(attribute);
+      if (!value) return;
+      const sanitized = sanitizeMixedContentUrl(value, finalUrl);
+      if (!sanitized) return;
+      count += 1;
+      if (active) activeCount += 1;
+      if (samples.length < MAX_MIXED_CONTENT_SAMPLES) {
+        samples.push({
+          element: element.tagName || selector.split('[')[0],
+          attribute,
+          url: sanitized,
+          active: Boolean(active),
+        });
+      }
+    });
+  }
+
+  return { applicable: true, count, activeCount, samples };
+}
+
+function buildSecurityAssessment(headers, finalUrl, html = null) {
+  const contentSecurityPolicy = headerValue(headers, 'content-security-policy');
   const secureTransport = new URL(finalUrl).protocol === 'https:';
-  const hstsPresent = Boolean(headers['strict-transport-security']);
-  const xFrameOptionsPresent = Boolean(headers['x-frame-options']);
+  const hstsPresent = Boolean(headerValue(headers, 'strict-transport-security'));
+  const xFrameOptionsPresent = Boolean(headerValue(headers, 'x-frame-options'));
   const cspFrameAncestorsPresent = /(?:^|;)\s*frame-ancestors\b/i.test(contentSecurityPolicy);
   const frameProtectionPresent = xFrameOptionsPresent || cspFrameAncestorsPresent;
+  const xContentTypeOptions = headerValue(headers, 'x-content-type-options').trim().toLowerCase();
+  const referrerPolicyPresent = Boolean(headerValue(headers, 'referrer-policy'));
+  const permissionsPolicyPresent = Boolean(headerValue(headers, 'permissions-policy'));
+  const cookieAttributes = analyzeCookieAttributes(headers, secureTransport);
+  const mixedContent = analyzeMixedContent(html, finalUrl);
 
   const checks = [
     {
@@ -58,6 +156,42 @@ function buildSecurityAssessment(headers, finalUrl) {
         fixSuggestion: 'Nutze vorzugsweise CSP frame-ancestors und prüfe die tatsächlich benötigten Einbettungsquellen.',
       },
     },
+    {
+      id: 'nosniff',
+      applicable: true,
+      passed: xContentTypeOptions === 'nosniff',
+      issue: {
+        id: 'missing-nosniff',
+        title: 'X-Content-Type-Options: nosniff nicht erkannt',
+        description: 'Die beobachtete Antwort enthält keinen eindeutigen X-Content-Type-Options: nosniff Header.',
+        severity: 'warning',
+        fixSuggestion: 'Setze X-Content-Type-Options auf nosniff, sofern keine dokumentierte technische Ausnahme dagegen spricht.',
+      },
+    },
+    {
+      id: 'cookie-secure',
+      applicable: secureTransport && cookieAttributes.observed > 0,
+      passed: cookieAttributes.missingSecure === 0,
+      issue: {
+        id: 'cookies-without-secure',
+        title: 'Set-Cookie ohne Secure beobachtet',
+        description: `${cookieAttributes.missingSecure} in dieser Antwort gesetzte Cookie(s) wurden auf HTTPS ohne Secure-Attribut beobachtet.`,
+        severity: 'warning',
+        fixSuggestion: 'Prüfe die betroffenen Cookies und setze Secure für Cookies, die ausschließlich über HTTPS übertragen werden sollen.',
+      },
+    },
+    {
+      id: 'mixed-content',
+      applicable: mixedContent.applicable,
+      passed: mixedContent.count === 0,
+      issue: {
+        id: 'mixed-content-observed',
+        title: 'HTTP-Ressourcen in HTTPS-Dokument beobachtet',
+        description: `${mixedContent.count} absolute HTTP-Ressource(n) wurden in der analysierten HTTPS-Antwort erkannt; davon ${mixedContent.activeCount} als aktive Ressource(n).`,
+        severity: mixedContent.activeCount > 0 ? 'critical' : 'warning',
+        fixSuggestion: 'Lade eingebundene Ressourcen über HTTPS oder entferne die unsichere Einbindung. Prüfe anschließend die Seite erneut.',
+      },
+    },
   ];
 
   const applicableChecks = checks.filter((check) => check.applicable);
@@ -97,6 +231,14 @@ function buildSecurityAssessment(headers, finalUrl) {
             ? 'x-frame-options'
             : null,
       },
+      xContentTypeOptions: {
+        valueObserved: xContentTypeOptions || null,
+        nosniff: xContentTypeOptions === 'nosniff',
+      },
+      referrerPolicyPresent,
+      permissionsPolicyPresent,
+      cookies: cookieAttributes,
+      mixedContent,
       score,
       totalChecks: applicableChecks.length,
       passedChecks,
@@ -104,13 +246,16 @@ function buildSecurityAssessment(headers, finalUrl) {
   };
 }
 
-function buildSecurityCategory(headers, finalUrl = 'https://invalid.local/') {
-  return buildSecurityAssessment(headers, finalUrl).category;
+function buildSecurityCategory(headers, finalUrl = 'https://invalid.local/', html = null) {
+  return buildSecurityAssessment(headers, finalUrl, html).category;
 }
 
 module.exports = {
+  analyzeCookieAttributes,
+  analyzeMixedContent,
   buildSecurityAssessment,
   buildSecurityCategory,
   DETECTOR_ID,
   DETECTOR_VERSION,
+  normalizeSetCookieHeaders,
 };
