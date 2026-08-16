@@ -1,4 +1,8 @@
-const { buildTechnicalReportSnapshot, REPORT_SCHEMA_VERSION } = require('../domain/reportSnapshot');
+const {
+  assertReportSnapshotIntegrity,
+  buildTechnicalReportSnapshot,
+  REPORT_SCHEMA_VERSION,
+} = require('../domain/reportSnapshot');
 const { HttpError } = require('../lib/httpError');
 
 function createReportService({
@@ -24,7 +28,7 @@ function createReportService({
     }
 
     const { snapshot, snapshotHash } = buildTechnicalReportSnapshot(scanResult);
-    return reportRepository.createSnapshot({
+    const result = await reportRepository.createSnapshot({
       organizationId,
       scanId,
       schemaVersion: REPORT_SCHEMA_VERSION,
@@ -33,6 +37,8 @@ function createReportService({
       snapshotHash,
       createdBy: userId,
     });
+    assertReportSnapshotIntegrity(result.report);
+    return result;
   }
 
   async function get({ organizationId, userId, reportId }) {
@@ -41,17 +47,21 @@ function createReportService({
     if (!report) {
       throw new HttpError(404, 'Report snapshot was not found in this organization.', 'REPORT_NOT_FOUND');
     }
-    return report;
+    return assertReportSnapshotIntegrity(report);
   }
 
   async function list({ organizationId, userId, scanId, limit, cursor }) {
     await organizationAuthorization.requireRole(organizationId, userId, 'viewer');
-    return reportRepository.listSnapshots({
+    const page = await reportRepository.listSnapshots({
       organizationId,
       scanId: scanId || null,
       limit,
       cursor,
     });
+    return {
+      ...page,
+      reports: page.reports.map(assertReportSnapshotIntegrity),
+    };
   }
 
   return { create, get, list };
