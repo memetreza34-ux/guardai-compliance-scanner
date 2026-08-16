@@ -1,7 +1,7 @@
 const cheerio = require('cheerio');
 const { config } = require('../config');
 const { ai, scanAccess } = require('../runtime');
-const { safeGet } = require('../services/safeFetch');
+const { safeGetWithMetadata } = require('../services/safeFetch');
 const { buildSecurityCategory } = require('./securityHeaders');
 const { calculateOverallScore, makeAiCategory } = require('./scoring');
 const { webAiSchema } = require('./schemas');
@@ -106,7 +106,7 @@ UNTRUSTED WEBPAGE TEXT END`;
 }
 
 async function scanWebsite(targetUrl, options) {
-  const response = await safeGet(targetUrl, {
+  const { response, finalUrl } = await safeGetWithMetadata(targetUrl, {
     headers: {
       'User-Agent': 'GuardAI-Technical-Screening/0.1',
       Accept: 'text/html,application/xhtml+xml',
@@ -117,7 +117,7 @@ async function scanWebsite(targetUrl, options) {
   const notices = [];
 
   if (options.security) {
-    categories.security = buildSecurityCategory(response.headers);
+    categories.security = buildSecurityCategory(response.headers, finalUrl);
   }
 
   if (options.wcag) {
@@ -129,14 +129,14 @@ async function scanWebsite(targetUrl, options) {
       notices.push('AI-assisted text screening was skipped because the target did not return parseable HTML text.');
     } else {
       const extractedText = extractVisibleText(response.data);
-      const aiScreening = await runWebAiScreening(targetUrl, extractedText, options);
+      const aiScreening = await runWebAiScreening(finalUrl, extractedText, options);
       Object.assign(categories, aiScreening.categories);
       notices.push(...aiScreening.notices);
     }
   }
 
   return {
-    url: targetUrl,
+    url: finalUrl,
     timestamp: new Date().toISOString(),
     type: 'web',
     overallScore: calculateOverallScore(categories),
