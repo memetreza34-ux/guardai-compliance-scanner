@@ -20,10 +20,15 @@ function extractVerifiableHostname(canonicalUrl) {
   }
 
   const hostname = parsed.hostname.toLowerCase();
-  if (!hostname || hostname.length > 253 || net.isIP(hostname) !== 0) {
+  const localName =
+    hostname === 'localhost' ||
+    hostname.endsWith('.localhost') ||
+    hostname.endsWith('.local');
+
+  if (!hostname || hostname.length > 253 || net.isIP(hostname) !== 0 || localName) {
     throw new HttpError(
       422,
-      'DNS verification requires a domain hostname rather than an IP address.',
+      'DNS verification requires a public domain hostname rather than an IP or local hostname.',
       'TARGET_DNS_VERIFICATION_UNAVAILABLE',
     );
   }
