@@ -16,6 +16,7 @@ const multer = require('multer');
 const pdfParse = require('pdf-parse');
 const { HttpError } = require('./lib/httpError');
 const { createScanAccessPolicy } = require('./lib/scanAccess');
+const { finalizeScanResponse, findingSchema } = require('./lib/scanContract');
 const {
   assertPublicHttpTarget,
   createSafeLookup,
@@ -74,6 +75,13 @@ const upload = multer({
     files: 1,
   },
   fileFilter(_req, file, callback) {
+    try {
+      scanAccess.assertFileAiAllowed();
+    } catch (error) {
+      callback(error);
+      return;
+    }
+
     const extension = path.extname(file.originalname).toLowerCase();
     const allowed =
       (file.mimetype === 'application/pdf' && extension === '.pdf') ||
@@ -104,23 +112,14 @@ const scanSchema = z.object({
   options: webScanOptionsSchema,
 });
 
-const aiIssueSchema = z.object({
-  id: z.string().min(1).max(100),
-  title: z.string().min(1).max(300),
-  description: z.string().min(1).max(2000),
-  severity: z.enum(['critical', 'warning']),
-  fixSuggestion: z.string().max(2000).optional(),
-  lawReference: z.string().max(300).optional(),
-});
-
 const webAiSchema = z.object({
-  privacy: z.object({ issues: z.array(aiIssueSchema).max(20) }).optional(),
-  aiAct: z.object({ issues: z.array(aiIssueSchema).max(20) }).optional(),
+  privacy: z.object({ issues: z.array(findingSchema).max(20) }).optional(),
+  aiAct: z.object({ issues: z.array(findingSchema).max(20) }).optional(),
 });
 
 const fileAiSchema = z.object({
-  ipRights: z.object({ issues: z.array(aiIssueSchema).max(20) }),
-  copyright: z.object({ issues: z.array(aiIssueSchema).max(20) }),
+  ipRights: z.object({ issues: z.array(findingSchema).max(20) }),
+  copyright: z.object({ issues: z.array(findingSchema).max(20) }),
 });
 
 function resolveWebScanOptions(options) {
@@ -529,7 +528,7 @@ app.post('/api/scan', scanLimiter, async (req, res) => {
     }
 
     const scanResult = await scanWebsite(targetUrl.toString(), options);
-    res.json(scanResult);
+    res.json(finalizeScanResponse(scanResult));
   } catch (error) {
     sendRouteError(res, error, 'Scan API');
   }
@@ -549,7 +548,7 @@ app.post('/api/scan-file', scanLimiter, upload.single('file'), async (req, res) 
     const extractedText = await extractFileText(buffer, fileType);
     const result = await scanFileText(req.file.originalname, extractedText);
 
-    res.json(result);
+    res.json(finalizeScanResponse(result));
   } catch (error) {
     sendRouteError(res, error, 'File Scan API');
   } finally {
