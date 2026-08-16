@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { createBillingApi } from '../api/billingApi';
 import { createReportApi } from '../api/reportApi';
 import { createTrustApi } from '../api/trustApi';
 import { createWorkspaceApi } from '../api/workspaceApi';
@@ -6,6 +7,7 @@ import type {
   AuthSessionAdapter,
   AuthSessionSnapshot,
 } from '../auth/sessionAdapter';
+import BillingCenter from './BillingCenter';
 import ReportCenter from './ReportCenter';
 import TrustCenterManager from './TrustCenterManager';
 import WorkspaceOnboarding from './WorkspaceOnboarding';
@@ -40,6 +42,10 @@ export default function AuthWorkspaceShell({ adapter }: AuthWorkspaceShellProps)
   );
   const trustApi = useMemo(
     () => createTrustApi(getAccessToken),
+    [getAccessToken],
+  );
+  const billingApi = useMemo(
+    () => createBillingApi(getAccessToken),
     [getAccessToken],
   );
 
@@ -194,6 +200,7 @@ export default function AuthWorkspaceShell({ adapter }: AuthWorkspaceShellProps)
       <WorkspaceOnboarding api={workspaceApi} />
       <ReportCenter reportApi={reportApi} workspaceApi={workspaceApi} />
       <TrustCenterManager reportApi={reportApi} trustApi={trustApi} workspaceApi={workspaceApi} />
+      <BillingCenter billingApi={billingApi} workspaceApi={workspaceApi} />
     </div>
   );
 }
