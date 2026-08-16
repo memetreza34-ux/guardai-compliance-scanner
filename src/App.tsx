@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle, Info, X } from 'lucide-react';
 import { Navbar } from './components/Navbar';
 import { LandingPage } from './components/LandingPage';
 import { ScanProgressModal } from './components/ScanProgressModal';
@@ -91,6 +91,22 @@ export function App() {
               <X className="w-4 h-4" />
             </button>
           </div>
+        )}
+
+        {!isScanning && activeTab === 'scanner' && scanResult?.notices && scanResult.notices.length > 0 && (
+          <section className="max-w-5xl w-[calc(100%-2rem)] mx-auto mt-6 rounded-xl border border-sky-500/25 bg-sky-500/10 p-4">
+            <div className="flex items-start gap-3">
+              <Info className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-foreground">Coverage-Hinweise</p>
+                <ul className="mt-2 space-y-1 text-sm text-muted-foreground list-disc pl-5">
+                  {scanResult.notices.map((notice) => (
+                    <li key={notice}>{notice}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </section>
         )}
 
         {!isScanning && activeTab === 'scanner' && (
