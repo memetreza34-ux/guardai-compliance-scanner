@@ -298,24 +298,37 @@ function createJobRepository(pool) {
           `insert into public.findings (
              organization_id, target_id, rule_id, fingerprint,
              status, first_seen_at, last_seen_at
-           ) values ($1, $2, null, $3, 'open', now(), now())
+           ) values ($1, $2, $3, $4, 'open', now(), now())
            on conflict (organization_id, target_id, fingerprint)
            do update set last_seen_at = excluded.last_seen_at,
+                         rule_id = coalesce(public.findings.rule_id, excluded.rule_id),
                          updated_at = now()
-           returning id`,
-          [row.organization_id, row.target_id, fingerprint],
+           where public.findings.rule_id is null
+              or public.findings.rule_id is not distinct from excluded.rule_id
+           returning id, rule_id`,
+          [row.organization_id, row.target_id, issue.ruleId, fingerprint],
         );
+
+        if (findingResult.rowCount === 0) {
+          throw new HttpError(
+            500,
+            'Finding rule provenance conflicts with the persisted finding identity.',
+            'FINDING_RULE_PROVENANCE_CONFLICT',
+          );
+        }
 
         await client.query(
           `insert into public.finding_instances (
-             organization_id, finding_id, scan_id, severity,
-             confidence, evidence_ids, message, remediation
-           ) values ($1, $2, $3, $4, null, $5::uuid[], $6, $7)
+             organization_id, finding_id, scan_id, rule_id, rule_version,
+             severity, confidence, evidence_ids, message, remediation
+           ) values ($1, $2, $3, $4, $5, $6, null, $7::uuid[], $8, $9)
            on conflict (finding_id, scan_id) do nothing`,
           [
             row.organization_id,
             findingResult.rows[0].id,
             row.scan_id,
+            issue.ruleId,
+            issue.ruleVersion,
             issue.severity,
             [evidenceId],
             `${issue.title}: ${issue.description}`,
