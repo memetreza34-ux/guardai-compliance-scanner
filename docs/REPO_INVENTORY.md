@@ -1,69 +1,74 @@
 # GuardAI Repository Inventory
 
-> Living file-by-file disposition for the current repository. Keep this synchronized with `GUARDAI_MASTER_BUILD_GUIDE.md` while the prototype becomes the real SaaS.
+> Living file-by-file disposition for the current repository. Keep synchronized with `GUARDAI_MASTER_BUILD_GUIDE.md` and `PHASE_1_TRACKER.md`.
 
 Status values:
 
-- `KEEP` — concept/implementation remains
-- `REFACTOR` — keep value, change architecture/data flow
-- `REPLACE` — current implementation must not remain production truth
-- `LEGACY` — reference/fixture only until safe removal
-- `LATER` — valuable but not MVP
-- `REMOVE` — generated/obsolete artifact
+- `KEEP` — intended architecture/value remains
+- `REFACTOR` — keep value but continue changing data flow/structure
+- `REPLACE` — current implementation must not become production truth
+- `LEGACY` — reference/fixture only until removal
+- `LATER` — valid future feature, not current MVP capability
+- `REMOVE` — obsolete/generated artifact
 
 ---
 
-## Root / engineering
+# Root / engineering
 
 | Path | Decision | Current GuardAI state |
 |---|---|---|
-| `.gitignore` | KEEP | Secrets, uploads, caches, coverage/test artifacts protected |
-| `.npm-cache/`, `npm_cache/` | REMOVE / DONE | Removed from current Git tree |
+| `.gitignore` | KEEP | Secrets/uploads/caches/test artifacts excluded |
 | `.nvmrc` | KEEP | Node `24.18.1` baseline |
 | `.editorconfig` | KEEP | UTF-8/LF/2-space baseline |
-| `.env.example` | KEEP | Frontend `VITE_API_BASE_URL`; no secret `VITE_*` variables |
-| `.github/workflows/ci.yml` | KEEP | PR/manual frontend quality + Gitleaks; runner execution externally blocked |
+| `.env.example` | KEEP | Frontend API base only; no browser secrets |
+| `.github/workflows/ci.yml` | KEEP | Quality + Gitleaks workflow registered; runner allocation externally blocked |
 | `CONTRIBUTING.md` | KEEP | GuardAI engineering/security rules |
-| `README.md` | KEEP | Truthful rebuild status |
-| `package.json`, `package-lock.json` | KEEP | Frontend runtime/quality baseline and lock |
-| `shared/scan-contract.json` | KEEP / EVOLVE | Shared contract metadata, current version `0.1.0` |
-| `database/` | KEEP / ACTIVE | GuardAI-only DB/RLS design; no SQL applied to existing shared Supabase project |
-| `docs/` | KEEP | Canonical engineering documentation |
+| `README.md` | KEEP / UPDATE AS PHASES CHANGE | Truthful rebuild status |
+| `package.json`, `package-lock.json` | KEEP | Frontend package baseline and lock |
+| `shared/scan-contract.json` | KEEP / ACTIVE | Shared prototype + persistent scan metadata; current version `0.2.0` |
+| `database/` | KEEP / ACTIVE | GuardAI-only DB design sources; no draft is an applied migration |
+| `docs/` | KEEP | Canonical guide, trackers and ADRs |
+
+Removed generated repository bloat remains removed:
+
+- `.npm-cache/`
+- `npm_cache/`
 
 ---
 
-## Frontend application core
+# Frontend core
 
 | Path | Decision | Current GuardAI state |
 |---|---|---|
-| `src/App.tsx` | REFACTOR / ACTIVE | Typed navigation, real scan lifecycle, truthful errors/notices |
-| `src/main.tsx` | KEEP / ACTIVE | Root validation + global error boundary |
-| `src/api/scanApi.ts` | KEEP / ACTIVE | Active adapter, contract-version check, `/api/v1` scan routes |
-| `src/config/previewFeatures.ts` | KEEP | Preview definitions isolated from App |
+| `src/App.tsx` | REFACTOR / ACTIVE | Truthful prototype UI shell; persistent authenticated flow not wired yet |
+| `src/main.tsx` | KEEP | Root validation + global error boundary |
 | `src/components/AppErrorBoundary.tsx` | KEEP | Global unexpected-error fallback |
-| `src/data/mockScanEngine.ts` | LEGACY | Not used by active scan lifecycle |
-| `src/types/scanner.ts` | REFACTOR | Legacy compatibility fields still need canonical detector/coverage model |
-| `src/types/navigation.ts` | KEEP | Canonical tab typing |
-| `src/types/scanOptions.ts` | KEEP / ACTIVE | Typed Security/Privacy/AI options; Accessibility disabled until real engine |
+| `src/api/scanApi.ts` | LEGACY-TRANSITION / ACTIVE UI | Old synchronous prototype adapter; backend endpoint now disabled by default outside explicit dev opt-in |
+| `src/api/apiClient.ts` | KEEP / PREPARED | Authenticated `/api/v1` core with structured errors and access-token provider abstraction |
+| `src/api/workspaceApi.ts` | KEEP / PREPARED | Organizations, Targets, DNS verification, persistent Scan submission/status client |
+| `src/types/workspace.ts` | KEEP / PREPARED | Persistent workspace/target/job/evidence/finding DTO types |
+| `src/types/scanner.ts` | REFACTOR | Legacy UI compatibility model still contains fields to remove |
+| `src/types/navigation.ts` | KEEP | Active navigation typing |
+| `src/types/scanOptions.ts` | LEGACY-TRANSITION | Current synchronous prototype selector types |
+| `src/config/previewFeatures.ts` | KEEP | Product previews isolated from functional runtime |
+| `src/data/mockScanEngine.ts` | LEGACY / REMOVE LATER | Not used by active scan request lifecycle |
 
----
+## Active UI surfaces
 
-## Active product components
-
-| Component | Decision | Current GuardAI state / future |
+| Component | Decision | State |
 |---|---|---|
 | `LandingPage.tsx` | KEEP / ACTIVE | Truthful technical-screening positioning |
-| `UrlInputHero.tsx` | KEEP / ACTIVE | Typed module selection + bounded PDF/TXT upload UI |
-| `ScanProgressModal.tsx` | KEEP / ACTIVE | Indeterminate until real job progress exists |
-| `ScanResultsDashboard.tsx` | KEEP / ACTIVE | Evidence-first; missing coverage = `Nicht bewertet` |
-| `TechnicalScanReport.tsx` | KEEP / ACTIVE | Technical report, not certification |
-| `Navbar.tsx` / `CommandPalette.tsx` | KEEP / REFACTOR | Typed shell; real URL router/auth shell later |
-| `FeaturePreview.tsx` | KEEP / ACTIVE | Prevents mock modules from posing as production features |
-| `ThemeProvider.tsx`, `ThemeToggle.tsx`, `ui/` | KEEP | UI infrastructure; own accessibility review later |
+| `UrlInputHero.tsx` | REFACTOR | Current prototype entry; persistent Workspace/Target flow replaces it |
+| `ScanProgressModal.tsx` | REFACTOR | Indeterminate prototype state; later driven by persistent Jobs |
+| `ScanResultsDashboard.tsx` | KEEP / REFACTOR | Evidence-first design; later bind persistent Evidence/Findings |
+| `TechnicalScanReport.tsx` | KEEP / REFACTOR | Technical report; later persistent immutable scan source |
+| `Navbar.tsx`, `CommandPalette.tsx` | KEEP / REFACTOR | Typed shell; real Auth/workspace navigation later |
+| `FeaturePreview.tsx` | KEEP | Prevents nonfunctional product mocks posing as live features |
+| theme/UI primitives | KEEP | UI infrastructure; accessibility review later |
 
-### Legacy / preview product surfaces
+## Legacy / future product surfaces
 
-The following remain as design references but are not production-backed yet:
+These remain design references or future features and are not current production capabilities:
 
 - `ComplianceDashboard.tsx`
 - `PrintableReport.tsx`
@@ -82,159 +87,243 @@ The following remain as design references but are not production-backed yet:
 - `WorkspaceSwitcher.tsx`
 - `LeadGenModal.tsx`
 
-These are rebuilt only when real backend/data/authorization foundations exist.
+---
+
+# Backend bootstrap / config
+
+| Path | Decision | Current GuardAI state |
+|---|---|---|
+| `server/index.js` | KEEP | Minimal API process bootstrap |
+| `server/app.js` | KEEP | Express composition and `/api/v1` route mounting |
+| `server/config.js` | KEEP | Central API/DB/Auth/worker config |
+| `server/runtime.js` | KEEP / EVOLVE | AI runtime + temporary paid-AI access policy |
+| `server/package.json` | KEEP | Express/scanner/Postgres deps + API/worker/check/test scripts |
+| `server/package-lock.json` | REGENERATE / BLOCKED | Must come from verified backend clean install |
+| `server/.env.example` | KEEP | Auth/DB/worker/Gemini + prototype safety gates documented |
 
 ---
 
-# Backend — modular active structure
+# Backend Auth / authorization
 
-## Bootstrap / application
-
-| Path | Decision | Current GuardAI state |
+| Path | Decision | State |
 |---|---|---|
-| `server/index.js` | KEEP / ACTIVE | Minimal process bootstrap only |
-| `server/app.js` | KEEP / ACTIVE | Express app, Helmet/CORS/body parsing, route mounting, 404/error boundary |
-| `server/config.js` | KEEP / ACTIVE | Central runtime env/config |
-| `server/runtime.js` | KEEP / EVOLVE | Shared AI/access runtime construction |
-| `server/package.json` | KEEP / ACTIVE | Selected runtime dependencies; `pdf-parse 2.4.5`; recursive syntax check + tests |
-| `server/package-lock.json` | REGENERATE / PENDING | Stale lock removed; real clean install must regenerate it |
-| `server/.env.example` | KEEP / ACTIVE | GuardAI Supabase/Auth, Gemini, CORS and fail-safe AI config documented |
-
-## Routes
-
-| Path | Decision | Current GuardAI state |
-|---|---|---|
-| `server/routes/healthRoutes.js` | KEEP | Operational `/api/health` |
-| `server/routes/authRoutes.js` | KEEP / PREPARED | `/api/v1/auth/me`, fail-closed until dedicated GuardAI Supabase config exists |
-| `server/routes/scanRoutes.js` | KEEP / REFACTOR | `/api/v1/scan` and `/api/v1/scan-file`; still synchronous until job phase |
-
-## Auth / domain
-
-| Path | Decision | Current GuardAI state |
-|---|---|---|
-| `server/auth/supabaseAuth.js` | KEEP / PREPARED | Bearer token validation via Supabase Auth `/auth/v1/user`; no blind token trust |
+| `server/auth/supabaseAuth.js` | KEEP / PREPARED | Bearer token validated through dedicated Supabase Auth endpoint once configured |
 | `server/auth/roles.js` | KEEP | owner/admin/member/viewer hierarchy |
-| `server/domain/scanLifecycle.js` | KEEP | explicit queued/running/completed/failed/cancelled transitions |
-| `server/lib/scanAccess.js` | KEEP / TEMPORARY | Anonymous paid-AI fail-safe until real entitlements/quotas |
+| `server/services/organizationAuthorization.js` | KEEP | Repository-independent tenant role authorization |
+| `server/repositories/membershipRepository.js` | KEEP | Postgres membership lookup |
+| `server/routes/authRoutes.js` | KEEP / PREPARED | `/api/v1/auth/me` |
 
-## Scanner / network services
+Never trust request-body roles or user-editable metadata for Organization authorization.
 
-| Path | Decision | Current GuardAI state |
+---
+
+# Workspace onboarding
+
+## Organization
+
+| Path | Decision | State |
 |---|---|---|
-| `server/services/safeFetch.js` | KEEP / HARDEN | SSRF-safe bounded HTTP client with manual redirects and safe socket DNS lookup |
-| `server/lib/targetSafety.js` | KEEP / HARDEN | HTTP target normalization + IP/DNS safety policy |
-| `server/lib/scanContract.js` | KEEP / EVOLVE | Successful response validation + contract version injection |
-| `server/lib/httpError.js` | KEEP | Shared HTTP error type |
-| `server/scanners/schemas.js` | KEEP | Request/AI Zod schemas |
-| `server/scanners/scoring.js` | KEEP / EVOLVE | Current deterministic prototype scoring helpers |
-| `server/scanners/securityHeaders.js` | KEEP / EXPAND | First deterministic HTTP security detector |
-| `server/scanners/webScanner.js` | KEEP / REFACTOR | Web fetch + header evidence + bounded AI text screening; later split into workers/evidence |
-| `server/scanners/fileScanner.js` | KEEP / HARDEN | PDF/TXT parsing + AI screening; pdf-parse v2 lifecycle; malware/parser sandbox still required |
+| `server/domain/organization.js` | KEEP | Name normalization + safe random-suffixed slug generation |
+| `server/repositories/organizationRepository.js` | KEEP | Atomic Organization + Owner + initial free subscription + audit event |
+| `server/services/organizationService.js` | KEEP | Creation/list orchestration + slug collision retry |
+| `server/routes/organizationRoutes.js` | KEEP / PREPARED | GET/POST `/api/v1/organizations` |
 
-## Middleware
+## Website Target
 
-| Path | Decision | Current GuardAI state |
+| Path | Decision | State |
 |---|---|---|
-| `server/middleware/scanLimiter.js` | KEEP / REPLACE LATER | Memory/IP limiter only; durable account quotas still required |
-| `server/middleware/upload.js` | KEEP / HARDEN | One PDF/TXT ≤10 MB; access gate before disk write |
-| `server/middleware/errorHandler.js` | KEEP / EVOLVE | Central current API errors; canonical error envelope still pending |
+| `server/domain/websiteTarget.js` | KEEP | Stable URL normalization; local/IP/credential/port safety |
+| `server/repositories/targetRepository.js` | KEEP | Tenant target create/list/read + audit event |
+| `server/services/targetService.js` | KEEP | admin+ create; viewer+ read/list |
+| `server/routes/targetRoutes.js` | KEEP / PREPARED | Target GET/list/create routes |
 
-## Backend tests / scripts
-
-- `server/scripts/checkSource.js` — recursively syntax-checks all server JS files.
-- `server/test/targetSafety.test.js` — URL/IP/DNS/socket safety.
-- `server/test/scanAccess.test.js` — fail-safe AI access gate.
-- `server/test/scanContract.test.js` — response contract.
-- `server/test/authHeader.test.js` — Bearer parsing.
-- `server/test/roles.test.js` — organization role hierarchy.
-- `server/test/scanLifecycle.test.js` — scan state transitions.
-
-**Important:** these tests exist but are not yet claimed green because the clean execution environment remains blocked.
+New Website Targets always start `unverified`; clients cannot provide their own verification state.
 
 ---
 
-# Database / Supabase design
+# Target ownership verification
 
-| Path | Decision | Current GuardAI state |
+| Path | Decision | State |
 |---|---|---|
-| `database/001_guardai_core_schema_draft.sql` | KEEP / REVIEW | GuardAI-only schema/RLS design source; not applied migration |
-| `database/README.md` | KEEP | Draft → generated Supabase migration procedure |
-| `docs/adr/0001-dedicated-supabase-postgres-auth.md` | KEEP | Dedicated GuardAI Supabase/Postgres/Auth decision |
+| `server/domain/targetVerification.js` | KEEP | 256-bit DNS TXT challenge, SHA-256 storage, timing-safe match |
+| `server/repositories/targetVerificationRepository.js` | KEEP | Transactional challenge/attempt/expiry/verified state |
+| `server/services/targetVerificationService.js` | KEEP | admin+ challenge orchestration + DNS resolver boundary |
+| `server/routes/targetVerificationRoutes.js` | KEEP / PREPARED | create/check DNS challenge routes |
+| `server/middleware/verificationLimiter.js` | KEEP | Separate verification attempt rate limit |
 
-Core draft includes:
-
-- profiles
-- organizations
-- memberships
-- targets
-- scans
-- scan_jobs
-- evidence
-- rules / rule_versions
-- legal_sources
-- findings / finding_instances
-- subscriptions
-- audit_events
-- indexes
-- tenant-aware RLS
-- private membership-role helper
-- browser read-mostly access
-- worker-only job state
-
-The existing connected multi-application Supabase project remains **off-limits** for GuardAI.
+Persistent Scans require a verified Target; Worker execution rechecks verification.
 
 ---
 
-## Active safety/integrity changes already implemented
+# API contracts / errors
 
-- [x] no fake scan fallback
-- [x] no fake Accessibility score
-- [x] fake GitHub repository scoring disabled
-- [x] contract-version boundary
-- [x] `/api/v1` application API boundary
-- [x] validated AI output and untrusted-content prompt boundary
-- [x] anonymous paid-AI path disabled by default
-- [x] HTTP/HTTPS-only target policy
-- [x] credentials/nonstandard-port rejection
-- [x] private/loopback/link-local/reserved IP rejection
-- [x] redirect revalidation
-- [x] socket-level safe DNS lookup
-- [x] environment proxy routing disabled for target fetches
-- [x] bounded target response size/time
-- [x] PDF/TXT only, one file, ≤10 MB
-- [x] PDF magic signature / TXT binary-null check
-- [x] temporary file cleanup
-- [x] pdf-parse v2 parser lifecycle with `destroy()`
-- [x] initial fail-closed Supabase token verification boundary
-- [x] explicit GuardAI organization-role hierarchy
-- [x] explicit scan lifecycle state machine
+| Path | Decision | State |
+|---|---|---|
+| `server/lib/httpError.js` | KEEP | HTTP status + stable error code/details |
+| `server/lib/apiError.js` | KEEP | Canonical public error envelope |
+| `server/middleware/errorHandler.js` | KEEP | Central error translation |
+| `server/lib/scanContract.js` | LEGACY-TRANSITION | Validates synchronous prototype responses |
+| `server/lib/persistentScanContract.js` | KEEP | Validates persistent Scan submission/status DTOs and strips internal fields |
+
+Shared scan contract version: **`0.2.0`**.
 
 ---
 
-## Remaining major rebuild items
+# Network / scanner safety
 
-1. clean backend install + regenerated lockfile + real test execution,
-2. dedicated GuardAI Supabase project and generated real migration,
-3. server database client/repositories + organization membership authorization,
-4. durable entitlements/quotas/distributed rate limiting,
-5. asynchronous persisted scan/job/worker lifecycle,
-6. canonical detector state including `not_assessed` / `error`,
-7. stored evidence + rule engine + finding persistence,
-8. browser-based Privacy/Consent worker,
-9. real Accessibility/axe worker,
-10. real repository dependency/secret/SAST pipeline,
-11. malware quarantine + parser sandbox,
-12. billing, product dashboard/history, Trust Center, monitoring and integrations,
-13. removal of legacy mocks once visual value is migrated.
+| Path | Decision | State |
+|---|---|---|
+| `server/lib/targetSafety.js` | KEEP / HARDEN | URL/IP/DNS safety and socket lookup guard |
+| `server/services/safeFetch.js` | KEEP | Bounded SSRF-safe HTTP fetch + validated final URL |
+| `server/scanners/securityHeaders.js` | KEEP | Deterministic `security.headers` detector v1.0.0 |
+| `server/scanners/webScanner.js` | LEGACY-TRANSITION | Dev synchronous scanner; shares Security detector |
+| `server/scanners/fileScanner.js` | LOCKED-DOWN / HARDEN | Dev-only PDF/TXT path; no public asset worker yet |
+| `server/scanners/schemas.js` | KEEP | Prototype request/AI validation |
+| `server/scanners/scoring.js` | REFACTOR | Prototype deterministic category helpers |
 
 ---
 
-## Inventory maintenance rule
+# Legacy prototype access
+
+| Path | Decision | State |
+|---|---|---|
+| `server/lib/prototypeAccess.js` | KEEP / TEMPORARY | Legacy synchronous endpoints disabled unless explicit dev opt-in |
+| `server/lib/scanAccess.js` | KEEP / TEMPORARY | Anonymous Gemini usage disabled unless explicit dev opt-in |
+| `server/routes/scanRoutes.js` | LEGACY-TRANSITION | Synchronous dev routes; fail-closed by default and slated for removal after frontend migration |
+| `server/middleware/scanLimiter.js` | KEEP / TEMPORARY | Memory/IP boundary; not an entitlement system |
+| `server/middleware/upload.js` | KEEP / HARDEN | Dev file boundary; file write occurs only after prototype/AI gates |
+
+---
+
+# Persistent Scan domain / repositories
+
+| Path | Decision | State |
+|---|---|---|
+| `server/domain/scanLifecycle.js` | KEEP | Legal Scan state transitions |
+| `server/domain/scanSubmission.js` | KEEP | Idempotency/module validation; only implemented persistent modules accepted |
+| `server/domain/targetScanCompatibility.js` | KEEP | Target type → module matrix |
+| `server/domain/targetAuthorization.js` | KEEP | Verified Target requirement |
+| `server/repositories/scanRepository.js` | KEEP | Atomic verified Target Scan + Job submission |
+| `server/repositories/scanReadRepository.js` | KEEP | Tenant-scoped Scan/Job/Evidence/Finding read model |
+| `server/routes/workspaceScanRoutes.js` | KEEP / PREPARED | Persistent POST Scan + GET Scan status |
+
+Current externally enabled persistent module: **`security` only**.
+
+Known-but-disabled modules remain in the shared registry until their real workers exist:
+
+- privacy
+- accessibility
+- ai-governance
+- repository
+- asset
+
+---
+
+# Worker lifecycle / Evidence
+
+| Path | Decision | State |
+|---|---|---|
+| `server/domain/jobLifecycle.js` | KEEP | Lease validation, retry backoff, permanent-error classification |
+| `server/domain/assessmentResult.js` | KEEP | Worker result validation |
+| `server/lib/evidenceIntegrity.js` | KEEP | Canonical Evidence serialization/hash + Finding fingerprints |
+| `server/repositories/jobRepository.js` | KEEP | Claim/lease/renew/complete/retry/exhaustion transactions |
+| `server/services/jobFailureService.js` | KEEP | Immediate terminal handling for non-retryable worker failures |
+| `server/workers/securityWorker.js` | KEEP / FIRST REAL WORKER | Persistent HTTP Security worker |
+| `server/workers/securityWorkerProcess.js` | KEEP | Separate polling process + graceful shutdown |
+
+Security worker commands:
+
+```text
+npm run worker:security
+npm run worker:security:once
+```
+
+Raw response headers are not persisted; only normalized observations/evidence are stored.
+
+---
+
+# Entitlements / usage
+
+| Path | Decision | State |
+|---|---|---|
+| `server/domain/entitlements.js` | KEEP | Module→capability mapping + fail-closed plan/limit rules |
+| `server/repositories/entitlementRepository.js` | KEEP / PREPARED | Durable monthly counters + transactional reservation/consume/release |
+
+No plan limit numbers are invented in repository code. `security` currently needs no paid capability. Future modules cannot be enabled until their entitlement + usage reservation path is wired.
+
+---
+
+# Database design sources
+
+**None of these files are applied migrations.**
+
+| Path | Decision | Scope |
+|---|---|---|
+| `database/001_guardai_core_schema_draft.sql` | KEEP / CONSOLIDATE LATER | Core tenant/entities/RLS |
+| `database/002_scan_queue_invariants_draft.sql` | KEEP / CONSOLIDATE LATER | Tenant FKs, modules, Scan idempotency, Job uniqueness |
+| `database/003_worker_result_invariants_draft.sql` | KEEP / CONSOLIDATE LATER | Worker summaries/timestamps + Evidence/Finding dedupe |
+| `database/004_target_verification_challenges_draft.sql` | KEEP / CONSOLIDATE LATER | Backend-only DNS challenges |
+| `database/005_workspace_onboarding_invariants_draft.sql` | KEEP / CONSOLIDATE LATER | Target uniqueness + subscription field constraints |
+| `database/006_entitlements_usage_draft.sql` | KEEP / CONSOLIDATE LATER | Plan capabilities + durable usage/reservations |
+| `database/README.md` | KEEP | Draft → generated staging migration procedure |
+| `docs/adr/0001-dedicated-supabase-postgres-auth.md` | KEEP | Dedicated project decision |
+| `docs/adr/0002-native-postgres-backend-transactions.md` | KEEP | Native transaction/repository decision |
+
+The unrelated connected multi-application Supabase project remains **off-limits** for GuardAI.
+
+---
+
+# Test source inventory
+
+Backend Node test sources now cover or prepare coverage for:
+
+- target URL/IP/DNS/socket safety
+- prototype endpoint access gate
+- anonymous AI access gate
+- prototype + persistent scan contract boundaries
+- API error envelope
+- Bearer header parsing
+- Organization role hierarchy/authorization
+- Organization normalization/service
+- Website Target normalization/service
+- Target verification requirement
+- DNS challenge generation/matching/service
+- Target/module compatibility
+- Scan lifecycle/submission/idempotency
+- worker lifecycle/retry classification
+- Job lease guards
+- worker assessment result validation
+- Evidence hashing/Finding fingerprinting
+- Security header detector semantics
+- entitlement/capability rules
+- usage reservation input normalization
+
+**Inventory presence is not a passing-test claim. No clean backend test run has executed yet.**
+
+---
+
+# Current production gaps
+
+1. GitHub Actions billing/spending must permit runner allocation.
+2. Clean frontend/backend installs and backend lockfile regeneration must execute.
+3. Dedicated GuardAI Supabase staging project must be provisioned.
+4. SQL drafts must be consolidated into a generated migration and tested.
+5. RLS/cross-tenant/queue/usage concurrency integration tests must execute.
+6. Frontend Supabase Auth dependency/provider must be installed and locked in a clean environment.
+7. Visual frontend must migrate from legacy prototype to Workspace → Target → Verify → Persistent Scan.
+8. Accessibility worker needs real browser/axe runtime.
+9. Repository worker needs dependency/SAST/secret toolchain.
+10. Asset worker needs malware quarantine + parser isolation before public enablement.
+11. Billing provider, production deployment, observability, backups/DR and remaining product features still follow later guide phases.
+
+---
+
+# Inventory maintenance rule
 
 Whenever a substantial change lands:
 
 1. update this inventory,
 2. update the active phase tracker,
-3. update the master guide only when architecture/order/requirements change,
-4. keep visible claims aligned with reality,
-5. never mark a test/build/deployment condition as passed unless it actually executed.
+3. update the master guide when architecture/order/requirements materially change,
+4. keep visible product claims aligned with implementation,
+5. never mark install/test/build/migration/deployment as passed unless it actually executed.
