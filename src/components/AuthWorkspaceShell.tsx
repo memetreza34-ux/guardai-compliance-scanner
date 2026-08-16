@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { createReportApi } from '../api/reportApi';
+import { createTrustApi } from '../api/trustApi';
 import { createWorkspaceApi } from '../api/workspaceApi';
 import type {
   AuthSessionAdapter,
   AuthSessionSnapshot,
 } from '../auth/sessionAdapter';
 import ReportCenter from './ReportCenter';
+import TrustCenterManager from './TrustCenterManager';
 import WorkspaceOnboarding from './WorkspaceOnboarding';
 
 interface AuthWorkspaceShellProps {
@@ -34,6 +36,10 @@ export default function AuthWorkspaceShell({ adapter }: AuthWorkspaceShellProps)
   );
   const reportApi = useMemo(
     () => createReportApi(getAccessToken),
+    [getAccessToken],
+  );
+  const trustApi = useMemo(
+    () => createTrustApi(getAccessToken),
     [getAccessToken],
   );
 
@@ -187,6 +193,7 @@ export default function AuthWorkspaceShell({ adapter }: AuthWorkspaceShellProps)
       )}
       <WorkspaceOnboarding api={workspaceApi} />
       <ReportCenter reportApi={reportApi} workspaceApi={workspaceApi} />
+      <TrustCenterManager reportApi={reportApi} trustApi={trustApi} workspaceApi={workspaceApi} />
     </div>
   );
 }
