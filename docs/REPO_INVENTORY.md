@@ -1,74 +1,107 @@
 # GuardAI Repository Inventory
 
-> Living file-by-file disposition for the current repository. Keep synchronized with `GUARDAI_MASTER_BUILD_GUIDE.md` and `PHASE_1_TRACKER.md`.
+> Living disposition of the current `main` tree. Keep aligned with `GUARDAI_MASTER_BUILD_GUIDE.md` and `PHASE_1_TRACKER.md`.
 
-Status values:
+Status vocabulary:
 
-- `KEEP` — intended architecture/value remains
-- `REFACTOR` — keep value but continue changing data flow/structure
-- `REPLACE` — current implementation must not become production truth
-- `LEGACY` — reference/fixture only until removal
-- `LATER` — valid future feature, not current MVP capability
-- `REMOVE` — obsolete/generated artifact
+- `KEEP` — implementation/concept remains.
+- `ACTIVE` — used by a real source path.
+- `PREPARED` — real-data implementation exists but environment/provider is not connected.
+- `REFACTOR` — retain value, change architecture/data flow.
+- `LEGACY` — reference only; must not pose as production truth.
+- `REMOVE` — obsolete/generated artifact.
 
 ---
 
 # Root / engineering
 
-| Path | Decision | Current GuardAI state |
+| Path | Status | GuardAI state |
 |---|---|---|
-| `.gitignore` | KEEP | Secrets/uploads/caches/test artifacts excluded |
-| `.nvmrc` | KEEP | Node `24.18.1` baseline |
-| `.editorconfig` | KEEP | UTF-8/LF/2-space baseline |
-| `.env.example` | KEEP | Frontend API base only; no browser secrets |
-| `.github/workflows/ci.yml` | KEEP | Quality + Gitleaks workflow registered; runner allocation externally blocked |
-| `CONTRIBUTING.md` | KEEP | GuardAI engineering/security rules |
-| `README.md` | KEEP / UPDATE AS PHASES CHANGE | Truthful rebuild status |
-| `package.json`, `package-lock.json` | KEEP | Frontend package baseline and lock |
-| `shared/scan-contract.json` | KEEP / ACTIVE | Shared prototype + persistent scan metadata; current version `0.2.0` |
-| `database/` | KEEP / ACTIVE | GuardAI-only DB design sources; no draft is an applied migration |
-| `docs/` | KEEP | Canonical guide, trackers and ADRs |
-
-Removed generated repository bloat remains removed:
-
-- `.npm-cache/`
-- `npm_cache/`
+| `.nvmrc` | KEEP | Node 24.18.1 baseline |
+| `.editorconfig` | KEEP | repository formatting baseline |
+| `.gitignore` | KEEP | secrets/caches/uploads/build outputs protected |
+| `.env.example` | KEEP | public frontend API/Supabase variables only |
+| `.github/workflows/ci.yml` | KEEP / BLOCKED | PR/manual quality + Gitleaks; runner allocation externally blocked |
+| `CONTRIBUTING.md` | KEEP | engineering/security contribution rules |
+| `README.md` | KEEP / EVOLVE | truthful rebuild status |
+| `package.json`, `package-lock.json` | KEEP | frontend package baseline |
+| `shared/scan-contract.json` | KEEP / ACTIVE | persistent Scan contract v0.2.0 |
+| `shared/rules/security-baseline.json` | KEEP / ACTIVE | versioned Security Rule registry |
+| `shared/scoring/security-mvp-v1.json` | KEEP / ACTIVE | scoring profile `security-mvp@1` |
+| `database/` | KEEP / PREPARED | GuardAI-only SQL design drafts 001–017; not applied migrations |
+| `docs/adr/0001-*` | KEEP | dedicated GuardAI Supabase/Postgres/Auth |
+| `docs/adr/0002-*` | KEEP | native PostgreSQL backend transactions |
+| `docs/adr/0003-*` | KEEP | Stripe Checkout/Billing provider |
 
 ---
 
 # Frontend core
 
-| Path | Decision | Current GuardAI state |
+| Path | Status | GuardAI state |
 |---|---|---|
-| `src/App.tsx` | REFACTOR / ACTIVE | Truthful prototype UI shell; persistent authenticated flow not wired yet |
-| `src/main.tsx` | KEEP | Root validation + global error boundary |
-| `src/components/AppErrorBoundary.tsx` | KEEP | Global unexpected-error fallback |
-| `src/api/scanApi.ts` | LEGACY-TRANSITION / ACTIVE UI | Old synchronous prototype adapter; backend endpoint now disabled by default outside explicit dev opt-in |
-| `src/api/apiClient.ts` | KEEP / PREPARED | Authenticated `/api/v1` core with structured errors and access-token provider abstraction |
-| `src/api/workspaceApi.ts` | KEEP / PREPARED | Organizations, Targets, DNS verification, persistent Scan submission/status client |
-| `src/types/workspace.ts` | KEEP / PREPARED | Persistent workspace/target/job/evidence/finding DTO types |
-| `src/types/scanner.ts` | REFACTOR | Legacy UI compatibility model still contains fields to remove |
-| `src/types/navigation.ts` | KEEP | Active navigation typing |
-| `src/types/scanOptions.ts` | LEGACY-TRANSITION | Current synchronous prototype selector types |
-| `src/config/previewFeatures.ts` | KEEP | Product previews isolated from functional runtime |
-| `src/data/mockScanEngine.ts` | LEGACY / REMOVE LATER | Not used by active scan request lifecycle |
+| `src/main.tsx` | KEEP / ACTIVE | boots Public Trust and Billing return before product App |
+| `src/App.tsx` | REFACTOR / ACTIVE | truthful prototype shell; final persistent product routing still pending |
+| `src/components/AppErrorBoundary.tsx` | KEEP | global failure boundary |
+| `src/api/apiClient.ts` | KEEP / ACTIVE | authenticated API base/error boundary |
+| `src/api/scanApi.ts` | LEGACY MIGRATION | synchronous controlled prototype adapter; production path disabled server-side |
+| `src/data/mockScanEngine.ts` | LEGACY | not active scan truth |
+| `src/types/navigation.ts` | KEEP | typed current tab model |
+| `src/types/scanOptions.ts` | KEEP | prototype input options |
+| `src/types/scanner.ts` | REFACTOR | legacy ScanResult compatibility type debt |
 
-## Active UI surfaces
+## Persistent authenticated product UI
 
-| Component | Decision | State |
+| Path | Status | GuardAI state |
 |---|---|---|
-| `LandingPage.tsx` | KEEP / ACTIVE | Truthful technical-screening positioning |
-| `UrlInputHero.tsx` | REFACTOR | Current prototype entry; persistent Workspace/Target flow replaces it |
-| `ScanProgressModal.tsx` | REFACTOR | Indeterminate prototype state; later driven by persistent Jobs |
-| `ScanResultsDashboard.tsx` | KEEP / REFACTOR | Evidence-first design; later bind persistent Evidence/Findings |
-| `TechnicalScanReport.tsx` | KEEP / REFACTOR | Technical report; later persistent immutable scan source |
-| `Navbar.tsx`, `CommandPalette.tsx` | KEEP / REFACTOR | Typed shell; real Auth/workspace navigation later |
-| `FeaturePreview.tsx` | KEEP | Prevents nonfunctional product mocks posing as live features |
-| theme/UI primitives | KEEP | UI infrastructure; accessibility review later |
+| `src/auth/sessionAdapter.ts` | KEEP / PREPARED | provider-independent session contract |
+| `src/components/AuthWorkspaceShell.tsx` | KEEP / PREPARED | authenticated product composition; real Supabase adapter not connected |
+| `src/api/workspaceApi.ts` | KEEP / PREPARED | Organizations, Targets, verification, Scans, audit |
+| `src/components/WorkspaceOnboarding.tsx` | KEEP / PREPARED | real Workspace→Target→DNS verify→Scan→Evidence/Findings flow |
+| `src/types/workspace.ts` | KEEP | persistent product types |
 
-## Legacy / future product surfaces
+## Reports
 
-These remain design references or future features and are not current production capabilities:
+| Path | Status | GuardAI state |
+|---|---|---|
+| `src/types/report.ts` | KEEP / PREPARED | immutable Technical Report v2 types |
+| `src/api/reportApi.ts` | KEEP / PREPARED | authenticated report create/list/get |
+| `src/components/ReportCenter.tsx` | KEEP / PREPARED | report snapshot manager |
+| `src/components/ReportSnapshotView.tsx` | KEEP / PREPARED | evidence-first immutable printable view |
+
+## Trust Center / badge
+
+| Path | Status | GuardAI state |
+|---|---|---|
+| `src/types/trust.ts` | KEEP / PREPARED | internal/public Trust types |
+| `src/api/trustApi.ts` | KEEP / PREPARED | publish/list/revoke/public read client |
+| `src/components/TrustCenterManager.tsx` | KEEP / PREPARED | report-backed publishing UI |
+| `src/components/PublicTrustPage.tsx` | KEEP / ACTIVE PATH | `/trust/:slug`, curated public projection only |
+
+## Billing
+
+| Path | Status | GuardAI state |
+|---|---|---|
+| `src/types/billing.ts` | KEEP / PREPARED | safe subscription/checkout types |
+| `src/api/billingApi.ts` | KEEP / PREPARED | authenticated status + idempotent checkout client |
+| `src/components/BillingCenter.tsx` | KEEP / PREPARED | server-driven plan codes only, no fake pricing |
+| `src/components/BillingReturnPage.tsx` | KEEP / ACTIVE PATH | neutral return; never treats redirect as payment truth |
+
+## Truthful active prototype surfaces
+
+Current `App.tsx` still uses the evidence-first prototype shell until real Auth/DB staging exists:
+
+- `LandingPage.tsx`
+- `UrlInputHero.tsx`
+- `ScanProgressModal.tsx`
+- `ScanResultsDashboard.tsx`
+- `TechnicalScanReport.tsx`
+- `FeaturePreview.tsx`
+- `Navbar.tsx`
+- `CommandPalette.tsx`
+
+### Legacy visual references
+
+Remain design references only until backed by real state:
 
 - `ComplianceDashboard.tsx`
 - `PrintableReport.tsx`
@@ -87,243 +120,197 @@ These remain design references or future features and are not current production
 - `WorkspaceSwitcher.tsx`
 - `LeadGenModal.tsx`
 
----
-
-# Backend bootstrap / config
-
-| Path | Decision | Current GuardAI state |
-|---|---|---|
-| `server/index.js` | KEEP | Minimal API process bootstrap |
-| `server/app.js` | KEEP | Express composition and `/api/v1` route mounting |
-| `server/config.js` | KEEP | Central API/DB/Auth/worker config |
-| `server/runtime.js` | KEEP / EVOLVE | AI runtime + temporary paid-AI access policy |
-| `server/package.json` | KEEP | Express/scanner/Postgres deps + API/worker/check/test scripts |
-| `server/package-lock.json` | REGENERATE / BLOCKED | Must come from verified backend clean install |
-| `server/.env.example` | KEEP | Auth/DB/worker/Gemini + prototype safety gates documented |
+None of these may be reactivated as production truth without real backend/authorization/data.
 
 ---
 
-# Backend Auth / authorization
+# Backend process / application
 
-| Path | Decision | State |
+| Path | Status | GuardAI state |
 |---|---|---|
-| `server/auth/supabaseAuth.js` | KEEP / PREPARED | Bearer token validated through dedicated Supabase Auth endpoint once configured |
-| `server/auth/roles.js` | KEEP | owner/admin/member/viewer hierarchy |
-| `server/services/organizationAuthorization.js` | KEEP | Repository-independent tenant role authorization |
-| `server/repositories/membershipRepository.js` | KEEP | Postgres membership lookup |
-| `server/routes/authRoutes.js` | KEEP / PREPARED | `/api/v1/auth/me` |
+| `server/index.js` | KEEP / ACTIVE | API bootstrap + graceful shutdown |
+| `server/app.js` | KEEP / ACTIVE | Helmet/CORS/request context/raw Stripe webhook/JSON/routes/errors |
+| `server/config.js` | KEEP / ACTIVE | typed-ish central runtime config including Billing mode |
+| `server/lib/runtimeSafety.js` | KEEP / ACTIVE | dangerous production config fail-fast |
+| `server/runtime.js` | KEEP / EVOLVE | controlled AI runtime |
+| `server/package.json` | KEEP / UNVALIDATED | includes Stripe 22.1.1; backend lockfile still pending clean install |
+| `server/.env.example` | KEEP | Auth/DB/Worker/AI/Billing env boundaries |
 
-Never trust request-body roles or user-editable metadata for Organization authorization.
+## Auth / authorization
+
+- `server/auth/supabaseAuth.js` — fail-closed Bearer validation through dedicated future Supabase Auth.
+- `server/auth/roles.js` — owner/admin/member/viewer hierarchy.
+- `server/services/organizationAuthorization.js` — tenant RBAC boundary.
+- `server/repositories/membershipRepository.js` — DB membership lookup.
+
+## Organizations / Targets / verification
+
+- `server/domain/organization.js`
+- `server/domain/websiteTarget.js`
+- `server/domain/targetAuthorization.js`
+- `server/domain/targetScanCompatibility.js`
+- `server/domain/targetVerification.js`
+- `server/repositories/organizationRepository.js`
+- `server/repositories/targetRepository.js`
+- `server/repositories/targetVerificationRepository.js`
+- `server/services/organizationService.js`
+- `server/services/targetService.js`
+- `server/services/targetVerificationService.js`
+- corresponding routes under `server/routes/`.
+
+All persistent Scans require a Target verified through backend-controlled DNS TXT challenge state.
 
 ---
 
-# Workspace onboarding
+# Scanner / networking
 
-## Organization
-
-| Path | Decision | State |
+| Path | Status | GuardAI state |
 |---|---|---|
-| `server/domain/organization.js` | KEEP | Name normalization + safe random-suffixed slug generation |
-| `server/repositories/organizationRepository.js` | KEEP | Atomic Organization + Owner + initial free subscription + audit event |
-| `server/services/organizationService.js` | KEEP | Creation/list orchestration + slug collision retry |
-| `server/routes/organizationRoutes.js` | KEEP / PREPARED | GET/POST `/api/v1/organizations` |
+| `server/lib/targetSafety.js` | KEEP / ACTIVE | URL/IP/DNS SSRF policy |
+| `server/services/safeFetch.js` | KEEP / ACTIVE | bounded redirects + safe socket DNS + proxy disabled |
+| `server/scanners/securityHeaders.js` | KEEP / ACTIVE | deterministic `security.headers@1.1.0` |
+| `server/scanners/securityRuleRegistry.js` | KEEP / ACTIVE | Rule/Finding registry resolver |
+| `server/scanners/webScanner.js` | REFACTOR / DEV ONLY | controlled prototype scanner; persistent Security Worker is production direction |
+| `server/scanners/fileScanner.js` | PREPARED / GATED | bounded PDF/TXT parse; malware/sandbox still missing |
+| `server/workers/securityWorker.js` | KEEP / ACTIVE SOURCE | first persistent real Worker |
+| `server/workers/securityWorkerProcess.js` | KEEP / ACTIVE SOURCE | separate Worker process loop |
 
-## Website Target
-
-| Path | Decision | State |
-|---|---|---|
-| `server/domain/websiteTarget.js` | KEEP | Stable URL normalization; local/IP/credential/port safety |
-| `server/repositories/targetRepository.js` | KEEP | Tenant target create/list/read + audit event |
-| `server/services/targetService.js` | KEEP | admin+ create; viewer+ read/list |
-| `server/routes/targetRoutes.js` | KEEP / PREPARED | Target GET/list/create routes |
-
-New Website Targets always start `unverified`; clients cannot provide their own verification state.
+Security detector v1.1.0 covers/observes HTTPS, CSP, HSTS, frame protection, `nosniff`, HTTPS cookie Secure, mixed content, Referrer-Policy, Permissions-Policy and HttpOnly/SameSite observations.
 
 ---
 
-# Target ownership verification
+# Persistent Scan / Evidence / Findings
 
-| Path | Decision | State |
-|---|---|---|
-| `server/domain/targetVerification.js` | KEEP | 256-bit DNS TXT challenge, SHA-256 storage, timing-safe match |
-| `server/repositories/targetVerificationRepository.js` | KEEP | Transactional challenge/attempt/expiry/verified state |
-| `server/services/targetVerificationService.js` | KEEP | admin+ challenge orchestration + DNS resolver boundary |
-| `server/routes/targetVerificationRoutes.js` | KEEP / PREPARED | create/check DNS challenge routes |
-| `server/middleware/verificationLimiter.js` | KEEP | Separate verification attempt rate limit |
+- `server/domain/scanSubmission.js` — module/idempotency request boundary.
+- `server/domain/scanLifecycle.js` — state machine.
+- `server/domain/jobLifecycle.js` — Worker ID/lease/retry/permanent errors.
+- `server/domain/assessmentResult.js` — validated Worker result + Rule provenance.
+- `server/domain/scoringPolicy.js` — versioned scoring-profile resolution.
+- `server/repositories/scanRepository.js` — atomic Scan+Jobs, Target/scoring snapshot capture.
+- `server/repositories/jobRepository.js` — claim/complete/fail + Evidence/Finding persistence.
+- `server/repositories/scanReadRepository.js` — tenant read model with internal provenance.
+- `server/services/jobFailureService.js` — retry vs terminal failure.
+- `server/routes/workspaceScanRoutes.js` — authenticated persistent submission/status.
+- `server/routes/secureProductRoutes.js` + rule/finding/evidence routes — real product read/mutation surfaces.
 
-Persistent Scans require a verified Target; Worker execution rechecks verification.
+Important invariants:
 
----
-
-# API contracts / errors
-
-| Path | Decision | State |
-|---|---|---|
-| `server/lib/httpError.js` | KEEP | HTTP status + stable error code/details |
-| `server/lib/apiError.js` | KEEP | Canonical public error envelope |
-| `server/middleware/errorHandler.js` | KEEP | Central error translation |
-| `server/lib/scanContract.js` | LEGACY-TRANSITION | Validates synchronous prototype responses |
-| `server/lib/persistentScanContract.js` | KEEP | Validates persistent Scan submission/status DTOs and strips internal fields |
-
-Shared scan contract version: **`0.2.0`**.
+- only implemented persistent module currently externally available: `security`,
+- unavailable modules fail `SCAN_MODULE_NOT_AVAILABLE`,
+- Rule ID/version persists into Finding Instance,
+- conflicting Rule provenance fails closed,
+- Scan stores Target snapshot and scoring profile,
+- final score resolves stored profile rather than using ad-hoc averages.
 
 ---
 
-# Network / scanner safety
+# Reports
 
-| Path | Decision | State |
-|---|---|---|
-| `server/lib/targetSafety.js` | KEEP / HARDEN | URL/IP/DNS safety and socket lookup guard |
-| `server/services/safeFetch.js` | KEEP | Bounded SSRF-safe HTTP fetch + validated final URL |
-| `server/scanners/securityHeaders.js` | KEEP | Deterministic `security.headers` detector v1.0.0 |
-| `server/scanners/webScanner.js` | LEGACY-TRANSITION | Dev synchronous scanner; shares Security detector |
-| `server/scanners/fileScanner.js` | LOCKED-DOWN / HARDEN | Dev-only PDF/TXT path; no public asset worker yet |
-| `server/scanners/schemas.js` | KEEP | Prototype request/AI validation |
-| `server/scanners/scoring.js` | REFACTOR | Prototype deterministic category helpers |
+- `server/domain/reportSnapshot.js` — Technical Report schema v2, canonical hash, integrity verification.
+- `server/repositories/reportRepository.js` — immutable snapshot storage/list/read.
+- `server/services/reportService.js` — member create, viewer read/list + integrity validation.
+- `server/routes/reportRoutes.js` — authenticated report API.
+
+Reports freeze Target, score profile, scanner/contract, module results, Evidence provenance/hashes and Finding Rule versions. Tampered snapshot fails `REPORT_INTEGRITY_FAILED`.
 
 ---
 
-# Legacy prototype access
+# Public Trust
 
-| Path | Decision | State |
-|---|---|---|
-| `server/lib/prototypeAccess.js` | KEEP / TEMPORARY | Legacy synchronous endpoints disabled unless explicit dev opt-in |
-| `server/lib/scanAccess.js` | KEEP / TEMPORARY | Anonymous Gemini usage disabled unless explicit dev opt-in |
-| `server/routes/scanRoutes.js` | LEGACY-TRANSITION | Synchronous dev routes; fail-closed by default and slated for removal after frontend migration |
-| `server/middleware/scanLimiter.js` | KEEP / TEMPORARY | Memory/IP boundary; not an entitlement system |
-| `server/middleware/upload.js` | KEEP / HARDEN | Dev file boundary; file write occurs only after prototype/AI gates |
+- `server/domain/publicTrust.js` — privacy-safe public schema v1.
+- `server/repositories/trustPublicationRepository.js` — publish/list/revoke/public lookup.
+- `server/services/trustPublicationService.js` — admin publishing/revocation, report integrity gate.
+- `server/middleware/trustLimiter.js` — public read limiting.
+- `server/routes/trustPublicationRoutes.js` — internal management + public JSON + SVG badge.
 
----
-
-# Persistent Scan domain / repositories
-
-| Path | Decision | State |
-|---|---|---|
-| `server/domain/scanLifecycle.js` | KEEP | Legal Scan state transitions |
-| `server/domain/scanSubmission.js` | KEEP | Idempotency/module validation; only implemented persistent modules accepted |
-| `server/domain/targetScanCompatibility.js` | KEEP | Target type → module matrix |
-| `server/domain/targetAuthorization.js` | KEEP | Verified Target requirement |
-| `server/repositories/scanRepository.js` | KEEP | Atomic verified Target Scan + Job submission |
-| `server/repositories/scanReadRepository.js` | KEEP | Tenant-scoped Scan/Job/Evidence/Finding read model |
-| `server/routes/workspaceScanRoutes.js` | KEEP / PREPARED | Persistent POST Scan + GET Scan status |
-
-Current externally enabled persistent module: **`security` only**.
-
-Known-but-disabled modules remain in the shared registry until their real workers exist:
-
-- privacy
-- accessibility
-- ai-governance
-- repository
-- asset
-
----
-
-# Worker lifecycle / Evidence
-
-| Path | Decision | State |
-|---|---|---|
-| `server/domain/jobLifecycle.js` | KEEP | Lease validation, retry backoff, permanent-error classification |
-| `server/domain/assessmentResult.js` | KEEP | Worker result validation |
-| `server/lib/evidenceIntegrity.js` | KEEP | Canonical Evidence serialization/hash + Finding fingerprints |
-| `server/repositories/jobRepository.js` | KEEP | Claim/lease/renew/complete/retry/exhaustion transactions |
-| `server/services/jobFailureService.js` | KEEP | Immediate terminal handling for non-retryable worker failures |
-| `server/workers/securityWorker.js` | KEEP / FIRST REAL WORKER | Persistent HTTP Security worker |
-| `server/workers/securityWorkerProcess.js` | KEEP | Separate polling process + graceful shutdown |
-
-Security worker commands:
-
-```text
-npm run worker:security
-npm run worker:security:once
-```
-
-Raw response headers are not persisted; only normalized observations/evidence are stored.
+Public projection intentionally excludes score, Findings and Evidence. Badge is not a compliance badge.
 
 ---
 
 # Entitlements / usage
 
-| Path | Decision | State |
+- `server/domain/entitlements.js` — module→capability map and entitlement checks.
+- `server/repositories/entitlementRepository.js` — plan capabilities + transactional usage reservations.
+
+Security remains available without paid capability. Future AI/browser/repository/document modules are capability-gated before they are enabled.
+
+---
+
+# Billing / Stripe
+
+| Path | Status | GuardAI state |
 |---|---|---|
-| `server/domain/entitlements.js` | KEEP | Module→capability mapping + fail-closed plan/limit rules |
-| `server/repositories/entitlementRepository.js` | KEEP / PREPARED | Durable monthly counters + transactional reservation/consume/release |
+| `server/domain/billingConfig.js` | KEEP / PREPARED | provider + plan↔Price mapping, fail-closed |
+| `server/domain/billingState.js` | KEEP / PREPARED | Stripe Subscription normalization |
+| `server/domain/billingCheckout.js` | KEEP / PREPARED | GuardAI/Stripe idempotency helpers |
+| `server/billing/stripeProvider.js` | KEEP / PREPARED | narrow Stripe SDK adapter |
+| `server/repositories/billingRepository.js` | KEEP / PREPARED | subscriptions, webhook inbox, Checkout requests |
+| `server/services/billingService.js` | KEEP / PREPARED | admin Checkout + signed webhook reconciliation |
+| `server/routes/billingRoutes.js` | KEEP / PREPARED | Billing status/Checkout + raw-body Stripe webhook |
 
-No plan limit numbers are invented in repository code. `security` currently needs no paid capability. Future modules cannot be enabled until their entitlement + usage reservation path is wired.
+Current billing safety:
 
----
+- Billing defaults disabled.
+- Browser sends internal plan code only.
+- Price IDs are server config only.
+- no real prices are hardcoded.
+- Checkout requires Organization admin+ and Idempotency-Key.
+- only one unresolved Checkout per Organization is designed.
+- Stripe Customer/Checkout requests use deterministic provider idempotency keys.
+- Checkout return grants no entitlement.
+- Webhook signature requires exact raw body.
+- event ID is durably deduplicated.
+- full provider payload is not retained.
+- Stripe test/live mode mismatch is rejected before DB mutation.
+- current Subscription is fetched from Stripe and normalized before DB reconciliation.
+- unknown Price/plan fails closed.
 
-# Database design sources
-
-**None of these files are applied migrations.**
-
-| Path | Decision | Scope |
-|---|---|---|
-| `database/001_guardai_core_schema_draft.sql` | KEEP / CONSOLIDATE LATER | Core tenant/entities/RLS |
-| `database/002_scan_queue_invariants_draft.sql` | KEEP / CONSOLIDATE LATER | Tenant FKs, modules, Scan idempotency, Job uniqueness |
-| `database/003_worker_result_invariants_draft.sql` | KEEP / CONSOLIDATE LATER | Worker summaries/timestamps + Evidence/Finding dedupe |
-| `database/004_target_verification_challenges_draft.sql` | KEEP / CONSOLIDATE LATER | Backend-only DNS challenges |
-| `database/005_workspace_onboarding_invariants_draft.sql` | KEEP / CONSOLIDATE LATER | Target uniqueness + subscription field constraints |
-| `database/006_entitlements_usage_draft.sql` | KEEP / CONSOLIDATE LATER | Plan capabilities + durable usage/reservations |
-| `database/README.md` | KEEP | Draft → generated staging migration procedure |
-| `docs/adr/0001-dedicated-supabase-postgres-auth.md` | KEEP | Dedicated project decision |
-| `docs/adr/0002-native-postgres-backend-transactions.md` | KEEP | Native transaction/repository decision |
-
-The unrelated connected multi-application Supabase project remains **off-limits** for GuardAI.
-
----
-
-# Test source inventory
-
-Backend Node test sources now cover or prepare coverage for:
-
-- target URL/IP/DNS/socket safety
-- prototype endpoint access gate
-- anonymous AI access gate
-- prototype + persistent scan contract boundaries
-- API error envelope
-- Bearer header parsing
-- Organization role hierarchy/authorization
-- Organization normalization/service
-- Website Target normalization/service
-- Target verification requirement
-- DNS challenge generation/matching/service
-- Target/module compatibility
-- Scan lifecycle/submission/idempotency
-- worker lifecycle/retry classification
-- Job lease guards
-- worker assessment result validation
-- Evidence hashing/Finding fingerprinting
-- Security header detector semantics
-- entitlement/capability rules
-- usage reservation input normalization
-
-**Inventory presence is not a passing-test claim. No clean backend test run has executed yet.**
+Not yet complete: real Stripe test configuration, Customer Portal/subscription management, staging integration tests, commercial plan/pricing decisions.
 
 ---
 
-# Current production gaps
+# Observability / operations foundations
 
-1. GitHub Actions billing/spending must permit runner allocation.
-2. Clean frontend/backend installs and backend lockfile regeneration must execute.
-3. Dedicated GuardAI Supabase staging project must be provisioned.
-4. SQL drafts must be consolidated into a generated migration and tested.
-5. RLS/cross-tenant/queue/usage concurrency integration tests must execute.
-6. Frontend Supabase Auth dependency/provider must be installed and locked in a clean environment.
-7. Visual frontend must migrate from legacy prototype to Workspace → Target → Verify → Persistent Scan.
-8. Accessibility worker needs real browser/axe runtime.
-9. Repository worker needs dependency/SAST/secret toolchain.
-10. Asset worker needs malware quarantine + parser isolation before public enablement.
-11. Billing provider, production deployment, observability, backups/DR and remaining product features still follow later guide phases.
+- `server/middleware/requestContext.js` — generated request IDs + bounded metadata logging.
+- `server/routes/healthRoutes.js` — liveness/readiness.
+- API and Security Worker support graceful shutdown.
+- `docs/DEPLOYMENT_TOPOLOGY.md` — API/Worker separation direction.
+
+No Docker/reproducible deployment artifact is claimed yet because backend clean install/lockfile verification is still open.
 
 ---
 
-# Inventory maintenance rule
+# Test sources
 
-Whenever a substantial change lands:
+`server/test/` now includes regression sources for target safety, Auth/RBAC, scan state/idempotency, Worker lifecycle, Evidence integrity, Security detector, Rules, scoring, reports, Trust, Billing, runtime safety and related domain services.
+
+**Existence is not a passing result.** Clean execution remains mandatory.
+
+---
+
+# Remaining highest-priority rebuild items
+
+1. restore executable CI / clean local validation,
+2. regenerate verified backend lockfile,
+3. dedicated GuardAI Supabase staging project + real migrations,
+4. real Supabase frontend session adapter,
+5. Stripe Customer Portal and staging Checkout/Webhook proof,
+6. Privacy browser Worker,
+7. Accessibility Worker,
+8. Repository scanner pipeline,
+9. upload quarantine/malware/parser isolation,
+10. AI Governance evidence/review workflow,
+11. Monitoring/Notifications,
+12. real integrations,
+13. remaining product modules only from real backend state,
+14. full security/test/release/deployment phases.
+
+## Maintenance rule
+
+After substantial changes:
 
 1. update this inventory,
-2. update the active phase tracker,
-3. update the master guide when architecture/order/requirements materially change,
-4. keep visible product claims aligned with implementation,
-5. never mark install/test/build/migration/deployment as passed unless it actually executed.
+2. update the active implementation tracker,
+3. update the master guide/ADR when architecture or requirements change,
+4. keep UI claims aligned with actual capability,
+5. never mark build/test/migration/deployment green unless it executed.
