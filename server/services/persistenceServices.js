@@ -2,6 +2,8 @@ const scanContract = require('../../shared/scan-contract.json');
 const { config } = require('../config');
 const { getPostgresPool } = require('../database/postgres');
 const { createScanSubmissionService } = require('../domain/scanSubmission');
+const { createAuditRepository } = require('../repositories/auditRepository');
+const { createEntitlementRepository } = require('../repositories/entitlementRepository');
 const { createJobRepository } = require('../repositories/jobRepository');
 const { createMembershipRepository } = require('../repositories/membershipRepository');
 const { createOrganizationRepository } = require('../repositories/organizationRepository');
@@ -9,6 +11,7 @@ const { createScanReadRepository } = require('../repositories/scanReadRepository
 const { createScanRepository } = require('../repositories/scanRepository');
 const { createTargetRepository } = require('../repositories/targetRepository');
 const { createTargetVerificationRepository } = require('../repositories/targetVerificationRepository');
+const { createAuditService } = require('./auditService');
 const { createJobFailureService } = require('./jobFailureService');
 const { createOrganizationAuthorizationService } = require('./organizationAuthorization');
 const { createOrganizationService } = require('./organizationService');
@@ -19,10 +22,13 @@ let services = null;
 
 function createPersistenceServices() {
   const pool = getPostgresPool();
+  const auditRepository = createAuditRepository(pool);
+  const entitlementRepository = createEntitlementRepository(pool);
   const jobRepository = createJobRepository(pool);
   const jobFailureService = createJobFailureService({ pool, jobRepository });
   const membershipRepository = createMembershipRepository(pool);
   const organizationAuthorization = createOrganizationAuthorizationService(membershipRepository);
+  const auditService = createAuditService({ auditRepository, organizationAuthorization });
   const organizationRepository = createOrganizationRepository(pool);
   const organizationService = createOrganizationService({ organizationRepository });
   const scanRepository = createScanRepository(pool);
@@ -42,6 +48,9 @@ function createPersistenceServices() {
   });
 
   return {
+    auditRepository,
+    auditService,
+    entitlementRepository,
     jobFailureService,
     jobRepository,
     membershipRepository,
