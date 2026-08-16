@@ -8,6 +8,7 @@ const { errorHandler } = require('./middleware/errorHandler');
 const { requestContext } = require('./middleware/requestContext');
 const { auditRoutes } = require('./routes/auditRoutes');
 const { authRoutes } = require('./routes/authRoutes');
+const { billingRoutes, stripeWebhookHandler } = require('./routes/billingRoutes');
 const { healthRoutes } = require('./routes/healthRoutes');
 const { organizationRoutes } = require('./routes/organizationRoutes');
 const { reportRoutes } = require('./routes/reportRoutes');
@@ -34,12 +35,22 @@ function createApp() {
       callback(new HttpError(403, 'Origin is not allowed by GuardAI CORS policy.', 'CORS_ORIGIN_FORBIDDEN'));
     },
   }));
+
+  // Stripe signature verification requires the exact raw request bytes. This route must
+  // stay before express.json() and must never be wrapped by middleware that rewrites body.
+  app.post(
+    '/api/v1/billing/stripe/webhook',
+    express.raw({ type: 'application/json', limit: '1mb' }),
+    stripeWebhookHandler,
+  );
+
   app.use(express.json({ limit: '10kb' }));
 
   app.use('/api', healthRoutes);
   app.use('/api/v1', authRoutes);
   app.use('/api/v1', organizationRoutes);
   app.use('/api/v1', auditRoutes);
+  app.use('/api/v1', billingRoutes);
   app.use('/api/v1', scanRoutes);
   app.use('/api/v1', targetRoutes);
   app.use('/api/v1', targetVerificationRoutes);
