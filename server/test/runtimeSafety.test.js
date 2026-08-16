@@ -13,9 +13,10 @@ const safeProduction = {
   SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_example',
   DATABASE_URL: 'postgresql://user:password@db.example.com/postgres',
   CORS_ORIGIN: 'https://app.guardai.example',
+  BILLING_PROVIDER: 'disabled',
 };
 
-test('safe production configuration passes', () => {
+test('safe production configuration passes with billing disabled', () => {
   assert.deepEqual(validateProductionConfiguration(safeProduction), []);
   assert.doesNotThrow(() => assertSafeRuntimeConfiguration(safeProduction));
 });
@@ -42,4 +43,31 @@ test('secret Supabase key and insecure CORS are rejected', () => {
   });
   assert.ok(errors.some((message) => message.includes('secret/service-role')));
   assert.ok(errors.some((message) => message.includes('HTTPS origin')));
+});
+
+test('Stripe billing production config requires HTTPS, server secrets and server-side Price map', () => {
+  const errors = validateProductionConfiguration({
+    ...safeProduction,
+    BILLING_PROVIDER: 'stripe',
+    PUBLIC_APP_URL: 'http://app.guardai.example',
+    STRIPE_SECRET_KEY: '',
+    STRIPE_WEBHOOK_SECRET: '',
+    STRIPE_PLAN_PRICE_MAP_JSON: '{}',
+  });
+  assert.ok(errors.some((message) => message.includes('PUBLIC_APP_URL')));
+  assert.ok(errors.some((message) => message.includes('STRIPE_SECRET_KEY')));
+  assert.ok(errors.some((message) => message.includes('STRIPE_WEBHOOK_SECRET')));
+  assert.ok(errors.some((message) => message.includes('plan/Price mapping')));
+});
+
+test('configured Stripe test-mode billing can run in a production-mode staging process', () => {
+  const errors = validateProductionConfiguration({
+    ...safeProduction,
+    BILLING_PROVIDER: 'stripe',
+    PUBLIC_APP_URL: 'https://staging.guardai.example',
+    STRIPE_SECRET_KEY: 'sk_test_example123',
+    STRIPE_WEBHOOK_SECRET: 'whsec_example123',
+    STRIPE_PLAN_PRICE_MAP_JSON: '{"pro":"price_Pro123"}',
+  });
+  assert.deepEqual(errors, []);
 });
