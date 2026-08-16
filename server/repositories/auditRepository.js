@@ -1,3 +1,4 @@
+const { HttpError } = require('../lib/httpError');
 const {
   decodeTimestampIdCursor,
   encodeTimestampIdCursor,
@@ -7,9 +8,11 @@ function normalizeAuditLimit(value) {
   if (value === undefined || value === null || value === '') return 50;
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 1 || parsed > 100) {
-    const error = new TypeError('Audit limit must be an integer between 1 and 100.');
-    error.code = 'INVALID_AUDIT_LIMIT';
-    throw error;
+    throw new HttpError(
+      400,
+      'Audit limit must be an integer between 1 and 100.',
+      'INVALID_AUDIT_LIMIT',
+    );
   }
   return parsed;
 }
