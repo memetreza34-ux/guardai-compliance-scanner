@@ -7,6 +7,28 @@ const DNS_TOKEN_PREFIX = 'guardai-verification=';
 const CHALLENGE_TTL_MINUTES = 30;
 const MAX_VERIFICATION_ATTEMPTS = 20;
 
+function isValidPublicDnsHostname(hostname) {
+  if (typeof hostname !== 'string' || hostname.length < 3 || hostname.length > 253) return false;
+  if (hostname === 'localhost' || hostname.endsWith('.localhost') || hostname.endsWith('.local')) {
+    return false;
+  }
+
+  const literalCandidate = hostname.startsWith('[') && hostname.endsWith(']')
+    ? hostname.slice(1, -1)
+    : hostname;
+  if (net.isIP(literalCandidate) !== 0) return false;
+
+  const labels = hostname.split('.');
+  if (labels.length < 2) return false;
+
+  return labels.every(
+    (label) =>
+      label.length >= 1 &&
+      label.length <= 63 &&
+      /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label),
+  );
+}
+
 function extractVerifiableHostname(canonicalUrl) {
   let parsed;
   try {
@@ -20,15 +42,10 @@ function extractVerifiableHostname(canonicalUrl) {
   }
 
   const hostname = parsed.hostname.toLowerCase();
-  const localName =
-    hostname === 'localhost' ||
-    hostname.endsWith('.localhost') ||
-    hostname.endsWith('.local');
-
-  if (!hostname || hostname.length > 253 || net.isIP(hostname) !== 0 || localName) {
+  if (!isValidPublicDnsHostname(hostname)) {
     throw new HttpError(
       422,
-      'DNS verification requires a public domain hostname rather than an IP or local hostname.',
+      'DNS verification requires a valid public DNS hostname rather than an IP or local hostname.',
       'TARGET_DNS_VERIFICATION_UNAVAILABLE',
     );
   }
@@ -72,6 +89,7 @@ module.exports = {
   createDnsVerificationChallenge,
   DNS_TOKEN_PREFIX,
   extractVerifiableHostname,
+  isValidPublicDnsHostname,
   MAX_VERIFICATION_ATTEMPTS,
   timingSafeHexEqual,
   txtRecordsMatchTokenHash,
