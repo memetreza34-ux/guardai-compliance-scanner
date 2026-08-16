@@ -12,6 +12,7 @@ const { createScanReadRepository } = require('../repositories/scanReadRepository
 const { createScanRepository } = require('../repositories/scanRepository');
 const { createTargetRepository } = require('../repositories/targetRepository');
 const { createTargetVerificationRepository } = require('../repositories/targetVerificationRepository');
+const { createTrustPublicationRepository } = require('../repositories/trustPublicationRepository');
 const { createAuditService } = require('./auditService');
 const { createJobFailureService } = require('./jobFailureService');
 const { createOrganizationAuthorizationService } = require('./organizationAuthorization');
@@ -19,6 +20,7 @@ const { createOrganizationService } = require('./organizationService');
 const { createReportService } = require('./reportService');
 const { createTargetService } = require('./targetService');
 const { createTargetVerificationService } = require('./targetVerificationService');
+const { createTrustPublicationService } = require('./trustPublicationService');
 
 let services = null;
 
@@ -40,6 +42,12 @@ function createPersistenceServices() {
     organizationAuthorization,
     reportRepository,
     scanReadRepository,
+  });
+  const trustPublicationRepository = createTrustPublicationRepository(pool);
+  const trustPublicationService = createTrustPublicationService({
+    organizationAuthorization,
+    reportService,
+    trustPublicationRepository,
   });
   const targetRepository = createTargetRepository(pool);
   const targetService = createTargetService({ organizationAuthorization, targetRepository });
@@ -75,6 +83,8 @@ function createPersistenceServices() {
     targetService,
     targetVerificationRepository,
     targetVerificationService,
+    trustPublicationRepository,
+    trustPublicationService,
   };
 }
 
