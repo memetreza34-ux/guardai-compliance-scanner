@@ -18,7 +18,7 @@ function defaultErrorCode(statusCode) {
   return STATUS_CODE_MAP[statusCode] || 'HTTP_ERROR';
 }
 
-function buildApiErrorBody({ statusCode, message, code = null, details = null }) {
+function buildApiErrorBody({ statusCode, message, code = null, details = null, requestId = null }) {
   const error = {
     code: code || defaultErrorCode(statusCode),
     message,
@@ -26,6 +26,9 @@ function buildApiErrorBody({ statusCode, message, code = null, details = null })
 
   if (details !== null && details !== undefined) {
     error.details = details;
+  }
+  if (requestId) {
+    error.requestId = requestId;
   }
 
   return { error };
