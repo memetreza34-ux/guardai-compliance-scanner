@@ -1,47 +1,135 @@
-# GuardAI - Enterprise AI Compliance & Security Scanner
+# GuardAI — Technical Compliance Evidence & Risk Platform
 
-> **Ein psychologisch optimierter B2B Lead-Magnet & SaaS-Prototyp zur Analyse von Webseiten auf DSGVO-, KI-Act- und Security-Compliance.**
+GuardAI is being rebuilt from an advanced SaaS/UI prototype into a real technical compliance evidence and risk scanning platform for websites, repositories and selected digital assets.
 
-## 🧠 Projekt-Gehirn (Für AI & Entwickler)
-Dieses Repository beinhaltet eine hochentwickelte React/Vite-Applikation, die als Verkaufs-Funnel (SaaS) getarnt ist. Der "Scanner" ist primär eine Mock-Engine (`mockScanEngine.ts`), die basierend auf URL-Eingaben extrem realistische, juristisch und technisch fundierte Audit-Befunde (DSGVO, EU AI Act, SAST/DAST, Dark Patterns) generiert.
+> **Current status:** prototype / active rebuild. Several visible product surfaces already exist, but a number of them are still mock-driven or simulated and must not be treated as production capabilities yet.
 
-Das Ziel der Software ist **Lead-Generierung** (via E-Mail Opt-in für einen Basis-Report) und **Monetarisierung** (via Stripe-Checkout Simulation für Premium-Berichte).
+## Product direction
 
-### 🎯 Kernziele & Intention
-*   **Autorität aufbauen:** Den Nutzer durch die extreme Detailtiefe (25+ Checks, § Referenzen) überzeugen.
-*   **Dringlichkeit (Pain) erzeugen:** Aufdecken von echten rechtlichen und technischen Risiken (z.B. fehlende Kündigungsbuttons, US-Hosting, React CVEs).
-*   **Conversion erzwingen:** Die echten Lösungsansätze (Code-Snippets, PDF-Dossier) befinden sich hinter einer Paywall (Blurred Content).
+GuardAI is intended to collect technical evidence, run deterministic checks where possible, surface potential compliance/security risks, explain findings, preserve scan history and support remediation workflows.
 
-### 🛠 Tech-Stack
-*   **Frontend:** React 18, TypeScript, Vite
-*   **Styling:** Tailwind CSS, Radix UI (shadcn/ui basierte Komponenten)
-*   **Icons:** Lucide React
-*   **Architektur:** Single Page Application (SPA) mit simulierter Backend-Logik im Client.
+The platform is **not** intended to act as a government authority, official certification body, law firm or guarantee of legal compliance.
 
-### 📂 Projektstruktur & Wichtige Dateien
-*   `src/data/mockScanEngine.ts`: Das **Herzstück**. Eine massive Heuristik-Engine, die auf Basis von Keywords (z.B. "auth", "health") über 30 spezifische Fehler und Warnings generiert. Hier werden Rechtsgrundlagen (BGB, DSGVO, AI Act) und Tech-Vulnerabilities (SQLi, Prototype Pollution) injiziert.
-*   `src/components/ComplianceDashboard.tsx`: Das Haupt-UI. Rendert Bento-Grid-Karten für 6 Kategorien (AI Act, DSGVO, Accessibility, Security, Legal Data, Consumer Protection). Setzt Paywalls (Blur-Effekte) für Nicht-Premium Nutzer ein.
-*   `src/components/PrintableReport.tsx`: Ein druckoptimierter PDF-Report, der ebenfalls Monetarisierungs-Locks enthält.
-*   `src/components/LeadGenModal.tsx`: E-Mail-Capture-Formular ("Kostenloser Basis-Report").
-*   `src/components/CheckoutSimulation.tsx`: Ein simulierter Stripe-Checkout für 49€ / 199€ Pakete.
-*   `src/components/ScanProgressModal.tsx`: Eine Terminal-ähnliche Ladeanimation, die Deep-Scans (Handelsregister-Prüfung, Source-Code Parsing) vorgaukelt.
+## Current frontend
 
-### 🚀 Setup & Ausführung
-\`\`\`bash
-# Install dependencies
+- React 19
+- TypeScript
+- Vite
+- Tailwind CSS
+- shadcn/base-ui style components
+- Framer Motion
+- Lucide icons
+
+Existing product surfaces include:
+
+- Landing Page
+- URL/File scanner input
+- Scan Progress
+- Compliance Dashboard
+- Printable Report
+- Lead Generation
+- Pricing
+- Checkout Simulation
+- User Dashboard
+- AI Counsel
+- Audit Hub
+- Trust Center
+- Badge Generator
+- Document Generator
+- Templates Hub
+- Integrations Hub
+- Policy Manager
+- TrueSight
+
+Many of these surfaces are currently prototypes. The rebuild replaces simulated data and claims with real scanner evidence and backend state.
+
+## Current backend prototype
+
+`server/index.js` currently contains early implementations for:
+
+- `POST /api/scan`
+- website fetching
+- GitHub repository checks
+- Gemini-assisted analysis
+- `POST /api/scan-file`
+- PDF/text extraction
+- basic HTTP security-header checks
+- rate limiting
+- Helmet
+- Zod input validation
+
+The backend is **not production-ready yet**. Known work includes shared API contracts, dependency cleanup, SSRF protection, upload hardening, authentication, persistence, asynchronous jobs, tests and deployment architecture.
+
+## Important repository files
+
+- `docs/GUARDAI_MASTER_BUILD_GUIDE.md` — canonical A-to-Z build plan and current source of truth
+- `src/data/mockScanEngine.ts` — legacy/mock scanner reference; not the future production source of truth
+- `src/types/scanner.ts` — early scanner type model to be replaced/refactored into shared contracts
+- `src/components/ComplianceDashboard.tsx` — current dashboard UI
+- `src/components/ScanProgressModal.tsx` — current scan-progress UI
+- `src/components/PrintableReport.tsx` — current report prototype
+- `server/index.js` — current backend prototype
+
+## Development
+
+### Frontend
+
+```bash
 npm install
-
-# Start development server
 npm run dev
+```
 
-# Build for production
+Build:
+
+```bash
 npm run build
-\`\`\`
+```
 
-## ⚖️ Features des "Scanners"
-1. **EU AI Act Transparenz:** Erkennt fehlende Kennzeichnungspflichten für KI-Systeme (Art. 50).
-2. **DSGVO & Privacy:** Schrems-II (US Hosting), Session-Replay Tracker (Hotjar) ohne Maskierung, Cookie-Banner Dark Patterns.
-3. **Consumer Protection:** Fehlender Kündigungs-Button (BGB), verdeckte Preise (PAngV).
-4. **Legal Data (Impressum):** Abgleich von HRB, USt-IdNr und OS-Plattform. Urheberrecht von Bildern.
-5. **Security (SAST/DAST):** Veraltete UI-Libraries mit CVEs, Blind SQL Injection in APIs, fehlende DMARC/SPF Records.
-6. **Accessibility:** WCAG 2.1 AA Kontrastfehler und fehlende ARIA-Labels.
+Lint:
+
+```bash
+npm run lint
+```
+
+### Backend
+
+The backend currently lives in `server/` and is being repaired as part of the documented build phases. A clean, reproducible backend setup with complete declared dependencies and unified root scripts is a required milestone before the backend is considered ready for normal development.
+
+## Build process
+
+We follow the living master guide in:
+
+```text
+docs/GUARDAI_MASTER_BUILD_GUIDE.md
+```
+
+Current active phase:
+
+```text
+Phase 0 — Scope Freeze & Repository Hygiene
+```
+
+Core principle:
+
+```text
+First make the scanner true.
+Then make it stable.
+Then make it secure.
+Then scale it.
+Then add enterprise depth.
+```
+
+## Production rule
+
+A feature is not considered implemented merely because a UI exists. A production feature requires, where applicable:
+
+- real backend behavior,
+- persistent data,
+- authorization,
+- error/loading/empty states,
+- tests,
+- security review,
+- observability,
+- and accurate product claims.
+
+Mock/preview functionality must be clearly identified until replaced by real implementation.
