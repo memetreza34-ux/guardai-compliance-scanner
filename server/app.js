@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const { config } = require('./config');
+const { buildApiErrorBody } = require('./lib/apiError');
 const { HttpError } = require('./lib/httpError');
 const { errorHandler } = require('./middleware/errorHandler');
 const { authRoutes } = require('./routes/authRoutes');
@@ -20,7 +21,7 @@ function createApp() {
         return;
       }
 
-      callback(new HttpError(403, 'Origin is not allowed by GuardAI CORS policy.'));
+      callback(new HttpError(403, 'Origin is not allowed by GuardAI CORS policy.', 'CORS_ORIGIN_FORBIDDEN'));
     },
   }));
   app.use(express.json({ limit: '10kb' }));
@@ -30,7 +31,11 @@ function createApp() {
   app.use('/api/v1', scanRoutes);
 
   app.use((_req, res) => {
-    res.status(404).json({ error: 'GuardAI API route not found.' });
+    res.status(404).json(buildApiErrorBody({
+      statusCode: 404,
+      code: 'API_ROUTE_NOT_FOUND',
+      message: 'GuardAI API route not found.',
+    }));
   });
 
   app.use(errorHandler);
