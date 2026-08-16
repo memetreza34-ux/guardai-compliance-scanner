@@ -10,6 +10,7 @@ export interface TrustPublicationRecord {
   status: TrustPublicationStatus;
   createdBy: string;
   publishedAt: string;
+  revokedBy: string | null;
   revokedAt: string | null;
   createdAt: string;
   updatedAt: string;
