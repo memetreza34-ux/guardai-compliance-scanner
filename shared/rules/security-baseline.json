@@ -1,0 +1,50 @@
+{
+  "rulesetId": "security-baseline",
+  "rulesetVersion": 1,
+  "detectorId": "security.headers",
+  "detectorVersion": "1.1.0",
+  "rules": [
+    {
+      "id": "security.https_transport",
+      "version": 1,
+      "title": "HTTPS transport",
+      "defaultSeverity": "critical"
+    },
+    {
+      "id": "security.content_security_policy",
+      "version": 1,
+      "title": "Content-Security-Policy presence",
+      "defaultSeverity": "critical"
+    },
+    {
+      "id": "security.strict_transport_security",
+      "version": 1,
+      "title": "Strict-Transport-Security presence",
+      "defaultSeverity": "warning"
+    },
+    {
+      "id": "security.frame_protection",
+      "version": 1,
+      "title": "Frame embedding protection",
+      "defaultSeverity": "warning"
+    },
+    {
+      "id": "security.content_type_nosniff",
+      "version": 1,
+      "title": "X-Content-Type-Options nosniff",
+      "defaultSeverity": "warning"
+    },
+    {
+      "id": "security.cookie_secure",
+      "version": 1,
+      "title": "Secure attribute on HTTPS cookies",
+      "defaultSeverity": "warning"
+    },
+    {
+      "id": "security.mixed_content",
+      "version": 1,
+      "title": "Mixed HTTP content on HTTPS document",
+      "defaultSeverity": "warning"
+    }
+  ]
+}
