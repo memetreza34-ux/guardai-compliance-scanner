@@ -1,5 +1,6 @@
 const { HttpError } = require('../lib/httpError');
 const { assertTargetSupportsModules } = require('../domain/targetScanCompatibility');
+const { assertTargetVerified } = require('../domain/targetAuthorization');
 
 function mapScanRow(row) {
   return {
@@ -30,6 +31,9 @@ function mapJobRow(row) {
     leaseExpiresAt: row.lease_expires_at,
     workerId: row.worker_id,
     payload: row.payload || {},
+    resultSummary: row.result_summary || {},
+    completedAt: row.completed_at,
+    failedAt: row.failed_at,
     createdAt: row.created_at,
   };
 }
@@ -80,7 +84,8 @@ async function loadJobsForScan(client, scanId, organizationId) {
   const result = await client.query(
     `select id, organization_id, scan_id, job_type, status,
             attempt_count, max_attempts, available_at,
-            leased_at, lease_expires_at, worker_id, payload, created_at
+            leased_at, lease_expires_at, worker_id, payload,
+            result_summary, completed_at, failed_at, created_at
        from public.scan_jobs
       where scan_id = $1 and organization_id = $2
       order by created_at asc, job_type asc`,
@@ -102,7 +107,7 @@ function createScanRepository(pool) {
       await client.query('begin');
 
       const targetResult = await client.query(
-        `select id, organization_id, type
+        `select id, organization_id, type, verification_state
            from public.targets
           where id = $1 and organization_id = $2
           for share`,
@@ -113,7 +118,9 @@ function createScanRepository(pool) {
         throw new HttpError(404, 'Target was not found in this organization.', 'TARGET_NOT_FOUND');
       }
 
-      assertTargetSupportsModules(targetResult.rows[0].type, input.requestedModules);
+      const target = targetResult.rows[0];
+      assertTargetVerified(target);
+      assertTargetSupportsModules(target.type, input.requestedModules);
 
       const existingBeforeInsert = await findExistingByIdempotency(
         client,
@@ -186,7 +193,8 @@ function createScanRepository(pool) {
            from unnest($3::text[]) as module_id
          returning id, organization_id, scan_id, job_type, status,
                    attempt_count, max_attempts, available_at,
-                   leased_at, lease_expires_at, worker_id, payload, created_at`,
+                   leased_at, lease_expires_at, worker_id, payload,
+                   result_summary, completed_at, failed_at, created_at`,
         [input.organizationId, scanRow.id, input.requestedModules],
       );
 
@@ -208,80 +216,7 @@ function createScanRepository(pool) {
     }
   }
 
-  async function claimNextJob({ workerId, leaseSeconds = 60 }) {
-    if (!workerId || !Number.isInteger(leaseSeconds) || leaseSeconds < 10 || leaseSeconds > 900) {
-      throw new HttpError(400, 'Worker lease request is invalid.', 'INVALID_JOB_LEASE');
-    }
-
-    const client = await pool.connect();
-
-    try {
-      await client.query('begin');
-
-      const candidate = await client.query(
-        `select id, organization_id, scan_id, job_type, status,
-                attempt_count, max_attempts, available_at,
-                leased_at, lease_expires_at, worker_id, payload, created_at
-           from public.scan_jobs
-          where attempt_count < max_attempts
-            and (
-              (status = 'queued' and available_at <= now())
-              or
-              (status = 'running' and lease_expires_at is not null and lease_expires_at <= now())
-            )
-          order by available_at asc, created_at asc
-          for update skip locked
-          limit 1`,
-      );
-
-      if (candidate.rowCount === 0) {
-        await client.query('commit');
-        return null;
-      }
-
-      const job = candidate.rows[0];
-      const leased = await client.query(
-        `update public.scan_jobs
-            set status = 'running',
-                attempt_count = attempt_count + 1,
-                leased_at = now(),
-                lease_expires_at = now() + ($2 * interval '1 second'),
-                worker_id = $3,
-                updated_at = now()
-          where id = $1
-          returning id, organization_id, scan_id, job_type, status,
-                    attempt_count, max_attempts, available_at,
-                    leased_at, lease_expires_at, worker_id, payload, created_at`,
-        [job.id, leaseSeconds, workerId],
-      );
-
-      await client.query(
-        `update public.scans
-            set status = 'running',
-                started_at = coalesce(started_at, now()),
-                updated_at = now()
-          where id = $1
-            and organization_id = $2
-            and status = 'queued'`,
-        [job.scan_id, job.organization_id],
-      );
-
-      await client.query('commit');
-      return mapJobRow(leased.rows[0]);
-    } catch (error) {
-      try {
-        await client.query('rollback');
-      } catch (rollbackError) {
-        console.error('[Database] Job claim rollback failed:', rollbackError);
-      }
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
-
   return {
-    claimNextJob,
     createQueuedScanWithJobs,
   };
 }
