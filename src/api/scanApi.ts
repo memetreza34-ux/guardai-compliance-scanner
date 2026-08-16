@@ -1,4 +1,4 @@
-import contractMetadata from '../../shared/scan-contract.json';
+import scanContract from '../../shared/scan-contract.json';
 import type {
   AuditIssue,
   CategoryScore,
@@ -10,6 +10,8 @@ import type { ScanOptions } from '../types/scanOptions';
 
 const DEFAULT_API_BASE_URL = 'http://localhost:3001';
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL).replace(/\/$/, '');
+const API_VERSION_PREFIX = '/api/v1';
+const EXPECTED_CONTRACT_VERSION = scanContract.version;
 
 const CATEGORY_MAP: Record<string, ComplianceCategory | undefined> = {
   privacy: 'gdpr',
@@ -87,8 +89,9 @@ function readString(value: unknown, fallback = ''): string {
 }
 
 function readStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === 'string')
+    : [];
 }
 
 function readScore(value: unknown): number | null {
@@ -113,12 +116,10 @@ function normalizeIssue(
   category: ComplianceCategory,
   index: number,
 ): AuditIssue {
-  const level = normalizeRiskLevel(raw.severity);
-
   return {
     id: readString(raw.id, `${category}-${index + 1}`),
     category,
-    level,
+    level: normalizeRiskLevel(raw.severity),
     title: readString(raw.title, 'Unbenanntes Finding'),
     description: readString(raw.description, 'Keine Beschreibung vom Scanner geliefert.'),
     lawReference: readString(raw.lawReference),
@@ -211,10 +212,8 @@ function normalizeResponse(
   }
 
   const data = payload as BackendScanResponse;
-  if (data.contractVersion !== contractMetadata.version) {
-    throw new ScanApiError(
-      `Scanner API contract mismatch. Expected ${contractMetadata.version}.`,
-    );
+  if (data.contractVersion !== EXPECTED_CONTRACT_VERSION) {
+    throw new ScanApiError('Scanner API contract version is incompatible with this frontend.');
   }
 
   const rawCategories = isRecord(data.categories) ? data.categories : {};
@@ -276,7 +275,7 @@ export async function requestComplianceScan(
 
   try {
     if (typeof target === 'string') {
-      response = await fetch(`${API_BASE_URL}/api/scan`, {
+      response = await fetch(`${API_BASE_URL}${API_VERSION_PREFIX}/scan`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -296,7 +295,7 @@ export async function requestComplianceScan(
       formData.append('file', target);
       formData.append('options', JSON.stringify(options));
 
-      response = await fetch(`${API_BASE_URL}/api/scan-file`, {
+      response = await fetch(`${API_BASE_URL}${API_VERSION_PREFIX}/scan-file`, {
         method: 'POST',
         body: formData,
       });
