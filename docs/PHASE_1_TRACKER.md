@@ -2,6 +2,16 @@
 
 > Active implementation tracker for Phase 1 of `GUARDAI_MASTER_BUILD_GUIDE.md`.
 
+## Status
+
+**PHASE 1: IN PROGRESS — CI execution externally blocked by GitHub billing/spending settings**
+
+The workflow itself is registered and active. The first real run was created, but GitHub did not assign a runner to either job. GitHub's check annotation reports that recent account payments failed or the account spending limit must be increased. This is not currently a GuardAI lint/type/build failure because no workflow step started.
+
+To avoid producing a failed check on every direct `main` documentation commit while this external blocker exists, CI currently runs on pull requests and manual dispatch. Once runner access is restored, we should execute the workflow and then decide whether to restore a `push: main` gate.
+
+---
+
 ## Goal
 
 Make GuardAI reproducible to install, consistent to edit and automatically checked before architectural refactors begin.
@@ -18,7 +28,7 @@ Make GuardAI reproducible to install, consistent to edit and automatically check
 | Frontend framework | React 19 + TypeScript + Vite 8 |
 | Lockfile | `package-lock.json` is required |
 
-The `package.json` engine range permits compatible Node 24/npm 11 updates while `.nvmrc` and CI provide a known reproducible baseline.
+`package.json` permits compatible Node 24/npm 11 updates while `.nvmrc` defines the reproducible project/CI baseline.
 
 ---
 
@@ -33,14 +43,42 @@ The `package.json` engine range permits compatible Node 24/npm 11 updates while 
 | Add EditorConfig | DONE | UTF-8/LF/2-space baseline |
 | Add contribution/development rules | DONE | `CONTRIBUTING.md` |
 | Add PR CI quality gate | DONE | install/lint/typecheck/build |
-| Add automated history secret scan | DONE | Gitleaks action with full checkout history |
+| Add automated history secret scan | DONE | Gitleaks with full history checkout |
 | Pin external Actions to immutable commit SHAs | DONE | checkout/setup-node/gitleaks |
-| Execute/observe first CI run | TODO | Must verify current prototype against the new gate |
-| Repair existing lint/type/build failures found by CI | TODO | Do not suppress legitimate errors just to turn CI green |
-| Review TypeScript strictness | TODO | Current config lacks full `strict`; adopt incrementally if current code permits |
-| Review oxlint rules | TODO | Keep useful baseline; add security/correctness rules deliberately |
-| Confirm clean install from lockfile | TODO | CI `npm ci` is the authoritative clean-environment check |
-| Update README local setup with pinned runtime | TODO | After CI confirms baseline |
+| Register workflow with GitHub Actions | DONE | GitHub reports `GuardAI CI` as active |
+| Execute/observe first CI run | BLOCKED | Run created; jobs never started because GitHub runner access is blocked by billing/spending settings |
+| Repair existing lint/type/build failures | WAITING | We do not yet have evidence of code failures because runner never started |
+| Review TypeScript strictness | TODO | Current config lacks full `strict`; do not enable blindly before baseline build executes |
+| Review oxlint rules | IN PROGRESS | Current config protects React hooks; deeper baseline waits for executable CI |
+| Confirm clean install from lockfile | BLOCKED | Requires executable runner/local clean environment |
+| Update README local setup with pinned runtime | DONE | README now documents Node/npm and Phase 1 |
+
+---
+
+## First CI attempt
+
+Workflow run created successfully with two jobs:
+
+```text
+Frontend quality → failure before runner start
+Secret scan     → failure before runner start
+```
+
+Both jobs had:
+
+```text
+runner_id = 0
+steps = []
+```
+
+GitHub annotation:
+
+```text
+The job was not started because recent account payments have failed
+or your spending limit needs to be increased.
+```
+
+Therefore **do not classify this as a GuardAI build failure**.
 
 ---
 
@@ -53,7 +91,7 @@ Runs on:
 - pull requests,
 - manual workflow dispatch.
 
-### Frontend quality job
+### Frontend quality
 
 ```text
 checkout
@@ -64,14 +102,14 @@ checkout
 → npm run build
 ```
 
-### Secret job
+### Secret scan
 
 ```text
 full Git history checkout
 → Gitleaks
 ```
 
-The workflow deliberately does not silently ignore quality failures. Existing prototype debt discovered by CI becomes tracked Phase 1 work.
+External actions are pinned to immutable commit SHAs.
 
 ---
 
@@ -81,23 +119,27 @@ The workflow deliberately does not silently ignore quality failures. Existing pr
 - [x] Package manager is defined.
 - [x] Editor conventions exist.
 - [x] Contribution rules exist.
-- [x] CI quality workflow exists.
-- [x] Automated secret scanning exists.
-- [ ] A clean CI environment successfully installs the root app.
+- [x] CI quality workflow exists and is registered.
+- [x] Automated secret scanning is configured.
+- [ ] GitHub runner access is restored or an equivalent clean execution environment is available.
+- [ ] A clean environment successfully executes `npm ci`.
 - [ ] Lint is green.
 - [ ] Typecheck is green.
 - [ ] Production frontend build is green.
-- [ ] Any baseline failures are fixed rather than suppressed without justification.
-- [ ] README reflects the verified setup.
+- [ ] Any genuine baseline failures are fixed rather than suppressed without justification.
 
 ---
 
-## Next phase
+## Next action when runner access is restored
 
-Only after this gate is green do we start **Phase 2 — Frontend Core Repair**:
+Run `GuardAI CI` manually or through a PR. Then:
 
-- real routing structure,
-- duplicate render cleanup,
-- error boundary,
-- public/app layouts,
-- preparation for future auth guards.
+1. inspect `npm ci`,
+2. fix lint findings,
+3. fix TypeScript findings,
+4. fix build findings,
+5. run again until green,
+6. close Phase 1,
+7. begin Phase 2 frontend-core repair.
+
+We do not claim Phase 1 complete until those checks actually execute.
