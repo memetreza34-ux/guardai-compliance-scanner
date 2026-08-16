@@ -6,6 +6,7 @@ const { createJobRepository } = require('../repositories/jobRepository');
 const { createMembershipRepository } = require('../repositories/membershipRepository');
 const { createScanReadRepository } = require('../repositories/scanReadRepository');
 const { createScanRepository } = require('../repositories/scanRepository');
+const { createJobFailureService } = require('./jobFailureService');
 const { createOrganizationAuthorizationService } = require('./organizationAuthorization');
 
 let services = null;
@@ -13,6 +14,7 @@ let services = null;
 function createPersistenceServices() {
   const pool = getPostgresPool();
   const jobRepository = createJobRepository(pool);
+  const jobFailureService = createJobFailureService({ pool, jobRepository });
   const membershipRepository = createMembershipRepository(pool);
   const organizationAuthorization = createOrganizationAuthorizationService(membershipRepository);
   const scanRepository = createScanRepository(pool);
@@ -25,6 +27,7 @@ function createPersistenceServices() {
   });
 
   return {
+    jobFailureService,
     jobRepository,
     membershipRepository,
     organizationAuthorization,
