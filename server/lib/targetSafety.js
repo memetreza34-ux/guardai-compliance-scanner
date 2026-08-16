@@ -1,4 +1,4 @@
-const dns = require('node:dns').promises;
+const dns = require('node:dns');
 const net = require('node:net');
 const { HttpError } = require('./httpError');
 
@@ -77,7 +77,19 @@ function isBlockedIp(address) {
   return true;
 }
 
-async function assertPublicHttpTarget(parsedUrl, lookup = dns.lookup) {
+function validateResolvedAddresses(addresses) {
+  if (!Array.isArray(addresses) || addresses.length === 0) {
+    throw new HttpError(400, 'Target hostname could not be resolved.');
+  }
+
+  if (addresses.some(({ address }) => isBlockedIp(address))) {
+    throw new HttpError(400, 'Target resolves to a private, loopback, link-local or reserved address.');
+  }
+
+  return addresses;
+}
+
+async function assertPublicHttpTarget(parsedUrl, lookup = dns.promises.lookup) {
   const hostname = parsedUrl.hostname.toLowerCase();
 
   if (
@@ -98,17 +110,58 @@ async function assertPublicHttpTarget(parsedUrl, lookup = dns.lookup) {
   let addresses;
   try {
     addresses = await lookup(hostname, { all: true, verbatim: true });
-  } catch {
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
     throw new HttpError(400, 'Target hostname could not be resolved.');
   }
 
-  if (addresses.length === 0 || addresses.some(({ address }) => isBlockedIp(address))) {
-    throw new HttpError(400, 'Target resolves to a private, loopback, link-local or reserved address.');
-  }
+  validateResolvedAddresses(addresses);
+}
+
+function createSafeLookup(lookup = dns.lookup) {
+  return (hostname, options, callback) => {
+    const requestedAll = typeof options === 'object' && options !== null && options.all === true;
+    const family = typeof options === 'number'
+      ? options
+      : typeof options === 'object' && options !== null
+        ? options.family
+        : undefined;
+
+    lookup(
+      hostname,
+      {
+        all: true,
+        verbatim: true,
+        ...(family ? { family } : {}),
+      },
+      (error, addresses) => {
+        if (error) {
+          callback(error);
+          return;
+        }
+
+        try {
+          const validated = validateResolvedAddresses(addresses);
+
+          if (requestedAll) {
+            callback(null, validated);
+            return;
+          }
+
+          const selected = validated[0];
+          callback(null, selected.address, selected.family);
+        } catch (validationError) {
+          callback(validationError);
+        }
+      },
+    );
+  };
 }
 
 module.exports = {
   assertPublicHttpTarget,
+  createSafeLookup,
   isBlockedIp,
   normalizeHttpUrl,
+  validateResolvedAddresses,
 };
