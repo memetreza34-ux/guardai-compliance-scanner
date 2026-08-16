@@ -10,7 +10,9 @@ const { auditRoutes } = require('./routes/auditRoutes');
 const { authRoutes } = require('./routes/authRoutes');
 const { healthRoutes } = require('./routes/healthRoutes');
 const { organizationRoutes } = require('./routes/organizationRoutes');
+const { reportRoutes } = require('./routes/reportRoutes');
 const { scanRoutes } = require('./routes/scanRoutes');
+const { secureProductRoutes } = require('./routes/secureProductRoutes');
 const { targetRoutes } = require('./routes/targetRoutes');
 const { targetVerificationRoutes } = require('./routes/targetVerificationRoutes');
 const { workspaceScanRoutes } = require('./routes/workspaceScanRoutes');
@@ -41,6 +43,8 @@ function createApp() {
   app.use('/api/v1', targetRoutes);
   app.use('/api/v1', targetVerificationRoutes);
   app.use('/api/v1', workspaceScanRoutes);
+  app.use('/api/v1', secureProductRoutes);
+  app.use('/api/v1', reportRoutes);
 
   app.use((_req, res) => {
     res.status(404).json(buildApiErrorBody({
