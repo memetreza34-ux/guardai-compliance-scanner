@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const {
   computeWeightedScanScore,
   defaultProfile,
+  getScoringProfile,
   validateScoringProfile,
 } = require('../domain/scoringPolicy');
 
@@ -11,6 +12,15 @@ test('default Security MVP profile is valid and versioned', () => {
   assert.equal(validateScoringProfile(defaultProfile), defaultProfile);
   assert.equal(defaultProfile.profileId, 'security-mvp');
   assert.equal(defaultProfile.version, 1);
+  assert.equal(getScoringProfile('security-mvp', 1), defaultProfile);
+});
+
+
+test('unknown scoring profile version fails closed', () => {
+  assert.throws(
+    () => getScoringProfile('security-mvp', 2),
+    (error) => error.code === 'SCORING_PROFILE_NOT_AVAILABLE' && error.statusCode === 500,
+  );
 });
 
 
