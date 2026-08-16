@@ -15,6 +15,7 @@ const { scanRoutes } = require('./routes/scanRoutes');
 const { secureProductRoutes } = require('./routes/secureProductRoutes');
 const { targetRoutes } = require('./routes/targetRoutes');
 const { targetVerificationRoutes } = require('./routes/targetVerificationRoutes');
+const { trustPublicationRoutes } = require('./routes/trustPublicationRoutes');
 const { workspaceScanRoutes } = require('./routes/workspaceScanRoutes');
 
 function createApp() {
@@ -45,6 +46,7 @@ function createApp() {
   app.use('/api/v1', workspaceScanRoutes);
   app.use('/api/v1', secureProductRoutes);
   app.use('/api/v1', reportRoutes);
+  app.use('/api/v1', trustPublicationRoutes);
 
   app.use((_req, res) => {
     res.status(404).json(buildApiErrorBody({
