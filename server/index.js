@@ -1,10 +1,12 @@
 const { createApp } = require('./app');
 const { config } = require('./config');
 const { closePostgresPool } = require('./database/postgres');
+const { assertSafeRuntimeConfiguration } = require('./lib/runtimeSafety');
 
 const SHUTDOWN_TIMEOUT_MS = 10000;
 
 function startServer() {
+  assertSafeRuntimeConfiguration();
   const app = createApp();
   const server = app.listen(config.port, () => {
     console.log(`GuardAI API listening on port ${config.port}`);
