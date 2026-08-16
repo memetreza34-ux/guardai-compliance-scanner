@@ -32,6 +32,7 @@ export interface ScanResult {
   riskStatus: 'COMPLIANT' | 'NEEDS_ACTION' | 'HIGH_RISK';
   categories: Record<ComplianceCategory, CategoryScore>;
   issues: AuditIssue[];
+  notices?: string[];
   detectedTech: {
     aiFrameworks: string[];
     trackers: string[];
