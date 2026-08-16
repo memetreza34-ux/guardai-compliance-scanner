@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { createReportApi } from '../api/reportApi';
 import { createWorkspaceApi } from '../api/workspaceApi';
 import type {
   AuthSessionAdapter,
   AuthSessionSnapshot,
 } from '../auth/sessionAdapter';
+import ReportCenter from './ReportCenter';
 import WorkspaceOnboarding from './WorkspaceOnboarding';
 
 interface AuthWorkspaceShellProps {
@@ -22,9 +24,17 @@ export default function AuthWorkspaceShell({ adapter }: AuthWorkspaceShellProps)
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const workspaceApi = useMemo(
-    () => createWorkspaceApi(() => adapter.getAccessToken()),
+  const getAccessToken = useMemo(
+    () => () => adapter.getAccessToken(),
     [adapter],
+  );
+  const workspaceApi = useMemo(
+    () => createWorkspaceApi(getAccessToken),
+    [getAccessToken],
+  );
+  const reportApi = useMemo(
+    () => createReportApi(getAccessToken),
+    [getAccessToken],
   );
 
   useEffect(() => adapter.subscribe(setSnapshot), [adapter]);
@@ -152,7 +162,7 @@ export default function AuthWorkspaceShell({ adapter }: AuthWorkspaceShellProps)
 
   return (
     <div>
-      <div className="border-b bg-card/80 px-4 py-3">
+      <div className="border-b bg-card/80 px-4 py-3 print:hidden">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 text-sm">
           <div>
             <span className="font-medium">GuardAI</span>
@@ -176,6 +186,7 @@ export default function AuthWorkspaceShell({ adapter }: AuthWorkspaceShellProps)
         </div>
       )}
       <WorkspaceOnboarding api={workspaceApi} />
+      <ReportCenter reportApi={reportApi} workspaceApi={workspaceApi} />
     </div>
   );
 }
