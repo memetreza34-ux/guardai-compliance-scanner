@@ -7,6 +7,7 @@ const { createEntitlementRepository } = require('../repositories/entitlementRepo
 const { createJobRepository } = require('../repositories/jobRepository');
 const { createMembershipRepository } = require('../repositories/membershipRepository');
 const { createOrganizationRepository } = require('../repositories/organizationRepository');
+const { createReportRepository } = require('../repositories/reportRepository');
 const { createScanReadRepository } = require('../repositories/scanReadRepository');
 const { createScanRepository } = require('../repositories/scanRepository');
 const { createTargetRepository } = require('../repositories/targetRepository');
@@ -15,6 +16,7 @@ const { createAuditService } = require('./auditService');
 const { createJobFailureService } = require('./jobFailureService');
 const { createOrganizationAuthorizationService } = require('./organizationAuthorization');
 const { createOrganizationService } = require('./organizationService');
+const { createReportService } = require('./reportService');
 const { createTargetService } = require('./targetService');
 const { createTargetVerificationService } = require('./targetVerificationService');
 
@@ -33,6 +35,12 @@ function createPersistenceServices() {
   const organizationService = createOrganizationService({ organizationRepository });
   const scanRepository = createScanRepository(pool);
   const scanReadRepository = createScanReadRepository(pool);
+  const reportRepository = createReportRepository(pool);
+  const reportService = createReportService({
+    organizationAuthorization,
+    reportRepository,
+    scanReadRepository,
+  });
   const targetRepository = createTargetRepository(pool);
   const targetService = createTargetService({ organizationAuthorization, targetRepository });
   const targetVerificationRepository = createTargetVerificationRepository(pool);
@@ -58,6 +66,8 @@ function createPersistenceServices() {
     organizationRepository,
     organizationService,
     pool,
+    reportRepository,
+    reportService,
     scanReadRepository,
     scanRepository,
     scanSubmission,
