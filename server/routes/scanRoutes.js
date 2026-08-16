@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const express = require('express');
 const { HttpError } = require('../lib/httpError');
+const { createPrototypeAccessPolicy } = require('../lib/prototypeAccess');
 const { finalizeScanResponse } = require('../lib/scanContract');
 const { normalizeHttpUrl } = require('../lib/targetSafety');
 const { scanLimiter } = require('../middleware/scanLimiter');
@@ -11,9 +12,11 @@ const { resolveWebScanOptions, scanSchema } = require('../scanners/schemas');
 const { scanWebsite } = require('../scanners/webScanner');
 
 const router = express.Router();
+const prototypeAccess = createPrototypeAccessPolicy();
 
 router.post('/scan', scanLimiter, async (req, res) => {
   try {
+    prototypeAccess.assertEnabled();
     const validated = scanSchema.parse(req.body);
     const targetUrl = normalizeHttpUrl(validated.url);
     const options = resolveWebScanOptions(validated.options);
@@ -22,6 +25,7 @@ router.post('/scan', scanLimiter, async (req, res) => {
       throw new HttpError(
         501,
         'GitHub repository scanning is temporarily disabled while the real dependency, secret and SAST pipeline is rebuilt.',
+        'REPOSITORY_SCANNER_NOT_AVAILABLE',
       );
     }
 
@@ -32,12 +36,19 @@ router.post('/scan', scanLimiter, async (req, res) => {
   }
 });
 
-router.post('/scan-file', scanLimiter, upload.single('file'), async (req, res) => {
+router.post('/scan-file', scanLimiter, async (req, res, next) => {
+  try {
+    prototypeAccess.assertEnabled();
+    upload.single('file')(req, res, next);
+  } catch (error) {
+    next(error);
+  }
+}, async (req, res) => {
   let filePath = null;
 
   try {
     if (!req.file) {
-      throw new HttpError(400, 'No file uploaded.');
+      throw new HttpError(400, 'No file uploaded.', 'FILE_REQUIRED');
     }
 
     filePath = req.file.path;
