@@ -13,7 +13,11 @@ const safeLookup = createSafeLookup();
 const safeHttpAgent = new http.Agent({ keepAlive: false, lookup: safeLookup });
 const safeHttpsAgent = new https.Agent({ keepAlive: false, lookup: safeLookup });
 
-async function safeGet(rawUrl, requestConfig = {}, redirectsRemaining = config.maxRedirects) {
+async function safeGetWithMetadata(
+  rawUrl,
+  requestConfig = {},
+  redirectsRemaining = config.maxRedirects,
+) {
   const parsedUrl = normalizeHttpUrl(rawUrl);
   await assertPublicHttpTarget(parsedUrl);
 
@@ -34,23 +38,39 @@ async function safeGet(rawUrl, requestConfig = {}, redirectsRemaining = config.m
     if (error instanceof HttpError) throw error;
 
     console.error('[SafeFetch] Request failed:', error.message);
-    throw new HttpError(502, 'Target could not be fetched safely.');
+    throw new HttpError(502, 'Target could not be fetched safely.', 'TARGET_FETCH_FAILED');
   }
 
   if (response.status >= 300 && response.status < 400 && response.headers.location) {
     if (redirectsRemaining <= 0) {
-      throw new HttpError(400, 'Target exceeded the allowed redirect limit.');
+      throw new HttpError(400, 'Target exceeded the allowed redirect limit.', 'TARGET_REDIRECT_LIMIT');
     }
 
     const redirectUrl = new URL(response.headers.location, parsedUrl).toString();
-    return safeGet(redirectUrl, requestConfig, redirectsRemaining - 1);
+    return safeGetWithMetadata(redirectUrl, requestConfig, redirectsRemaining - 1);
   }
 
   if (response.status < 200 || response.status >= 300) {
-    throw new HttpError(502, `Target returned HTTP ${response.status}.`);
+    throw new HttpError(
+      502,
+      `Target returned HTTP ${response.status}.`,
+      'TARGET_HTTP_STATUS',
+      { status: response.status },
+    );
   }
 
-  return response;
+  return {
+    response,
+    finalUrl: parsedUrl.toString(),
+  };
 }
 
-module.exports = { safeGet };
+async function safeGet(rawUrl, requestConfig = {}, redirectsRemaining = config.maxRedirects) {
+  const result = await safeGetWithMetadata(rawUrl, requestConfig, redirectsRemaining);
+  return result.response;
+}
+
+module.exports = {
+  safeGet,
+  safeGetWithMetadata,
+};
