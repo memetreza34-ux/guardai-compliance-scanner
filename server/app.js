@@ -6,6 +6,7 @@ const { buildApiErrorBody } = require('./lib/apiError');
 const { HttpError } = require('./lib/httpError');
 const { errorHandler } = require('./middleware/errorHandler');
 const { requestContext } = require('./middleware/requestContext');
+const { auditRoutes } = require('./routes/auditRoutes');
 const { authRoutes } = require('./routes/authRoutes');
 const { healthRoutes } = require('./routes/healthRoutes');
 const { organizationRoutes } = require('./routes/organizationRoutes');
@@ -35,6 +36,7 @@ function createApp() {
   app.use('/api', healthRoutes);
   app.use('/api/v1', authRoutes);
   app.use('/api/v1', organizationRoutes);
+  app.use('/api/v1', auditRoutes);
   app.use('/api/v1', scanRoutes);
   app.use('/api/v1', targetRoutes);
   app.use('/api/v1', targetVerificationRoutes);
