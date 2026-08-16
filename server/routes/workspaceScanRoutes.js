@@ -1,14 +1,20 @@
 const express = require('express');
 const { z } = require('zod');
 const { requireAuth } = require('../auth/supabaseAuth');
+const { HttpError } = require('../lib/httpError');
 const { sendRouteError } = require('../middleware/errorHandler');
 const { getPersistenceServices } = require('../services/persistenceServices');
 
 const router = express.Router();
 
-const paramsSchema = z.object({
+const submissionParamsSchema = z.object({
   organizationId: z.string().uuid(),
   targetId: z.string().uuid(),
+});
+
+const scanParamsSchema = z.object({
+  organizationId: z.string().uuid(),
+  scanId: z.string().uuid(),
 });
 
 const bodySchema = z.object({
@@ -20,7 +26,7 @@ router.post(
   requireAuth,
   async (req, res) => {
     try {
-      const params = paramsSchema.parse(req.params);
+      const params = submissionParamsSchema.parse(req.params);
       const body = bodySchema.parse(req.body);
       const idempotencyHeader = req.get('Idempotency-Key');
       const { scanSubmission } = getPersistenceServices();
@@ -40,6 +46,39 @@ router.post(
       });
     } catch (error) {
       sendRouteError(res, error, 'Workspace Scan Submission');
+    }
+  },
+);
+
+router.get(
+  '/organizations/:organizationId/scans/:scanId',
+  requireAuth,
+  async (req, res) => {
+    try {
+      const params = scanParamsSchema.parse(req.params);
+      const {
+        organizationAuthorization,
+        scanReadRepository,
+      } = getPersistenceServices();
+
+      await organizationAuthorization.requireRole(
+        params.organizationId,
+        req.auth.userId,
+        'viewer',
+      );
+
+      const result = await scanReadRepository.getScanWithJobs(
+        params.organizationId,
+        params.scanId,
+      );
+
+      if (!result) {
+        throw new HttpError(404, 'Scan was not found in this organization.', 'SCAN_NOT_FOUND');
+      }
+
+      res.json(result);
+    } catch (error) {
+      sendRouteError(res, error, 'Workspace Scan Status');
     }
   },
 );
