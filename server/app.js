@@ -26,8 +26,8 @@ function createApp() {
   app.use(express.json({ limit: '10kb' }));
 
   app.use('/api', healthRoutes);
-  app.use('/api', authRoutes);
-  app.use('/api', scanRoutes);
+  app.use('/api/v1', authRoutes);
+  app.use('/api/v1', scanRoutes);
 
   app.use((_req, res) => {
     res.status(404).json({ error: 'GuardAI API route not found.' });
