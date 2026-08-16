@@ -10,6 +10,8 @@ const config = Object.freeze({
   geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
   supabaseUrl: process.env.SUPABASE_URL || '',
   supabasePublishableKey: process.env.SUPABASE_PUBLISHABLE_KEY || '',
+  databaseUrl: process.env.DATABASE_URL || '',
+  databasePoolMax: Number(process.env.DATABASE_POOL_MAX || 10),
   maxUploadBytes: 10 * 1024 * 1024,
   maxHtmlBytes: 2 * 1024 * 1024,
   maxExtractedTextChars: 30000,
