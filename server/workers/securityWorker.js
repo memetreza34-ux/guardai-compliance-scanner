@@ -38,9 +38,17 @@ async function executeSecurityJob(context) {
   };
 }
 
-async function processOneSecurityJob({ jobRepository, workerId, leaseSeconds = 60 }) {
+async function processOneSecurityJob({
+  jobRepository,
+  jobFailureService,
+  workerId,
+  leaseSeconds = 60,
+}) {
   if (!jobRepository) {
     throw new TypeError('Security worker requires a job repository.');
+  }
+  if (!jobFailureService || typeof jobFailureService.fail !== 'function') {
+    throw new TypeError('Security worker requires a job failure service.');
   }
 
   const job = await jobRepository.claimNextJob({
@@ -72,7 +80,7 @@ async function processOneSecurityJob({ jobRepository, workerId, leaseSeconds = 6
       completion,
     };
   } catch (error) {
-    const failure = await jobRepository.failJob({
+    const failure = await jobFailureService.fail({
       jobId: job.id,
       workerId,
       error,
