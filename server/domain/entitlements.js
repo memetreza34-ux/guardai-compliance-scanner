@@ -28,7 +28,25 @@ function requiredCapabilitiesForModules(moduleIds) {
   )];
 }
 
-function assertCapabilityEntitled(entitlement, capability, usage) {
+function usageRequirementsForModules(moduleIds) {
+  if (!Array.isArray(moduleIds)) {
+    throw new TypeError('moduleIds must be an array.');
+  }
+
+  const requirements = {};
+  for (const moduleId of moduleIds) {
+    const capability = capabilityForModule(moduleId);
+    if (capability === null) continue;
+    requirements[capability] = (requirements[capability] || 0) + 1;
+  }
+  return requirements;
+}
+
+function assertCapabilityEntitled(entitlement, capability, usage, requiredUnits = 1) {
+  if (!Number.isInteger(requiredUnits) || requiredUnits < 1) {
+    throw new TypeError('requiredUnits must be a positive integer.');
+  }
+
   if (!entitlement || entitlement.capability !== capability || entitlement.enabled !== true) {
     throw new HttpError(
       403,
@@ -42,7 +60,7 @@ function assertCapabilityEntitled(entitlement, capability, usage) {
 
   const usedUnits = Number.isInteger(usage?.usedUnits) ? usage.usedUnits : 0;
   const reservedUnits = Number.isInteger(usage?.reservedUnits) ? usage.reservedUnits : 0;
-  if (usedUnits + reservedUnits >= entitlement.monthlyLimit) {
+  if (usedUnits + reservedUnits + requiredUnits > entitlement.monthlyLimit) {
     throw new HttpError(
       429,
       'The organization has reached its monthly scanner capability limit.',
@@ -60,4 +78,5 @@ module.exports = {
   capabilityForModule,
   MODULE_CAPABILITIES,
   requiredCapabilitiesForModules,
+  usageRequirementsForModules,
 };
