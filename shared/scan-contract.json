@@ -1,0 +1,14 @@
+{
+  "version": "0.1.0",
+  "scanTypes": ["web", "asset"],
+  "backendCategoryKeys": [
+    "security",
+    "privacy",
+    "aiAct",
+    "accessibility",
+    "ip-rights",
+    "copyright"
+  ],
+  "categoryStatusValues": ["critical", "warning", "compliant"],
+  "findingSeverityValues": ["critical", "warning"]
+}
