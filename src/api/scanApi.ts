@@ -74,9 +74,12 @@ interface BackendScanResponse {
 }
 
 export class ScanApiError extends Error {
-  constructor(message: string) {
+  code: string | null;
+
+  constructor(message: string, code: string | null = null) {
     super(message);
     this.name = 'ScanApiError';
+    this.code = code;
   }
 }
 
@@ -189,17 +192,26 @@ function createRiskStatus(score: number): ScanResult['riskStatus'] {
   return 'HIGH_RISK';
 }
 
-async function readErrorMessage(response: Response): Promise<string> {
+async function readApiError(response: Response): Promise<ScanApiError> {
   try {
     const body: unknown = await response.json();
-    if (isRecord(body) && typeof body.error === 'string') {
-      return body.error;
+    if (isRecord(body)) {
+      if (typeof body.error === 'string') {
+        return new ScanApiError(body.error);
+      }
+
+      if (isRecord(body.error) && typeof body.error.message === 'string') {
+        return new ScanApiError(
+          body.error.message,
+          typeof body.error.code === 'string' ? body.error.code : null,
+        );
+      }
     }
   } catch {
     // Keep the user-safe fallback below if the backend does not return JSON.
   }
 
-  return `Scanner API returned HTTP ${response.status}.`;
+  return new ScanApiError(`Scanner API returned HTTP ${response.status}.`, 'HTTP_ERROR');
 }
 
 function normalizeResponse(
@@ -302,18 +314,18 @@ export async function requestComplianceScan(
     }
   } catch (error) {
     console.error('GuardAI scanner API request failed:', error);
-    throw new ScanApiError('GuardAI scanner backend is not reachable.');
+    throw new ScanApiError('GuardAI scanner backend is not reachable.', 'NETWORK_ERROR');
   }
 
   if (!response.ok) {
-    throw new ScanApiError(await readErrorMessage(response));
+    throw await readApiError(response);
   }
 
   let payload: unknown;
   try {
     payload = await response.json();
   } catch {
-    throw new ScanApiError('Scanner API returned invalid JSON.');
+    throw new ScanApiError('Scanner API returned invalid JSON.', 'INVALID_JSON');
   }
 
   return normalizeResponse(payload, target, Math.round(performance.now() - startedAt));
