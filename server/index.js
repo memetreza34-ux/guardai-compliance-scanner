@@ -15,6 +15,7 @@ const { z } = require('zod');
 const multer = require('multer');
 const pdfParse = require('pdf-parse');
 const { HttpError } = require('./lib/httpError');
+const { createScanAccessPolicy } = require('./lib/scanAccess');
 const {
   assertPublicHttpTarget,
   createSafeLookup,
@@ -28,6 +29,7 @@ const MAX_HTML_BYTES = 2 * 1024 * 1024;
 const MAX_EXTRACTED_TEXT_CHARS = 30000;
 const MAX_REDIRECTS = 3;
 
+const scanAccess = createScanAccessPolicy();
 const safeLookup = createSafeLookup();
 const safeHttpAgent = new http.Agent({
   keepAlive: false,
@@ -279,6 +281,12 @@ async function runWebAiScreening(targetUrl, extractedText, options) {
     return { categories, notices };
   }
 
+  const accessNotice = scanAccess.getWebAiBlockNotice();
+  if (accessNotice) {
+    notices.push(accessNotice);
+    return { categories, notices };
+  }
+
   if (!ai) {
     notices.push('AI-assisted Privacy/AI-Governance screening was not executed because GEMINI_API_KEY is not configured.');
     return { categories, notices };
@@ -425,6 +433,8 @@ async function extractFileText(buffer, fileType) {
 }
 
 async function scanFileText(fileName, extractedText) {
+  scanAccess.assertFileAiAllowed();
+
   if (!ai) {
     throw new HttpError(503, 'File AI screening is unavailable because GEMINI_API_KEY is not configured.');
   }
@@ -498,7 +508,11 @@ function sendRouteError(res, error, context) {
 }
 
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', service: 'guardai-scanner-api' });
+  res.json({
+    status: 'ok',
+    service: 'guardai-scanner-api',
+    unauthenticatedAiScansEnabled: scanAccess.allowUnauthenticatedAiScans,
+  });
 });
 
 app.post('/api/scan', scanLimiter, async (req, res) => {
