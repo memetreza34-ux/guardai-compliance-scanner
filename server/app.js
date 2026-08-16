@@ -5,6 +5,7 @@ const { config } = require('./config');
 const { buildApiErrorBody } = require('./lib/apiError');
 const { HttpError } = require('./lib/httpError');
 const { errorHandler } = require('./middleware/errorHandler');
+const { requestContext } = require('./middleware/requestContext');
 const { authRoutes } = require('./routes/authRoutes');
 const { healthRoutes } = require('./routes/healthRoutes');
 const { organizationRoutes } = require('./routes/organizationRoutes');
@@ -17,6 +18,7 @@ function createApp() {
   const app = express();
 
   app.disable('x-powered-by');
+  app.use(requestContext);
   app.use(helmet());
   app.use(cors({
     origin(origin, callback) {
@@ -43,6 +45,7 @@ function createApp() {
       statusCode: 404,
       code: 'API_ROUTE_NOT_FOUND',
       message: 'GuardAI API route not found.',
+      requestId: res.locals.requestId,
     }));
   });
 
