@@ -1,5 +1,9 @@
 const { config } = require('../config');
 const { resolveStripePriceId } = require('../domain/billingConfig');
+const {
+  normalizeCheckoutIdempotencyKey,
+  stripeIdempotencyKey,
+} = require('../domain/billingCheckout');
 const { normalizeStripeSubscription } = require('../domain/billingState');
 const { sha256Hex } = require('../lib/evidenceIntegrity');
 const { HttpError } = require('../lib/httpError');
@@ -46,6 +50,12 @@ function subscriptionIdFromStripeEvent(event) {
   return null;
 }
 
+function checkoutSessionIdFromEvent(event) {
+  if (event?.type !== 'checkout.session.completed') return null;
+  const id = stripeObjectId(event?.data?.object?.id);
+  return typeof id === 'string' && id.startsWith('cs_') ? id : null;
+}
+
 function providerCreatedAt(event) {
   if (!Number.isInteger(event?.created) || event.created <= 0) return null;
   return new Date(event.created * 1000).toISOString();
@@ -80,9 +90,16 @@ function createBillingService({
     };
   }
 
-  async function createCheckout({ organizationId, userId, email, plan }) {
+  async function createCheckout({
+    organizationId,
+    userId,
+    email,
+    plan,
+    idempotencyKey,
+  }) {
     await organizationAuthorization.requireRole(organizationId, userId, 'admin');
     stripeProvider.assertStripeConfigured();
+    const requestKey = normalizeCheckoutIdempotencyKey(idempotencyKey);
     const priceId = resolveStripePriceId(runtimeConfig.stripePlanPriceMap, plan);
 
     let subscription = await billingRepository.getSubscriptionForOrganization(organizationId);
@@ -100,19 +117,55 @@ function createBillingService({
       );
     }
 
+    const claim = await billingRepository.claimCheckoutRequest({
+      organizationId,
+      userId,
+      idempotencyKey: requestKey,
+      plan,
+    });
+
+    if (claim.replay) {
+      const session = await stripeProvider.retrieveCheckoutSession(claim.request.providerSessionId);
+      return { ...session, idempotentReplay: true };
+    }
+
     let customerId = subscription.providerCustomerId;
     if (!customerId) {
-      customerId = await stripeProvider.createCustomer({ organizationId, email });
+      customerId = await stripeProvider.createCustomer({
+        organizationId,
+        email,
+        idempotencyKey: stripeIdempotencyKey({
+          organizationId,
+          plan,
+          requestKey,
+          operation: 'customer',
+        }),
+      });
       subscription = await billingRepository.attachStripeCustomer({ organizationId, customerId });
       customerId = subscription.providerCustomerId;
     }
 
-    return stripeProvider.createSubscriptionCheckout({
+    const checkout = await stripeProvider.createSubscriptionCheckout({
       organizationId,
       plan,
       priceId,
       customerId,
+      idempotencyKey: stripeIdempotencyKey({
+        organizationId,
+        plan,
+        requestKey,
+        operation: 'checkout',
+      }),
     });
+
+    await billingRepository.completeCheckoutRequest({
+      organizationId,
+      idempotencyKey: requestKey,
+      sessionId: checkout.sessionId,
+      expiresAt: checkout.expiresAt,
+    });
+
+    return { ...checkout, idempotentReplay: claim.resume === true };
   }
 
   async function processStripeWebhook({ rawBody, signatureHeader }) {
@@ -170,6 +223,10 @@ function createBillingService({
         organizationId,
         normalizedSubscription: normalized,
       });
+      const checkoutSessionId = checkoutSessionIdFromEvent(event);
+      if (checkoutSessionId) {
+        await billingRepository.markCheckoutCompleted(checkoutSessionId);
+      }
       await billingRepository.finalizeWebhookEvent({
         eventId: event.id,
         status: 'processed',
@@ -203,6 +260,7 @@ function createBillingService({
 
 module.exports = {
   ACTIVE_OR_RECOVERABLE_STATUSES,
+  checkoutSessionIdFromEvent,
   createBillingService,
   providerCreatedAt,
   RECONCILABLE_EVENTS,
