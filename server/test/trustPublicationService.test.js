@@ -50,6 +50,7 @@ function reportRecord() {
 function buildService({ publicStatus = 'published' } = {}) {
   const report = reportRecord();
   const authorizationCalls = [];
+  const revokeCalls = [];
   const organizationAuthorization = {
     async requireRole(organizationId, userId, role) {
       authorizationCalls.push({ organizationId, userId, role });
@@ -71,6 +72,7 @@ function buildService({ publicStatus = 'published' } = {}) {
     status: publicStatus,
     createdBy: report.createdBy,
     publishedAt: '2026-08-16T12:02:00.000Z',
+    revokedBy: publicStatus === 'revoked' ? report.createdBy : null,
     revokedAt: publicStatus === 'revoked' ? '2026-08-16T12:03:00.000Z' : null,
     createdAt: '2026-08-16T12:02:00.000Z',
     updatedAt: '2026-08-16T12:02:00.000Z',
@@ -82,8 +84,14 @@ function buildService({ publicStatus = 'published' } = {}) {
     async listPublications() {
       return { publications: [publication], nextCursor: null };
     },
-    async revokePublication() {
-      return { ...publication, status: 'revoked', revokedAt: '2026-08-16T12:03:00.000Z' };
+    async revokePublication(input) {
+      revokeCalls.push(input);
+      return {
+        ...publication,
+        status: 'revoked',
+        revokedBy: input.revokedBy,
+        revokedAt: '2026-08-16T12:03:00.000Z',
+      };
     },
     async getByPublicSlug() {
       return { publication, report };
@@ -91,6 +99,7 @@ function buildService({ publicStatus = 'published' } = {}) {
   };
   return {
     authorizationCalls,
+    revokeCalls,
     service: createTrustPublicationService({
       organizationAuthorization,
       reportService,
@@ -109,6 +118,23 @@ test('publishing requires admin role and returns share paths', async () => {
   assert.equal(authorizationCalls[0].role, 'admin');
   assert.match(result.publicPath, /^\/trust\/[A-Za-z0-9_-]{32}$/);
   assert.match(result.badgePath, /\/badge\.svg$/);
+});
+
+test('revocation requires admin role and persists the acting user', async () => {
+  const { service, authorizationCalls, revokeCalls } = buildService();
+  const userId = '99999999-9999-4999-8999-999999999999';
+  const publication = await service.revoke({
+    organizationId: '11111111-1111-4111-8111-111111111111',
+    userId,
+    publicationId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  });
+  assert.equal(authorizationCalls[0].role, 'admin');
+  assert.deepEqual(revokeCalls[0], {
+    organizationId: '11111111-1111-4111-8111-111111111111',
+    publicationId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    revokedBy: userId,
+  });
+  assert.equal(publication.revokedBy, userId);
 });
 
 test('public resolution verifies and returns curated projection', async () => {
