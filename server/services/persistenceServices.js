@@ -2,6 +2,7 @@ const scanContract = require('../../shared/scan-contract.json');
 const { config } = require('../config');
 const { getPostgresPool } = require('../database/postgres');
 const { createScanSubmissionService } = require('../domain/scanSubmission');
+const { createJobRepository } = require('../repositories/jobRepository');
 const { createMembershipRepository } = require('../repositories/membershipRepository');
 const { createScanReadRepository } = require('../repositories/scanReadRepository');
 const { createScanRepository } = require('../repositories/scanRepository');
@@ -11,6 +12,7 @@ let services = null;
 
 function createPersistenceServices() {
   const pool = getPostgresPool();
+  const jobRepository = createJobRepository(pool);
   const membershipRepository = createMembershipRepository(pool);
   const organizationAuthorization = createOrganizationAuthorizationService(membershipRepository);
   const scanRepository = createScanRepository(pool);
@@ -23,6 +25,7 @@ function createPersistenceServices() {
   });
 
   return {
+    jobRepository,
     membershipRepository,
     organizationAuthorization,
     pool,
