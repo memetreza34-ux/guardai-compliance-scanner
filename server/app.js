@@ -8,6 +8,7 @@ const { errorHandler } = require('./middleware/errorHandler');
 const { authRoutes } = require('./routes/authRoutes');
 const { healthRoutes } = require('./routes/healthRoutes');
 const { scanRoutes } = require('./routes/scanRoutes');
+const { targetVerificationRoutes } = require('./routes/targetVerificationRoutes');
 const { workspaceScanRoutes } = require('./routes/workspaceScanRoutes');
 
 function createApp() {
@@ -30,6 +31,7 @@ function createApp() {
   app.use('/api', healthRoutes);
   app.use('/api/v1', authRoutes);
   app.use('/api/v1', scanRoutes);
+  app.use('/api/v1', targetVerificationRoutes);
   app.use('/api/v1', workspaceScanRoutes);
 
   app.use((_req, res) => {
