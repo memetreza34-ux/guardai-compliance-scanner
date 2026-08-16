@@ -5,6 +5,15 @@ const MAX_LEASE_SECONDS = 900;
 const MAX_WORKER_ID_LENGTH = 120;
 const MAX_JOB_ERROR_MESSAGE_LENGTH = 500;
 
+const NON_RETRYABLE_WORKER_CODES = new Set([
+  'INVALID_WORKER_RESULT',
+  'TARGET_NOT_VERIFIED',
+  'TARGET_VERIFICATION_LOST',
+  'TARGET_URL_MISSING',
+  'WORKER_JOB_TYPE_MISMATCH',
+  'WORKER_TARGET_TYPE_MISMATCH',
+]);
+
 function assertWorkerId(workerId) {
   if (
     typeof workerId !== 'string' ||
@@ -38,6 +47,10 @@ function calculateRetryDelaySeconds(attemptCount) {
   return Math.min(900, 15 * (2 ** Math.min(attemptCount - 1, 6)));
 }
 
+function shouldRetryWorkerError(error) {
+  return !NON_RETRYABLE_WORKER_CODES.has(error?.code);
+}
+
 function sanitizeJobError(error) {
   const code = typeof error?.code === 'string' && /^[A-Z0-9_:-]{1,80}$/.test(error.code)
     ? error.code
@@ -56,5 +69,7 @@ module.exports = {
   assertLeaseSeconds,
   assertWorkerId,
   calculateRetryDelaySeconds,
+  NON_RETRYABLE_WORKER_CODES,
   sanitizeJobError,
+  shouldRetryWorkerError,
 };
