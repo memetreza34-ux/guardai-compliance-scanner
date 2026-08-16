@@ -34,6 +34,18 @@ function validateScoringProfile(profile) {
   return profile;
 }
 
+function getScoringProfile(profileId, version) {
+  if (profileId === defaultProfile.profileId && version === defaultProfile.version) {
+    return defaultProfile;
+  }
+  throw new HttpError(
+    500,
+    'Scan references an unsupported scoring profile version.',
+    'SCORING_PROFILE_NOT_AVAILABLE',
+    { profileId, version },
+  );
+}
+
 function computeWeightedScanScore(moduleResults, profile = defaultProfile) {
   validateScoringProfile(profile);
   if (!moduleResults || typeof moduleResults !== 'object' || Array.isArray(moduleResults)) {
@@ -76,5 +88,6 @@ validateScoringProfile(defaultProfile);
 module.exports = {
   computeWeightedScanScore,
   defaultProfile,
+  getScoringProfile,
   validateScoringProfile,
 };
