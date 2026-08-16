@@ -5,6 +5,8 @@ const {
   parseStripePlanPriceMap,
 } = require('./domain/billingConfig');
 
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY || '';
+
 const config = Object.freeze({
   port: Number(process.env.PORT || 3001),
   corsOrigins: (process.env.CORS_ORIGIN || 'http://localhost:5173')
@@ -22,7 +24,8 @@ const config = Object.freeze({
   workerPollMs: Number(process.env.WORKER_POLL_MS || 2000),
   billingProvider: normalizeBillingProvider(process.env.BILLING_PROVIDER),
   publicAppUrl: process.env.PUBLIC_APP_URL || 'http://localhost:5173',
-  stripeSecretKey: process.env.STRIPE_SECRET_KEY || '',
+  stripeSecretKey,
+  stripeLivemode: stripeSecretKey.startsWith('sk_live_'),
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
   stripePlanPriceMap: parseStripePlanPriceMap(process.env.STRIPE_PLAN_PRICE_MAP_JSON || ''),
   maxUploadBytes: 10 * 1024 * 1024,
