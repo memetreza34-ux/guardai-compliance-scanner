@@ -1,5 +1,6 @@
 import React from 'react';
 import { ShieldCheck, Sparkles, Award, CreditCard, RefreshCw, FileText, LayoutDashboard, Bell, Bot, ScanEye } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Button } from './ui/button';
 import { Tabs, TabsList, TabsTrigger } from './ui/tabs';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
@@ -14,13 +15,19 @@ interface NavbarProps {
   onNewScan: () => void;
 }
 
+interface NavigationTab {
+  id: ActiveTab;
+  label: string;
+  icon: LucideIcon;
+}
+
 export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   setActiveTab,
   hasScanResult,
   onNewScan,
 }) => {
-  const tabs: Array<{ id: ActiveTab; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+  const tabs: NavigationTab[] = [
     { id: 'scanner', label: 'Scanner', icon: Sparkles },
     { id: 'dashboard', label: 'Meine Audits', icon: LayoutDashboard },
     { id: 'audit-hub', label: 'Audit Hub (SOC 2)', icon: LayoutDashboard },
@@ -33,8 +40,11 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'badge', label: 'Trust Badge', icon: Award },
     { id: 'trust-center', label: 'Trust Center', icon: ShieldCheck },
     { id: 'pricing', label: 'Pricing', icon: CreditCard },
-    ...(hasScanResult ? [{ id: 'report' as ActiveTab, label: 'Report', icon: FileText }] : []),
   ];
+
+  if (hasScanResult) {
+    tabs.push({ id: 'report', label: 'Report', icon: FileText });
+  }
 
   const handleTabChange = (value: string) => {
     if (isActiveTab(value)) {
