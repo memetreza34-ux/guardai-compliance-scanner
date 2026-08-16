@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const { config } = require('./config');
 const { HttpError } = require('./lib/httpError');
 const { errorHandler } = require('./middleware/errorHandler');
+const { authRoutes } = require('./routes/authRoutes');
 const { healthRoutes } = require('./routes/healthRoutes');
 const { scanRoutes } = require('./routes/scanRoutes');
 
@@ -25,6 +26,7 @@ function createApp() {
   app.use(express.json({ limit: '10kb' }));
 
   app.use('/api', healthRoutes);
+  app.use('/api', authRoutes);
   app.use('/api', scanRoutes);
 
   app.use((_req, res) => {
