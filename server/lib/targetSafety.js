@@ -57,17 +57,17 @@ function isBlockedIpv6(address) {
 
   if (normalized === '::' || normalized === '::1') return true;
 
-  if (normalized.startsWith('::ffff:')) {
-    const mappedIpv4 = normalized.slice('::ffff:'.length);
-    if (net.isIP(mappedIpv4) === 4) return isBlockedIpv4(mappedIpv4);
-  }
+  // Block every IPv4-mapped IPv6 literal. This is deliberately conservative:
+  // it avoids alternate textual encodings bypassing the IPv4 range checks.
+  if (normalized.startsWith('::ffff:')) return true;
 
   const firstHextet = Number.parseInt(normalized.split(':')[0] || '0', 16);
   const isUniqueLocal = firstHextet >= 0xfc00 && firstHextet <= 0xfdff;
   const isLinkLocal = firstHextet >= 0xfe80 && firstHextet <= 0xfebf;
+  const isMulticast = firstHextet >= 0xff00 && firstHextet <= 0xffff;
   const isDocumentation = normalized.startsWith('2001:db8:') || normalized === '2001:db8::';
 
-  return isUniqueLocal || isLinkLocal || isDocumentation;
+  return isUniqueLocal || isLinkLocal || isMulticast || isDocumentation;
 }
 
 function isBlockedIp(address) {
