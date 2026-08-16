@@ -3,6 +3,7 @@ const { config } = require('../config');
 const { getPostgresPool } = require('../database/postgres');
 const { createScanSubmissionService } = require('../domain/scanSubmission');
 const { createAuditRepository } = require('../repositories/auditRepository');
+const { createBillingRepository } = require('../repositories/billingRepository');
 const { createEntitlementRepository } = require('../repositories/entitlementRepository');
 const { createJobRepository } = require('../repositories/jobRepository');
 const { createMembershipRepository } = require('../repositories/membershipRepository');
@@ -13,7 +14,9 @@ const { createScanRepository } = require('../repositories/scanRepository');
 const { createTargetRepository } = require('../repositories/targetRepository');
 const { createTargetVerificationRepository } = require('../repositories/targetVerificationRepository');
 const { createTrustPublicationRepository } = require('../repositories/trustPublicationRepository');
+const stripeProvider = require('../billing/stripeProvider');
 const { createAuditService } = require('./auditService');
+const { createBillingService } = require('./billingService');
 const { createJobFailureService } = require('./jobFailureService');
 const { createOrganizationAuthorizationService } = require('./organizationAuthorization');
 const { createOrganizationService } = require('./organizationService');
@@ -27,12 +30,18 @@ let services = null;
 function createPersistenceServices() {
   const pool = getPostgresPool();
   const auditRepository = createAuditRepository(pool);
+  const billingRepository = createBillingRepository(pool);
   const entitlementRepository = createEntitlementRepository(pool);
   const jobRepository = createJobRepository(pool);
   const jobFailureService = createJobFailureService({ pool, jobRepository });
   const membershipRepository = createMembershipRepository(pool);
   const organizationAuthorization = createOrganizationAuthorizationService(membershipRepository);
   const auditService = createAuditService({ auditRepository, organizationAuthorization });
+  const billingService = createBillingService({
+    billingRepository,
+    organizationAuthorization,
+    stripeProvider,
+  });
   const organizationRepository = createOrganizationRepository(pool);
   const organizationService = createOrganizationService({ organizationRepository });
   const scanRepository = createScanRepository(pool);
@@ -66,6 +75,8 @@ function createPersistenceServices() {
   return {
     auditRepository,
     auditService,
+    billingRepository,
+    billingService,
     entitlementRepository,
     jobFailureService,
     jobRepository,
