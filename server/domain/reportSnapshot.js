@@ -1,7 +1,38 @@
 const { HttpError } = require('../lib/httpError');
 const { canonicalize, sha256Hex } = require('../lib/evidenceIntegrity');
 
-const REPORT_SCHEMA_VERSION = 1;
+const REPORT_SCHEMA_VERSION = 2;
+const REPORT_TYPE = 'technical-screening';
+
+function isPlainObject(value) {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function calculateReportSnapshotHash(snapshot) {
+  return sha256Hex(canonicalize(snapshot));
+}
+
+function assertReportSnapshotIntegrity(report) {
+  if (!report || !isPlainObject(report) || !isPlainObject(report.snapshot)) {
+    throw new HttpError(500, 'Stored report snapshot is invalid.', 'REPORT_INTEGRITY_FAILED');
+  }
+  if (!Number.isInteger(report.schemaVersion) || report.schemaVersion !== report.snapshot.schemaVersion) {
+    throw new HttpError(500, 'Stored report schema provenance is invalid.', 'REPORT_INTEGRITY_FAILED');
+  }
+  if (report.reportType !== report.snapshot.reportType) {
+    throw new HttpError(500, 'Stored report type provenance is invalid.', 'REPORT_INTEGRITY_FAILED');
+  }
+  if (typeof report.snapshotHash !== 'string' || !/^[a-f0-9]{64}$/.test(report.snapshotHash)) {
+    throw new HttpError(500, 'Stored report hash is invalid.', 'REPORT_INTEGRITY_FAILED');
+  }
+
+  const calculatedHash = calculateReportSnapshotHash(report.snapshot);
+  if (calculatedHash !== report.snapshotHash) {
+    throw new HttpError(500, 'Stored report snapshot failed integrity verification.', 'REPORT_INTEGRITY_FAILED');
+  }
+
+  return report;
+}
 
 function buildTechnicalReportSnapshot(scanResult) {
   if (!scanResult || typeof scanResult !== 'object') {
@@ -15,10 +46,33 @@ function buildTechnicalReportSnapshot(scanResult) {
       'SCAN_NOT_REPORTABLE',
     );
   }
+  if (!isPlainObject(scan.targetSnapshot)) {
+    throw new HttpError(
+      500,
+      'Completed Scan is missing immutable Target provenance.',
+      'SCAN_PROVENANCE_INCOMPLETE',
+    );
+  }
+  if (
+    typeof scan.scoringProfileId !== 'string' ||
+    !Number.isInteger(scan.scoringProfileVersion) ||
+    scan.scoringProfileVersion < 1
+  ) {
+    throw new HttpError(
+      500,
+      'Completed Scan is missing immutable scoring provenance.',
+      'SCAN_PROVENANCE_INCOMPLETE',
+    );
+  }
 
   const snapshot = {
     schemaVersion: REPORT_SCHEMA_VERSION,
-    reportType: 'technical-screening',
+    reportType: REPORT_TYPE,
+    target: { ...scan.targetSnapshot },
+    scoring: {
+      profileId: scan.scoringProfileId,
+      profileVersion: scan.scoringProfileVersion,
+    },
     scan: {
       id: scan.id,
       organizationId: scan.organizationId,
@@ -67,14 +121,16 @@ function buildTechnicalReportSnapshot(scanResult) {
     ],
   };
 
-  const canonicalJson = canonicalize(snapshot);
   return {
     snapshot,
-    snapshotHash: sha256Hex(canonicalJson),
+    snapshotHash: calculateReportSnapshotHash(snapshot),
   };
 }
 
 module.exports = {
+  assertReportSnapshotIntegrity,
   buildTechnicalReportSnapshot,
+  calculateReportSnapshotHash,
   REPORT_SCHEMA_VERSION,
+  REPORT_TYPE,
 };
