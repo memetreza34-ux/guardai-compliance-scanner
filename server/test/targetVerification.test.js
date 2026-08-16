@@ -3,15 +3,27 @@ const assert = require('node:assert/strict');
 const {
   createDnsVerificationChallenge,
   extractVerifiableHostname,
+  isValidPublicDnsHostname,
   txtRecordsMatchTokenHash,
 } = require('../domain/targetVerification');
 const { sha256Hex } = require('../lib/evidenceIntegrity');
 
 
-test('extracts normalized hostname from website target URL', () => {
+test('extracts normalized public hostname from website target URL', () => {
   assert.equal(extractVerifiableHostname('https://Example.COM/path'), 'example.com');
-  assert.throws(() => extractVerifiableHostname('https://127.0.0.1/'), /domain hostname/i);
+  assert.throws(() => extractVerifiableHostname('https://127.0.0.1/'), /public DNS hostname/i);
+  assert.throws(() => extractVerifiableHostname('http://[::1]/'), /public DNS hostname/i);
+  assert.throws(() => extractVerifiableHostname('https://localhost/'), /public DNS hostname/i);
   assert.throws(() => extractVerifiableHostname('ftp://example.com/'), /HTTP or HTTPS/i);
+});
+
+
+test('public DNS hostname labels are strict', () => {
+  assert.equal(isValidPublicDnsHostname('example.com'), true);
+  assert.equal(isValidPublicDnsHostname('sub-domain.example.com'), true);
+  assert.equal(isValidPublicDnsHostname('singlelabel'), false);
+  assert.equal(isValidPublicDnsHostname('-bad.example.com'), false);
+  assert.equal(isValidPublicDnsHostname('bad_.example.com'), false);
 });
 
 
