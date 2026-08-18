@@ -2,7 +2,7 @@ const { HttpError } = require('../lib/httpError');
 
 const MODULE_CAPABILITIES = Object.freeze({
   security: null,
-  privacy: 'ai_screening',
+  privacy: 'browser_scan',
   'ai-governance': 'ai_screening',
   accessibility: 'browser_scan',
   repository: 'repository_scan',
