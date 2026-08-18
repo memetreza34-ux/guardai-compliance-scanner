@@ -5,6 +5,15 @@ const {
   parseStripePlanPriceMap,
 } = require('./domain/billingConfig');
 
+function readBoolean(value) {
+  return typeof value === 'string' && value.trim().toLowerCase() === 'true';
+}
+
+function readInteger(value, fallback) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) ? parsed : fallback;
+}
+
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || '';
 
 const config = Object.freeze({
@@ -28,6 +37,12 @@ const config = Object.freeze({
   stripeLivemode: stripeSecretKey.startsWith('sk_live_'),
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
   stripePlanPriceMap: parseStripePlanPriceMap(process.env.STRIPE_PLAN_PRICE_MAP_JSON || ''),
+  leadCaptureEnabled: readBoolean(process.env.LEAD_CAPTURE_ENABLED),
+  leadPrivacyNoticeVersion: String(process.env.LEAD_PRIVACY_NOTICE_VERSION || '').trim(),
+  leadRetentionDays: readInteger(process.env.LEAD_RETENTION_DAYS, 0),
+  leadMarketingOptInEnabled: readBoolean(process.env.LEAD_MARKETING_OPT_IN_ENABLED),
+  leadMarketingConsentVersion: String(process.env.LEAD_MARKETING_CONSENT_VERSION || '').trim(),
+  leadMarketingConfirmTtlHours: readInteger(process.env.LEAD_MARKETING_CONFIRM_TTL_HOURS, 24),
   maxUploadBytes: 10 * 1024 * 1024,
   maxHtmlBytes: 2 * 1024 * 1024,
   maxExtractedTextChars: 30000,
