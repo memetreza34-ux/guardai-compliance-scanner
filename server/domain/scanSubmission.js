@@ -1,3 +1,4 @@
+const { usageRequirementsForModules } = require('./entitlements');
 const { HttpError } = require('../lib/httpError');
 
 const REQUESTABLE_SCAN_MODULES = Object.freeze([
@@ -101,12 +102,14 @@ function createScanSubmissionService({
 
     const modules = normalizeRequestedModules(requestedModules);
     const normalizedIdempotencyKey = normalizeIdempotencyKey(idempotencyKey);
+    const usageRequirements = usageRequirementsForModules(modules);
 
     return scanRepository.createQueuedScanWithJobs({
       organizationId,
       targetId,
       requestedBy,
       requestedModules: modules,
+      usageRequirements,
       scannerVersion,
       contractVersion,
       idempotencyKey: normalizedIdempotencyKey,
