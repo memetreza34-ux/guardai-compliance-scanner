@@ -6,10 +6,14 @@ begin;
 create table public.monitor_runs (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
-  monitor_id uuid not null references public.monitors(id) on delete cascade,
+  monitor_id uuid not null,
   scheduled_for timestamptz not null,
   scan_id uuid not null,
   created_at timestamptz not null default now(),
+  constraint monitor_runs_monitor_same_org
+    foreign key (monitor_id, organization_id)
+    references public.monitors(id, organization_id)
+    on delete cascade,
   constraint monitor_runs_scan_same_org
     foreign key (scan_id, organization_id)
     references public.scans(id, organization_id)
