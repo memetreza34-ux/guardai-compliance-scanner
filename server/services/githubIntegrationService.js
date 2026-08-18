@@ -4,6 +4,7 @@ const {
   normalizeGitHubDeliveryId,
   normalizeGitHubInstallationId,
 } = require('../domain/githubIntegration');
+const { normalizeGitHubRepositoryTarget } = require('../domain/repositoryTarget');
 const { HttpError } = require('../lib/httpError');
 
 const GITHUB_WEBHOOK_EVENTS = new Set(['installation', 'installation_repositories']);
@@ -27,12 +28,16 @@ function createGitHubIntegrationService({
   organizationAuthorization,
   githubRepository,
   githubProvider,
+  targetRepository,
 }) {
   if (!organizationAuthorization || typeof organizationAuthorization.requireRole !== 'function') {
     throw new TypeError('GitHub integration service requires Organization authorization.');
   }
   if (!githubRepository) throw new TypeError('GitHub integration service requires repository.');
   if (!githubProvider) throw new TypeError('GitHub integration service requires provider.');
+  if (!targetRepository || typeof targetRepository.createGitHubRepositoryTarget !== 'function') {
+    throw new TypeError('GitHub integration service requires Target repository.');
+  }
 
   async function startInstallation({ organizationId, userId }) {
     await organizationAuthorization.requireRole(organizationId, userId, 'admin');
@@ -68,6 +73,24 @@ function createGitHubIntegrationService({
     });
   }
 
+  async function getActiveInstallationOrThrow(organizationId) {
+    const installation = await githubRepository.getActiveInstallation(organizationId);
+    if (!installation || installation.status !== 'active') {
+      throw new HttpError(409, 'GitHub App installation is not active.', 'GITHUB_INSTALLATION_NOT_ACTIVE');
+    }
+    return installation;
+  }
+
+  async function synchronizeAuthorizedRepositories(installation) {
+    const repositories = await githubProvider.listInstallationRepositories(installation.installationId);
+    await targetRepository.syncGitHubInstallationTargets({
+      organizationId: installation.organizationId,
+      installationId: installation.installationId,
+      authorizedRepositoryIds: repositories.map((repository) => repository.id),
+    });
+    return repositories;
+  }
+
   async function getStatus({ organizationId, userId }) {
     await organizationAuthorization.requireRole(organizationId, userId, 'viewer');
     return githubRepository.getActiveInstallation(organizationId);
@@ -75,11 +98,46 @@ function createGitHubIntegrationService({
 
   async function listRepositories({ organizationId, userId }) {
     await organizationAuthorization.requireRole(organizationId, userId, 'viewer');
-    const installation = await githubRepository.getActiveInstallation(organizationId);
-    if (!installation || installation.status !== 'active') {
-      throw new HttpError(409, 'GitHub App installation is not active.', 'GITHUB_INSTALLATION_NOT_ACTIVE');
+    const installation = await getActiveInstallationOrThrow(organizationId);
+    return synchronizeAuthorizedRepositories(installation);
+  }
+
+  async function createRepositoryTarget({ organizationId, userId, repositoryId }) {
+    await organizationAuthorization.requireRole(organizationId, userId, 'admin');
+    const installation = await getActiveInstallationOrThrow(organizationId);
+    const repositories = await synchronizeAuthorizedRepositories(installation);
+    const normalizedRepositoryId = Number(repositoryId);
+    if (!Number.isSafeInteger(normalizedRepositoryId) || normalizedRepositoryId <= 0) {
+      throw new HttpError(400, 'GitHub repository ID is invalid.', 'GITHUB_REPOSITORY_ID_INVALID');
     }
-    return githubProvider.listInstallationRepositories(installation.installationId);
+
+    const repository = repositories.find((candidate) => candidate.id === normalizedRepositoryId);
+    if (!repository) {
+      throw new HttpError(
+        404,
+        'Repository is not currently authorized for this GitHub App installation.',
+        'GITHUB_REPOSITORY_NOT_AUTHORIZED',
+      );
+    }
+    if (repository.disabled === true) {
+      throw new HttpError(
+        409,
+        'Disabled GitHub repositories cannot become active GuardAI Targets.',
+        'GITHUB_REPOSITORY_DISABLED',
+      );
+    }
+
+    const normalized = normalizeGitHubRepositoryTarget(repository);
+    return targetRepository.createGitHubRepositoryTarget({
+      organizationId,
+      userId,
+      displayName: normalized.displayName,
+      canonicalUrl: normalized.canonicalUrl,
+      installationId: installation.installationId,
+      repositoryId: normalized.repositoryId,
+      repositorySelection: installation.repositorySelection,
+      repositoryMetadata: normalized,
+    });
   }
 
   async function processWebhook({ rawBody, signatureHeader, deliveryId, eventType }) {
@@ -125,6 +183,10 @@ function createGitHubIntegrationService({
           account: null,
           repositorySelection: null,
         });
+        await targetRepository.invalidateGitHubInstallationTargets({
+          organizationId: existing.organizationId,
+          installationId,
+        });
         await githubRepository.finalizeWebhookEvent({
           deliveryId: normalizedDeliveryId,
           status: 'processed',
@@ -146,6 +208,27 @@ function createGitHubIntegrationService({
         account,
         repositorySelection: current.repositorySelection,
       });
+
+      if (status !== 'active') {
+        await targetRepository.invalidateGitHubInstallationTargets({
+          organizationId: existing.organizationId,
+          installationId,
+        });
+      } else {
+        // Authorization-changing GitHub events are fail-closed: invalidate first, then
+        // re-verify only repository IDs returned by the current provider installation.
+        await targetRepository.invalidateGitHubInstallationTargets({
+          organizationId: existing.organizationId,
+          installationId,
+        });
+        const repositories = await githubProvider.listInstallationRepositories(installationId);
+        await targetRepository.syncGitHubInstallationTargets({
+          organizationId: existing.organizationId,
+          installationId,
+          authorizedRepositoryIds: repositories.map((repository) => repository.id),
+        });
+      }
+
       if (eventType === 'installation_repositories') {
         await githubRepository.touchInstallation(installationId, current.repositorySelection);
       }
@@ -167,6 +250,7 @@ function createGitHubIntegrationService({
 
   return {
     completeInstallation,
+    createRepositoryTarget,
     getStatus,
     listRepositories,
     processWebhook,
