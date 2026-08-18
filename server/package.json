@@ -10,6 +10,8 @@
     "start": "node index.js",
     "worker:security": "node workers/securityWorkerProcess.js",
     "worker:security:once": "node workers/securityWorkerProcess.js --once",
+    "worker:repository": "node workers/repositoryWorkerProcess.js",
+    "worker:repository:once": "node workers/repositoryWorkerProcess.js --once",
     "scheduler:monitor": "node workers/monitorSchedulerProcess.js",
     "scheduler:monitor:once": "node workers/monitorSchedulerProcess.js --once",
     "check": "node scripts/checkSource.js",
