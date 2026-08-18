@@ -6,7 +6,10 @@ import type {
   GitHubInstallation,
   GitHubRepositorySummary,
 } from '../types/githubIntegration';
-import type { WorkspaceOrganization } from '../types/workspace';
+import type {
+  WorkspaceOrganization,
+  WorkspaceTarget,
+} from '../types/workspace';
 
 interface GitHubIntegrationManagerProps {
   githubApi: GitHubIntegrationApi;
@@ -22,17 +25,29 @@ function isAdmin(role: WorkspaceOrganization['role'] | undefined): boolean {
   return role === 'owner' || role === 'admin';
 }
 
+function repositoryIdFromTarget(target: WorkspaceTarget): number | null {
+  if (target.type !== 'repository' || target.provider !== 'github') return null;
+  const value = target.verificationMetadata.githubRepositoryId;
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
 export default function GitHubIntegrationManager({ githubApi, workspaceApi }: GitHubIntegrationManagerProps) {
   const [organizations, setOrganizations] = useState<WorkspaceOrganization[]>([]);
   const [organizationId, setOrganizationId] = useState('');
   const [installation, setInstallation] = useState<GitHubInstallation | null>(null);
   const [repositories, setRepositories] = useState<GitHubRepositorySummary[]>([]);
+  const [targets, setTargets] = useState<WorkspaceTarget[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const selectedOrganization = useMemo(
     () => organizations.find((organization) => organization.id === organizationId),
     [organizations, organizationId],
+  );
+  const targetRepositoryIds = useMemo(
+    () => new Set(targets.map(repositoryIdFromTarget).filter((value): value is number => value !== null)),
+    [targets],
   );
 
   useEffect(() => {
@@ -56,11 +71,17 @@ export default function GitHubIntegrationManager({ githubApi, workspaceApi }: Gi
     setRepositories([]);
     if (!organizationId) {
       setInstallation(null);
+      setTargets([]);
       return undefined;
     }
-    githubApi.getStatus(organizationId)
-      .then((next) => {
-        if (!cancelled) setInstallation(next);
+    Promise.all([
+      githubApi.getStatus(organizationId),
+      workspaceApi.listTargets(organizationId),
+    ])
+      .then(([nextInstallation, nextTargets]) => {
+        if (cancelled) return;
+        setInstallation(nextInstallation);
+        setTargets(nextTargets);
       })
       .catch((loadError) => {
         if (!cancelled) setError(readableError(loadError));
@@ -68,7 +89,7 @@ export default function GitHubIntegrationManager({ githubApi, workspaceApi }: Gi
     return () => {
       cancelled = true;
     };
-  }, [githubApi, organizationId]);
+  }, [githubApi, organizationId, workspaceApi]);
 
   async function runAction(action: () => Promise<void>) {
     setBusy(true);
@@ -91,7 +112,19 @@ export default function GitHubIntegrationManager({ githubApi, workspaceApi }: Gi
 
   async function loadRepositories() {
     await runAction(async () => {
-      setRepositories(await githubApi.listRepositories(organizationId));
+      const [nextRepositories, nextTargets] = await Promise.all([
+        githubApi.listRepositories(organizationId),
+        workspaceApi.listTargets(organizationId),
+      ]);
+      setRepositories(nextRepositories);
+      setTargets(nextTargets);
+    });
+  }
+
+  async function createTarget(repository: GitHubRepositorySummary) {
+    await runAction(async () => {
+      await githubApi.createRepositoryTarget(organizationId, repository.id);
+      setTargets(await workspaceApi.listTargets(organizationId));
     });
   }
 
@@ -103,7 +136,7 @@ export default function GitHubIntegrationManager({ githubApi, workspaceApi }: Gi
         </div>
         <h2 className="text-2xl font-semibold">GitHub App Verbindung</h2>
         <p className="max-w-3xl text-sm text-muted-foreground">
-          GuardAI nutzt eine GitHub-App-Installation und kurzlebige Installation Tokens. In dieser Phase werden nur Installation und aktuell freigegebene Repository-Metadaten verwaltet; ein Repository-Scan wird noch nicht behauptet.
+          GuardAI nutzt eine GitHub-App-Installation und kurzlebige Installation Tokens. Freigegebene Repositories können als provider-verifizierte GuardAI Targets angelegt werden. Ein Repository-Scan wird dadurch noch nicht aktiviert; dafür fehlt weiterhin der reale Repository-Worker.
         </p>
       </header>
 
@@ -156,11 +189,11 @@ export default function GitHubIntegrationManager({ githubApi, workspaceApi }: Gi
                 disabled={busy}
                 onClick={loadRepositories}
               >
-                Freigegebene Repositories laden
+                Freigegebene Repositories synchronisieren
               </button>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Die GitHub-Installation ist nicht aktiv. GuardAI fordert in diesem Zustand keine Repository-Tokens an.
+                Die GitHub-Installation ist nicht aktiv. GuardAI fordert in diesem Zustand keine Repository-Tokens an; zugehörige Repository-Targets werden nicht als verifiziert behandelt.
               </p>
             )}
           </>
@@ -182,20 +215,35 @@ export default function GitHubIntegrationManager({ githubApi, workspaceApi }: Gi
         <div className="space-y-3 rounded-2xl border bg-card p-5">
           <h3 className="font-semibold">Von GitHub aktuell freigegebene Repositories</h3>
           <div className="space-y-2">
-            {repositories.map((repository) => (
-              <div key={repository.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3 text-sm">
-                <div>
-                  <div className="font-medium">{repository.fullName}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {repository.private ? 'privat' : 'öffentlich'} · Default Branch: {repository.defaultBranch ?? '—'}
+            {repositories.map((repository) => {
+              const alreadyTarget = targetRepositoryIds.has(repository.id);
+              return (
+                <div key={repository.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3 text-sm">
+                  <div>
+                    <div className="font-medium">{repository.fullName}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {repository.private ? 'privat' : 'öffentlich'} · Default Branch: {repository.defaultBranch ?? '—'}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    {repository.archived && <span className="rounded-full border px-2 py-1">archiviert</span>}
+                    {repository.disabled && <span className="rounded-full border px-2 py-1">deaktiviert</span>}
+                    {alreadyTarget ? (
+                      <span className="rounded-full border px-2 py-1">GuardAI Target</span>
+                    ) : isAdmin(selectedOrganization?.role) ? (
+                      <button
+                        className="rounded-lg border px-3 py-1.5 disabled:opacity-50"
+                        type="button"
+                        disabled={busy || repository.disabled}
+                        onClick={() => createTarget(repository)}
+                      >
+                        Als Target hinzufügen
+                      </button>
+                    ) : null}
                   </div>
                 </div>
-                <div className="flex gap-2 text-xs">
-                  {repository.archived && <span className="rounded-full border px-2 py-1">archiviert</span>}
-                  {repository.disabled && <span className="rounded-full border px-2 py-1">deaktiviert</span>}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
