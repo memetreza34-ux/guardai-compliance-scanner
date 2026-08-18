@@ -14,9 +14,18 @@ const safeProduction = {
   DATABASE_URL: 'postgresql://user:password@db.example.com/postgres',
   CORS_ORIGIN: 'https://app.guardai.example',
   BILLING_PROVIDER: 'disabled',
+  LEAD_CAPTURE_ENABLED: 'false',
+  LEAD_MARKETING_OPT_IN_ENABLED: 'false',
 };
 
-test('safe production configuration passes with billing disabled', () => {
+function fakePrivateKeyBase64() {
+  return Buffer.from(
+    '-----BEGIN PRIVATE KEY-----\nnot-a-real-key\n-----END PRIVATE KEY-----',
+    'utf8',
+  ).toString('base64');
+}
+
+test('safe production configuration passes with optional integrations disabled', () => {
   assert.deepEqual(validateProductionConfiguration(safeProduction), []);
   assert.doesNotThrow(() => assertSafeRuntimeConfiguration(safeProduction));
 });
@@ -68,6 +77,51 @@ test('configured Stripe test-mode billing can run in a production-mode staging p
     STRIPE_SECRET_KEY: 'sk_test_example123',
     STRIPE_WEBHOOK_SECRET: 'whsec_example123',
     STRIPE_PLAN_PRICE_MAP_JSON: '{"pro":"price_Pro123"}',
+  });
+  assert.deepEqual(errors, []);
+});
+
+test('Lead Capture cannot start without HTTPS Privacy/retention configuration', () => {
+  const errors = validateProductionConfiguration({
+    ...safeProduction,
+    LEAD_CAPTURE_ENABLED: 'true',
+    PUBLIC_APP_URL: 'http://app.guardai.example',
+    LEAD_PRIVACY_NOTICE_VERSION: '',
+    LEAD_RETENTION_DAYS: '0',
+  });
+  assert.ok(errors.some((message) => message.includes('PUBLIC_APP_URL')));
+  assert.ok(errors.some((message) => message.includes('LEAD_PRIVACY_NOTICE_VERSION')));
+  assert.ok(errors.some((message) => message.includes('LEAD_RETENTION_DAYS')));
+});
+
+test('Marketing opt-in remains fail-closed until Double-Opt-In delivery exists', () => {
+  const errors = validateProductionConfiguration({
+    ...safeProduction,
+    LEAD_CAPTURE_ENABLED: 'true',
+    LEAD_MARKETING_OPT_IN_ENABLED: 'true',
+    PUBLIC_APP_URL: 'https://app.guardai.example',
+    LEAD_PRIVACY_NOTICE_VERSION: '2026-08-contact-v1',
+    LEAD_RETENTION_DAYS: '180',
+  });
+  assert.ok(errors.some((message) => message.includes('Double-Opt-In')));
+});
+
+test('partial GitHub App production configuration is rejected', () => {
+  const errors = validateProductionConfiguration({
+    ...safeProduction,
+    GITHUB_APP_ID: '12345',
+    GITHUB_APP_SLUG: 'guardai-test',
+  });
+  assert.ok(errors.some((message) => message.includes('fully configured')));
+});
+
+test('complete GitHub App production configuration passes structural gate', () => {
+  const errors = validateProductionConfiguration({
+    ...safeProduction,
+    GITHUB_APP_ID: '12345',
+    GITHUB_APP_SLUG: 'guardai-test',
+    GITHUB_APP_PRIVATE_KEY_BASE64: fakePrivateKeyBase64(),
+    GITHUB_APP_WEBHOOK_SECRET: 'example-secret-at-least-16',
   });
   assert.deepEqual(errors, []);
 });
