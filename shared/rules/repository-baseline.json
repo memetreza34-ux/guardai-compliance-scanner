@@ -1,0 +1,36 @@
+{
+  "rulesetId": "repository-baseline",
+  "rulesetVersion": 1,
+  "detectorId": "repository.baseline",
+  "detectorVersion": "1.0.0",
+  "rules": [
+    {
+      "id": "repository.secret.private_key",
+      "version": 1,
+      "findingId": "private-key-material-indicator",
+      "title": "Private key material indicator",
+      "defaultSeverity": "critical"
+    },
+    {
+      "id": "repository.secret.github_token",
+      "version": 1,
+      "findingId": "github-token-indicator",
+      "title": "GitHub token indicator",
+      "defaultSeverity": "critical"
+    },
+    {
+      "id": "repository.secret.aws_access_key",
+      "version": 1,
+      "findingId": "aws-access-key-indicator",
+      "title": "AWS access key identifier indicator",
+      "defaultSeverity": "critical"
+    },
+    {
+      "id": "repository.secret.stripe_live_key",
+      "version": 1,
+      "findingId": "stripe-live-secret-indicator",
+      "title": "Stripe live secret key indicator",
+      "defaultSeverity": "critical"
+    }
+  ]
+}
