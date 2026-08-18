@@ -148,6 +148,13 @@ async function processOneRepositoryJob({
     workerId,
     leaseSeconds,
   });
+  let heartbeatStopped = false;
+
+  async function stopHeartbeat() {
+    if (heartbeatStopped) return heartbeat.getError();
+    heartbeatStopped = true;
+    return heartbeat.stop();
+  }
 
   try {
     const context = await jobRepository.getExecutionContext({ jobId: job.id, workerId });
@@ -156,7 +163,8 @@ async function processOneRepositoryJob({
       githubProvider,
       targetRepository,
     });
-    const heartbeatError = heartbeat.getError();
+
+    const heartbeatError = await stopHeartbeat();
     if (heartbeatError) throw heartbeatError;
 
     const completion = await jobRepository.completeJob({
@@ -171,6 +179,13 @@ async function processOneRepositoryJob({
       completion,
     };
   } catch (error) {
+    const heartbeatError = await stopHeartbeat();
+    if (heartbeatError) {
+      // Once lease ownership is uncertain, do not attempt complete/fail writes. The job
+      // remains leased until expiry and can then be safely reclaimed by another worker.
+      throw heartbeatError;
+    }
+
     const failure = await jobFailureService.fail({ jobId: job.id, workerId, error });
     return {
       state: failure.retryScheduled ? 'retrying' : 'failed',
@@ -179,7 +194,7 @@ async function processOneRepositoryJob({
       failure,
     };
   } finally {
-    await heartbeat.stop();
+    await stopHeartbeat();
   }
 }
 
