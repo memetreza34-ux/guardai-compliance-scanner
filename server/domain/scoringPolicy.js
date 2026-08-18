@@ -1,5 +1,12 @@
-const defaultProfile = require('../../shared/scoring/security-mvp-v1.json');
+const securityProfile = require('../../shared/scoring/security-mvp-v1.json');
+const repositoryProfile = require('../../shared/scoring/repository-mvp-v1.json');
 const { HttpError } = require('../lib/httpError');
+
+const defaultProfile = securityProfile;
+const SCORING_PROFILES = Object.freeze([
+  securityProfile,
+  repositoryProfile,
+]);
 
 function validateScoringProfile(profile) {
   if (!profile || typeof profile !== 'object' || Array.isArray(profile)) {
@@ -35,14 +42,44 @@ function validateScoringProfile(profile) {
 }
 
 function getScoringProfile(profileId, version) {
-  if (profileId === defaultProfile.profileId && version === defaultProfile.version) {
-    return defaultProfile;
-  }
+  const profile = SCORING_PROFILES.find(
+    (candidate) => candidate.profileId === profileId && candidate.version === version,
+  );
+  if (profile) return profile;
+
   throw new HttpError(
     500,
     'Scan references an unsupported scoring profile version.',
     'SCORING_PROFILE_NOT_AVAILABLE',
     { profileId, version },
+  );
+}
+
+function selectScoringProfile(targetType, requestedModules) {
+  if (!Array.isArray(requestedModules) || requestedModules.length === 0) {
+    throw new TypeError('Scoring profile selection requires requested modules.');
+  }
+
+  if (
+    targetType === 'website' &&
+    requestedModules.length === 1 &&
+    requestedModules[0] === 'security'
+  ) {
+    return securityProfile;
+  }
+  if (
+    targetType === 'repository' &&
+    requestedModules.length === 1 &&
+    requestedModules[0] === 'repository'
+  ) {
+    return repositoryProfile;
+  }
+
+  throw new HttpError(
+    422,
+    'No versioned scoring profile exists for this target/module combination.',
+    'SCORING_PROFILE_NOT_AVAILABLE',
+    { targetType, requestedModules },
   );
 }
 
@@ -83,11 +120,15 @@ function computeWeightedScanScore(moduleResults, profile = defaultProfile) {
   };
 }
 
-validateScoringProfile(defaultProfile);
+for (const profile of SCORING_PROFILES) validateScoringProfile(profile);
 
 module.exports = {
   computeWeightedScanScore,
   defaultProfile,
   getScoringProfile,
+  repositoryProfile,
+  SCORING_PROFILES,
+  securityProfile,
+  selectScoringProfile,
   validateScoringProfile,
 };
