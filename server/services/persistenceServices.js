@@ -44,7 +44,7 @@ function createPersistenceServices() {
   });
   const organizationRepository = createOrganizationRepository(pool);
   const organizationService = createOrganizationService({ organizationRepository });
-  const scanRepository = createScanRepository(pool);
+  const scanRepository = createScanRepository(pool, { entitlementRepository });
   const scanReadRepository = createScanReadRepository(pool);
   const reportRepository = createReportRepository(pool);
   const reportService = createReportService({
