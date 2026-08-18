@@ -11,6 +11,9 @@ const completeSchema = z.object({
   state: z.string().min(20).max(200),
   installationId: z.union([z.number().int().positive(), z.string().regex(/^\d+$/)]),
 }).strict();
+const repositoryTargetSchema = z.object({
+  repositoryId: z.union([z.number().int().positive(), z.string().regex(/^\d+$/)]),
+}).strict();
 
 router.get('/organizations/:organizationId/integrations/github', requireAuth, async (req, res) => {
   try {
@@ -53,6 +56,22 @@ router.get('/organizations/:organizationId/integrations/github/repositories', re
     });
   } catch (error) {
     sendRouteError(res, error, 'GitHub Repository List');
+  }
+});
+
+router.post('/organizations/:organizationId/integrations/github/repository-targets', requireAuth, async (req, res) => {
+  try {
+    const params = organizationParamsSchema.parse(req.params);
+    const body = repositoryTargetSchema.parse(req.body);
+    const { githubIntegrationService } = getGitHubIntegrationPersistenceServices();
+    const target = await githubIntegrationService.createRepositoryTarget({
+      organizationId: params.organizationId,
+      userId: req.auth.userId,
+      repositoryId: body.repositoryId,
+    });
+    res.status(201).json({ target });
+  } catch (error) {
+    sendRouteError(res, error, 'GitHub Repository Target Create');
   }
 });
 
