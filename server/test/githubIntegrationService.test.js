@@ -67,6 +67,31 @@ function createHarness() {
       calls.push(['finalize', input]);
     },
   };
+  const targetRepository = {
+    async syncGitHubInstallationTargets(input) {
+      calls.push(['syncTargets', input]);
+    },
+    async invalidateGitHubInstallationTargets(input) {
+      calls.push(['invalidateTargets', input]);
+      return 1;
+    },
+    async createGitHubRepositoryTarget(input) {
+      calls.push(['createRepositoryTarget', input]);
+      return {
+        id: 'target-a',
+        organizationId: input.organizationId,
+        type: 'repository',
+        displayName: input.displayName,
+        canonicalUrl: input.canonicalUrl,
+        provider: 'github',
+        verificationState: 'verified',
+        verificationMetadata: {
+          githubInstallationId: input.installationId,
+          githubRepositoryId: input.repositoryId,
+        },
+      };
+    },
+  };
   const secret = 'github-webhook-secret-12345';
   const githubProvider = {
     getInstallationUrl(state) {
@@ -86,7 +111,14 @@ function createHarness() {
     },
     async listInstallationRepositories(id) {
       calls.push(['repositories', id]);
-      return [{ id: 1, fullName: 'example/repo', private: true, archived: false, disabled: false, defaultBranch: 'main' }];
+      return [{
+        id: 1,
+        fullName: 'example/repo',
+        private: true,
+        archived: false,
+        disabled: false,
+        defaultBranch: 'main',
+      }];
     },
     verifyWebhook(rawBody, signature) {
       const expected = `sha256=${crypto.createHmac('sha256', secret).update(rawBody).digest('hex')}`;
@@ -98,8 +130,18 @@ function createHarness() {
     organizationAuthorization,
     githubRepository,
     githubProvider,
+    targetRepository,
   });
-  return { calls, githubRepository, installations, secret, service, states };
+  return { calls, githubRepository, installations, secret, service, states, targetRepository };
+}
+
+function activateInstallation(installations) {
+  installations.set(9876, {
+    organizationId: 'org-a',
+    installationId: 9876,
+    repositorySelection: 'selected',
+    status: 'active',
+  });
 }
 
 test('installation start requires admin and stores only state hash', async () => {
@@ -127,25 +169,50 @@ test('callback state is hashed, provider installation is verified, then linked',
   assert.equal(result.status, 'active');
 });
 
-test('repository list requires viewer and active installation', async () => {
+test('repository list requires viewer and synchronizes target authorization', async () => {
   const { calls, installations, service } = createHarness();
-  installations.set(9876, {
-    organizationId: 'org-a',
-    installationId: 9876,
-    status: 'active',
-  });
+  activateInstallation(installations);
   const repositories = await service.listRepositories({ organizationId: 'org-a', userId: 'user-a' });
   assert.equal(repositories[0].fullName, 'example/repo');
   assert.deepEqual(calls[0], ['role', 'org-a', 'user-a', 'viewer']);
+  const sync = calls.find((entry) => entry[0] === 'syncTargets');
+  assert.deepEqual(sync[1].authorizedRepositoryIds, [1]);
 });
 
-test('signed deletion webhook updates only an already linked installation', async () => {
-  const { calls, installations, secret, service } = createHarness();
-  installations.set(9876, {
+test('admin can create Target only from repository currently authorized by provider', async () => {
+  const { calls, installations, service } = createHarness();
+  activateInstallation(installations);
+  const target = await service.createRepositoryTarget({
     organizationId: 'org-a',
-    installationId: 9876,
-    status: 'active',
+    userId: 'user-a',
+    repositoryId: 1,
   });
+  assert.equal(target.type, 'repository');
+  assert.equal(target.provider, 'github');
+  assert.equal(target.verificationState, 'verified');
+  assert.deepEqual(calls[0], ['role', 'org-a', 'user-a', 'admin']);
+  const create = calls.find((entry) => entry[0] === 'createRepositoryTarget');
+  assert.equal(create[1].repositoryId, 1);
+  assert.equal(create[1].canonicalUrl, 'https://github.com/example/repo');
+});
+
+test('repository outside current provider authorization cannot become Target', async () => {
+  const { calls, installations, service } = createHarness();
+  activateInstallation(installations);
+  await assert.rejects(
+    () => service.createRepositoryTarget({
+      organizationId: 'org-a',
+      userId: 'user-a',
+      repositoryId: 999,
+    }),
+    (error) => error.code === 'GITHUB_REPOSITORY_NOT_AUTHORIZED' && error.statusCode === 404,
+  );
+  assert.equal(calls.some((entry) => entry[0] === 'createRepositoryTarget'), false);
+});
+
+test('signed deletion webhook invalidates linked repository Targets', async () => {
+  const { calls, installations, secret, service } = createHarness();
+  activateInstallation(installations);
   const rawBody = Buffer.from(JSON.stringify({ action: 'deleted', installation: { id: 9876 } }));
   const signature = `sha256=${crypto.createHmac('sha256', secret).update(rawBody).digest('hex')}`;
   const result = await service.processWebhook({
@@ -156,5 +223,6 @@ test('signed deletion webhook updates only an already linked installation', asyn
   });
   assert.equal(result.status, 'deleted');
   assert.ok(calls.some((entry) => entry[0] === 'lifecycle' && entry[1].status === 'deleted'));
+  assert.ok(calls.some((entry) => entry[0] === 'invalidateTargets'));
   assert.ok(calls.some((entry) => entry[0] === 'finalize' && entry[1].status === 'processed'));
 });
