@@ -177,6 +177,45 @@ function createTargetRepository(pool) {
     return result.rowCount;
   }
 
+  async function syncGitHubInstallationTargets({
+    organizationId,
+    installationId,
+    authorizedRepositoryIds,
+  }) {
+    const normalizedIds = [...new Set(authorizedRepositoryIds)]
+      .filter((value) => Number.isSafeInteger(value) && value > 0)
+      .map((value) => String(value));
+
+    const client = await pool.connect();
+    try {
+      await client.query('begin');
+      await client.query(
+        `update public.targets
+            set verification_state = case
+                  when verification_metadata->>'githubRepositoryId' = any($3::text[])
+                    then 'verified'::public.guardai_verification_state
+                  else 'failed'::public.guardai_verification_state
+                end,
+                updated_at = now()
+          where organization_id = $1
+            and type = 'repository'
+            and provider = 'github'
+            and verification_metadata->>'githubInstallationId' = $2::text`,
+        [organizationId, installationId, normalizedIds],
+      );
+      await client.query('commit');
+    } catch (error) {
+      try {
+        await client.query('rollback');
+      } catch (rollbackError) {
+        console.error('[Database] GitHub Target authorization sync rollback failed:', rollbackError);
+      }
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async function listTargets(organizationId) {
     const result = await pool.query(
       `select id, organization_id, type, display_name, canonical_url,
@@ -211,6 +250,7 @@ function createTargetRepository(pool) {
     getTarget,
     invalidateGitHubInstallationTargets,
     listTargets,
+    syncGitHubInstallationTargets,
   };
 }
 
