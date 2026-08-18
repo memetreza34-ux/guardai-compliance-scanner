@@ -11,6 +11,7 @@ import type {
   GitHubInstallationCompletion,
   GitHubRepositorySummary,
 } from '../types/githubIntegration';
+import type { WorkspaceTarget } from '../types/workspace';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -30,6 +31,21 @@ function assertHttpsUrl(value: unknown): string {
     throw new GuardApiError('GitHub installation URL is not HTTPS.', 'INVALID_API_RESPONSE', 200);
   }
   return parsed.toString();
+}
+
+function requireRepositoryTarget(value: unknown): WorkspaceTarget {
+  if (
+    !isRecord(value) ||
+    typeof value.id !== 'string' ||
+    value.type !== 'repository' ||
+    value.provider !== 'github' ||
+    typeof value.displayName !== 'string' ||
+    typeof value.verificationState !== 'string' ||
+    !isRecord(value.verificationMetadata)
+  ) {
+    throw new GuardApiError('GitHub repository Target response is invalid.', 'INVALID_API_RESPONSE', 200);
+  }
+  return value as unknown as WorkspaceTarget;
 }
 
 async function parseResponse(response: Response): Promise<unknown> {
@@ -98,7 +114,25 @@ export function createGitHubIntegrationApi(getAccessToken: AccessTokenProvider) 
     });
   }
 
-  return { getStatus, listRepositories, startInstallation };
+  async function createRepositoryTarget(
+    organizationId: string,
+    repositoryId: number,
+  ): Promise<WorkspaceTarget> {
+    const payload = await client.request(
+      `/organizations/${encodeURIComponent(organizationId)}/integrations/github/repository-targets`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repositoryId }),
+      },
+    );
+    if (!isRecord(payload)) {
+      throw new GuardApiError('GitHub repository Target response is invalid.', 'INVALID_API_RESPONSE', 200);
+    }
+    return requireRepositoryTarget(payload.target);
+  }
+
+  return { createRepositoryTarget, getStatus, listRepositories, startInstallation };
 }
 
 export async function completeGitHubInstallation(
