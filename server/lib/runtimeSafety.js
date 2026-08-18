@@ -48,6 +48,71 @@ function validateStripeProductionConfig(env, errors) {
   }
 }
 
+function validateLeadProductionConfig(env, errors) {
+  if (!readFlag(env.LEAD_CAPTURE_ENABLED)) {
+    if (readFlag(env.LEAD_MARKETING_OPT_IN_ENABLED)) {
+      errors.push('LEAD_MARKETING_OPT_IN_ENABLED must remain false while Lead Capture is disabled.');
+    }
+    return;
+  }
+
+  if (!/^https:\/\//i.test(env.PUBLIC_APP_URL || '')) {
+    errors.push('PUBLIC_APP_URL must be an explicit HTTPS URL when Lead Capture is enabled.');
+  }
+
+  const privacyVersion = String(env.LEAD_PRIVACY_NOTICE_VERSION || '').trim();
+  if (privacyVersion.length < 1 || privacyVersion.length > 120) {
+    errors.push('LEAD_PRIVACY_NOTICE_VERSION is required and must be at most 120 characters.');
+  }
+
+  const retentionDays = Number(env.LEAD_RETENTION_DAYS);
+  if (!Number.isInteger(retentionDays) || retentionDays < 1 || retentionDays > 3650) {
+    errors.push('LEAD_RETENTION_DAYS must be an integer between 1 and 3650 when Lead Capture is enabled.');
+  }
+
+  // The current source deliberately has no outbound Double-Opt-In mail flow yet.
+  if (readFlag(env.LEAD_MARKETING_OPT_IN_ENABLED)) {
+    errors.push('LEAD_MARKETING_OPT_IN_ENABLED must remain false until Double-Opt-In delivery is implemented.');
+  }
+}
+
+function validateGitHubProductionConfig(env, errors) {
+  const values = [
+    env.GITHUB_APP_ID,
+    env.GITHUB_APP_SLUG,
+    env.GITHUB_APP_PRIVATE_KEY_BASE64,
+    env.GITHUB_APP_WEBHOOK_SECRET,
+  ].map((value) => String(value || '').trim());
+
+  const configuredCount = values.filter(Boolean).length;
+  if (configuredCount === 0) return;
+  if (configuredCount !== values.length) {
+    errors.push('GitHub App integration must be either fully configured or fully disabled.');
+    return;
+  }
+
+  const [appId, appSlug, privateKeyBase64, webhookSecret] = values;
+  if (!/^\d+$/.test(appId) || Number(appId) <= 0) {
+    errors.push('GITHUB_APP_ID must be a positive integer.');
+  }
+  if (!/^[a-z0-9-]{1,100}$/.test(appSlug)) {
+    errors.push('GITHUB_APP_SLUG is invalid.');
+  }
+
+  let privateKeyPem = '';
+  try {
+    privateKeyPem = Buffer.from(privateKeyBase64, 'base64').toString('utf8');
+  } catch {
+    privateKeyPem = '';
+  }
+  if (!privateKeyPem.includes('PRIVATE KEY')) {
+    errors.push('GITHUB_APP_PRIVATE_KEY_BASE64 must decode to a private-key PEM.');
+  }
+  if (webhookSecret.length < 16) {
+    errors.push('GITHUB_APP_WEBHOOK_SECRET must contain at least 16 characters.');
+  }
+}
+
 function validateProductionConfiguration(env = process.env) {
   const errors = [];
   if ((env.NODE_ENV || '').toLowerCase() !== 'production') return errors;
@@ -84,6 +149,8 @@ function validateProductionConfiguration(env = process.env) {
   }
 
   validateStripeProductionConfig(env, errors);
+  validateLeadProductionConfig(env, errors);
+  validateGitHubProductionConfig(env, errors);
   return errors;
 }
 
@@ -100,6 +167,8 @@ module.exports = {
   assertSafeRuntimeConfiguration,
   readFlag,
   splitOrigins,
+  validateGitHubProductionConfig,
+  validateLeadProductionConfig,
   validateProductionConfiguration,
   validateStripeProductionConfig,
 };
