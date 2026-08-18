@@ -1,5 +1,5 @@
 const { HttpError } = require('../lib/httpError');
-const { defaultProfile } = require('../domain/scoringPolicy');
+const { selectScoringProfile } = require('../domain/scoringPolicy');
 const { assertTargetSupportsModules } = require('../domain/targetScanCompatibility');
 const { assertTargetVerified } = require('../domain/targetAuthorization');
 
@@ -155,6 +155,7 @@ function createScanRepository(pool, { entitlementRepository = null } = {}) {
       assertTargetVerified(target);
       assertTargetSupportsModules(target.type, input.requestedModules);
       const targetSnapshot = buildTargetSnapshot(target);
+      const scoringProfile = selectScoringProfile(target.type, input.requestedModules);
 
       const existingBeforeInsert = await findExistingByIdempotency(
         client,
@@ -199,8 +200,8 @@ function createScanRepository(pool, { entitlementRepository = null } = {}) {
           input.contractVersion,
           input.requestedModules,
           input.idempotencyKey,
-          defaultProfile.profileId,
-          defaultProfile.version,
+          scoringProfile.profileId,
+          scoringProfile.version,
           JSON.stringify(targetSnapshot),
         ],
       );
