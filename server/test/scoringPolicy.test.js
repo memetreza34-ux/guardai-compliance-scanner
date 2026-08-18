@@ -4,6 +4,8 @@ const {
   computeWeightedScanScore,
   defaultProfile,
   getScoringProfile,
+  repositoryProfile,
+  selectScoringProfile,
   validateScoringProfile,
 } = require('../domain/scoringPolicy');
 
@@ -13,6 +15,28 @@ test('default Security MVP profile is valid and versioned', () => {
   assert.equal(defaultProfile.profileId, 'security-mvp');
   assert.equal(defaultProfile.version, 1);
   assert.equal(getScoringProfile('security-mvp', 1), defaultProfile);
+});
+
+
+test('repository MVP profile is valid, versioned and target-specific', () => {
+  assert.equal(validateScoringProfile(repositoryProfile), repositoryProfile);
+  assert.equal(repositoryProfile.profileId, 'repository-mvp');
+  assert.equal(repositoryProfile.version, 1);
+  assert.equal(getScoringProfile('repository-mvp', 1), repositoryProfile);
+  assert.equal(selectScoringProfile('repository', ['repository']), repositoryProfile);
+});
+
+
+test('website Security scan selects Security MVP profile', () => {
+  assert.equal(selectScoringProfile('website', ['security']), defaultProfile);
+});
+
+
+test('unsupported scoring target/module combination fails closed', () => {
+  assert.throws(
+    () => selectScoringProfile('repository', ['security']),
+    (error) => error.code === 'SCORING_PROFILE_NOT_AVAILABLE' && error.statusCode === 422,
+  );
 });
 
 
@@ -34,6 +58,20 @@ test('Security MVP score equals the assessed Security module score', () => {
     profileId: 'security-mvp',
     profileVersion: 1,
     assessedModules: ['security'],
+  });
+});
+
+
+test('repository MVP score equals the assessed repository baseline score', () => {
+  const result = computeWeightedScanScore({
+    repository: { state: 'assessed', score: 100 },
+  }, repositoryProfile);
+  assert.deepEqual(result, {
+    score: 100,
+    state: 'scored',
+    profileId: 'repository-mvp',
+    profileVersion: 1,
+    assessedModules: ['repository'],
   });
 });
 
