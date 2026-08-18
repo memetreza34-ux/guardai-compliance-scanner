@@ -117,17 +117,36 @@ function selectRepositoryFiles(entries) {
     );
   }
 
-  const eligible = entries
-    .filter((entry) => entry?.type === 'blob')
-    .filter((entry) => isSafeRepositoryPath(entry.path))
+  const blobs = entries.filter((entry) => entry?.type === 'blob');
+  const unsafePath = blobs.find((entry) => !isSafeRepositoryPath(entry.path));
+  if (unsafePath) {
+    throw new HttpError(
+      422,
+      'Repository tree contains a path outside the current GuardAI safe-path policy.',
+      'REPOSITORY_TREE_PATH_UNSAFE',
+    );
+  }
+
+  const candidates = blobs
     .filter((entry) => !isIgnoredPath(entry.path))
-    .filter((entry) => Number.isSafeInteger(entry.size) && entry.size >= 0)
-    .filter((entry) => manifestEcosystem(entry.path) || isTextCandidate(entry.path))
-    .sort((left, right) => {
-      const leftManifest = manifestEcosystem(left.path) ? 0 : 1;
-      const rightManifest = manifestEcosystem(right.path) ? 0 : 1;
-      return leftManifest - rightManifest || left.path.localeCompare(right.path);
-    });
+    .filter((entry) => manifestEcosystem(entry.path) || isTextCandidate(entry.path));
+
+  const missingSize = candidates.find(
+    (entry) => !Number.isSafeInteger(entry.size) || entry.size < 0,
+  );
+  if (missingSize) {
+    throw new HttpError(
+      422,
+      'Repository tree lacks complete size metadata for an eligible file.',
+      'REPOSITORY_TREE_METADATA_INCOMPLETE',
+    );
+  }
+
+  const eligible = candidates.sort((left, right) => {
+    const leftManifest = manifestEcosystem(left.path) ? 0 : 1;
+    const rightManifest = manifestEcosystem(right.path) ? 0 : 1;
+    return leftManifest - rightManifest || left.path.localeCompare(right.path);
+  });
 
   const selected = [];
   let selectedBytes = 0;
@@ -231,22 +250,39 @@ async function buildRepositoryBaselineAssessment({
   if (typeof readBlob !== 'function') throw new TypeError('Repository baseline requires blob reader.');
 
   const selection = selectRepositoryFiles(snapshot.entries);
+  if (selection.skippedBudget > 0 || selection.skippedOversize > 0) {
+    throw new HttpError(
+      422,
+      'Repository baseline cannot produce a score because eligible files exceed the current complete-coverage budget.',
+      'REPOSITORY_BASELINE_COVERAGE_INCOMPLETE',
+      {
+        eligibleFiles: selection.eligibleCount,
+        selectedFiles: selection.selected.length,
+        skippedOversize: selection.skippedOversize,
+        skippedBudget: selection.skippedBudget,
+      },
+    );
+  }
+
   const manifests = [];
   const indicatorLocations = [];
   let scannedBytes = 0;
-  let binarySkipped = 0;
 
   for (const entry of selection.selected) {
     const bytes = await readBlob(entry.sha, MAX_FILE_BYTES);
     if (!Buffer.isBuffer(bytes) || bytes.length > MAX_FILE_BYTES) {
       throw new HttpError(502, 'Repository blob reader returned invalid bytes.', 'GITHUB_PROVIDER_RESPONSE_INVALID');
     }
-    scannedBytes += bytes.length;
     if (bytes.includes(0)) {
-      binarySkipped += 1;
-      continue;
+      throw new HttpError(
+        422,
+        'Repository baseline encountered binary content under a text-eligible path.',
+        'REPOSITORY_BASELINE_COVERAGE_INCOMPLETE',
+        { path: entry.path },
+      );
     }
 
+    scannedBytes += bytes.length;
     const text = bytes.toString('utf8');
     const ecosystem = manifestEcosystem(entry.path);
     if (ecosystem) manifests.push(summarizeJsonManifest(entry.path, ecosystem, text));
@@ -296,9 +332,6 @@ async function buildRepositoryBaselineAssessment({
         eligibleTextOrManifestFiles: selection.eligibleCount,
         selectedFiles: selection.selected.length,
         scannedBytes,
-        binaryFilesSkipped: binarySkipped,
-        oversizeFilesSkipped: selection.skippedOversize,
-        budgetFilesSkipped: selection.skippedBudget,
         maxTreeEntries: MAX_TREE_ENTRIES,
         maxSelectedFiles: MAX_SELECTED_FILES,
         maxFileBytes: MAX_FILE_BYTES,
@@ -321,9 +354,7 @@ async function buildRepositoryBaselineAssessment({
     notices: [
       'Repository score covers only this bounded GuardAI baseline. It is not a full SAST, comprehensive secret scan, dependency vulnerability assessment or SBOM.',
       'No matched credential value is persisted; Evidence stores only indicator type and file/line location.',
-      selection.skippedBudget > 0 || selection.skippedOversize > 0
-        ? 'Some otherwise eligible repository files were not read because the explicit GuardAI file/byte budget was reached.'
-        : 'All eligible files inside the current GuardAI selection policy fit within the configured file/byte budget.',
+      'All files eligible under the current GuardAI repository-baseline selection policy fit within the configured complete-coverage budgets for this assessment.',
     ],
   };
 }
