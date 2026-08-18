@@ -20,6 +20,7 @@ create table public.monitors (
   created_by uuid not null references auth.users(id) on delete cascade,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  constraint monitors_id_organization_unique unique (id, organization_id),
   constraint monitors_target_same_org
     foreign key (target_id, organization_id)
     references public.targets(id, organization_id)
