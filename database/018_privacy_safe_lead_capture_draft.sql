@@ -16,6 +16,7 @@ create type public.guardai_marketing_consent_status as enum (
 create table public.lead_submissions (
   id uuid primary key default gen_random_uuid(),
   idempotency_key text not null unique,
+  submission_fingerprint text not null,
   email text not null,
   name text,
   company text,
@@ -36,6 +37,7 @@ create table public.lead_submissions (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint lead_idempotency_key_length check (char_length(idempotency_key) between 8 and 200),
+  constraint lead_submission_fingerprint_sha256 check (submission_fingerprint ~ '^[a-f0-9]{64}$'),
   constraint lead_email_length check (char_length(email) between 3 and 320),
   constraint lead_email_normalized check (email = lower(btrim(email))),
   constraint lead_name_length check (name is null or char_length(name) between 1 and 120),
