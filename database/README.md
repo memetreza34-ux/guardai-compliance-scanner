@@ -23,8 +23,8 @@ All files below are **design sources, not applied migrations**. Before first sta
 4. `004_target_verification_challenges_draft.sql` — backend-only DNS TXT ownership challenges, expiry and attempt limits.
 5. `005_workspace_onboarding_invariants_draft.sql` — canonical Target uniqueness and initial subscription constraints.
 6. `006_entitlements_usage_draft.sql` — price-neutral plan capabilities, monthly usage counters and reservations.
-7. `007_audit_lifecycle_draft.sql` — additional server lifecycle audit invariants.
-8. `008_rule_provenance_security_seed_draft.sql` — versioned Security Rule provenance/seed direction.
+7. `007_audit_invariants_draft.sql` — Scan/verification lifecycle audit triggers.
+8. `008_rule_provenance_security_seed_draft.sql` — versioned Security Rule provenance and Security baseline seeds.
 9. `009_finding_lifecycle_draft.sql` — remediation/finding lifecycle state.
 10. `010_finding_rediscovery_trigger_draft.sql` — deterministic finding rediscovery behavior.
 11. `011_scoring_profile_provenance_draft.sql` — stored/versioned scoring-profile provenance.
@@ -39,6 +39,9 @@ All files below are **design sources, not applied migrations**. Before first sta
 20. `020_monitor_run_provenance_draft.sql` — scheduled-run → Scan provenance with composite tenant binding.
 21. `021_notification_event_triggers_draft.sql` — deduplicated finding/scan-failure notification generation.
 22. `022_github_app_integration_draft.sql` — GitHub App installation provenance, one-time setup state and webhook inbox.
+23. `023_github_repository_target_invariants_draft.sql` — provider-authorized GitHub Repository Target provenance and uniqueness.
+24. `024_scan_usage_terminal_finalization_draft.sql` — automatic consume/release of reserved capability usage on terminal Scan status.
+25. `025_repository_rule_scoring_provenance_draft.sql` — versioned bounded Repository baseline Rules and `repository-mvp@1` scoring provenance.
 
 ## Promotion to real migrations
 
@@ -67,10 +70,14 @@ When the dedicated GuardAI staging project and Supabase CLI are available:
 
 ### Target/Scan runtime
 
-- only successful unexpired DNS challenge sets Target `verified`,
+- only successful unexpired DNS challenge sets Website Target `verified`,
 - challenge expiry/attempt limits work,
 - canonical duplicate Targets are rejected,
+- GitHub Repository Targets can be verified only with provider installation/repository provenance,
+- removal/suspension of GitHub repository authorization invalidates corresponding Targets,
 - concurrent Scan idempotency produces one logical Scan,
+- paid capability reservation commits in the same transaction as Scan + Job creation,
+- a failed entitlement check leaves no queued paid Job,
 - `FOR UPDATE SKIP LOCKED` prevents two Workers claiming the same Job,
 - expired leases can be reclaimed,
 - stale Worker result writes fail,
@@ -80,7 +87,10 @@ When the dedicated GuardAI staging project and Supabase CLI are available:
 ### Provenance/Reports
 
 - Finding Instance keeps exact `rule_id` + `rule_version`,
+- Security Rule seeds and Repository Rule seeds conform to the actual `rules` / `rule_versions` schema,
 - Scan keeps exact scoring profile ID/version,
+- Website Security uses `security-mvp@1`,
+- Repository baseline uses `repository-mvp@1`,
 - Scan keeps immutable Target snapshot,
 - report snapshot hash is reproducible,
 - historical report snapshots cannot be rewritten,
@@ -92,6 +102,8 @@ When the dedicated GuardAI staging project and Supabase CLI are available:
 
 - monthly capability reservation races cannot exceed a configured limit,
 - reservation consume/release is idempotent,
+- `completed` Scan consumes remaining reservations exactly once,
+- `failed` / `cancelled` Scan releases remaining reservations exactly once,
 - paid capabilities are unavailable outside allowed subscription states,
 - no paid capability exists merely because a Checkout return page was reached.
 
@@ -132,7 +144,7 @@ When the dedicated GuardAI staging project and Supabase CLI are available:
 - notification dedupe produces one event per logical finding/failure,
 - notification mutation remains backend-authorized.
 
-### GitHub App integration
+### GitHub App / Repository baseline
 
 - installation setup state is one-time and expires,
 - state token is stored only as SHA-256,
@@ -142,6 +154,13 @@ When the dedicated GuardAI staging project and Supabase CLI are available:
 - raw webhook signature verification occurs before persistence,
 - webhook delivery IDs deduplicate retries,
 - installation suspend/delete lifecycle updates provider state safely,
+- current authorized repository IDs are re-synchronized before Target creation/scan,
+- a repository removed from GitHub App authorization cannot remain `verified`,
+- repository snapshot Evidence is pinned to an immutable commit SHA/tree SHA,
+- truncated GitHub trees fail closed,
+- file/tree/blob budgets are enforced before detector processing,
+- detected credential values are never persisted; only indicator type/path/line are retained,
+- Repository baseline is not represented as full SAST, comprehensive secret scanning, dependency vulnerability analysis or SBOM,
 - integration/webhook/state tables are not browser-mutable.
 
 ## RLS / authorization rules
@@ -160,9 +179,10 @@ When the dedicated GuardAI staging project and Supabase CLI are available:
 
 - Organization + Owner Membership + initial subscription + audit creation,
 - Website Target creation + audit,
+- GitHub Repository Target creation after live provider authorization check,
 - DNS TXT verification lifecycle,
 - verified-Target requirement before persistent scanning,
-- atomic Scan + Jobs creation,
+- atomic Scan + Jobs + paid-capability reservation creation,
 - organization-scoped Scan idempotency,
 - Job claim/lease/renew/reclaim,
 - bounded retries/terminal failures,
@@ -178,6 +198,7 @@ When the dedicated GuardAI staging project and Supabase CLI are available:
 - privacy-gated Lead persistence,
 - Monitor scheduling/provenance,
 - in-app notification lifecycle,
-- GitHub App installation state/link/webhook lifecycle.
+- GitHub App installation state/link/webhook lifecycle,
+- bounded commit-pinned GitHub Repository baseline worker source.
 
-The browser never receives `DATABASE_URL`, DB passwords, target challenge hashes, Worker leases, Stripe secret/webhook keys, GitHub App private keys/installation tokens, raw Lead rows, direct entitlement mutation access or full provider webhook payloads.
+The browser never receives `DATABASE_URL`, DB passwords, target challenge hashes, Worker leases, Stripe secret/webhook keys, GitHub App private keys/installation tokens, raw Lead rows, direct entitlement mutation access, full provider webhook payloads or detected credential values.
