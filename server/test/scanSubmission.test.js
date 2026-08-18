@@ -29,11 +29,13 @@ test('normalizeRequestedModules rejects unknown modules', () => {
   );
 });
 
-test('normalizeRequestedModules rejects known modules until their worker exists', () => {
-  assert.throws(
-    () => normalizeRequestedModules(['privacy']),
-    (error) => error.code === 'SCAN_MODULE_NOT_AVAILABLE' && error.statusCode === 422,
-  );
+test('normalizeRequestedModules rejects known modules until their worker is explicitly enabled', () => {
+  for (const moduleId of ['privacy', 'repository']) {
+    assert.throws(
+      () => normalizeRequestedModules([moduleId]),
+      (error) => error.code === 'SCAN_MODULE_NOT_AVAILABLE' && error.statusCode === 422,
+    );
+  }
 });
 
 test('normalizeIdempotencyKey trims valid keys and rejects short values', () => {
@@ -45,7 +47,7 @@ test('normalizeIdempotencyKey trims valid keys and rejects short values', () => 
   );
 });
 
-test('scan submission authorizes organization and persists queue request', async () => {
+test('scan submission authorizes organization and persists queue request with derived usage requirements', async () => {
   let received = null;
   const scanRepository = {
     async createQueuedScanWithJobs(input) {
@@ -79,6 +81,7 @@ test('scan submission authorizes organization and persists queue request', async
     targetId: 'target-a',
     requestedBy: 'user-a',
     requestedModules: ['security'],
+    usageRequirements: {},
     scannerVersion: '0.1.0',
     contractVersion: '0.2.0',
     idempotencyKey: 'request-12345',
