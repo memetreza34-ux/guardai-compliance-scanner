@@ -1,0 +1,11 @@
+{
+  "profileId": "repository-mvp",
+  "version": 1,
+  "description": "Initial GuardAI scoring profile for the bounded repository baseline. The score reflects only implemented high-confidence repository checks and is not a full SAST, secret-scanning or supply-chain score.",
+  "modules": {
+    "repository": {
+      "weight": 1
+    }
+  },
+  "minimumAssessedModules": 1
+}
