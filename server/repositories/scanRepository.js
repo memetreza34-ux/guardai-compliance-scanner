@@ -111,9 +111,25 @@ async function loadJobsForScan(client, scanId, organizationId) {
   return result.rows.map(mapJobRow);
 }
 
-function createScanRepository(pool) {
+function createScanRepository(pool, { entitlementRepository = null } = {}) {
   if (!pool || typeof pool.connect !== 'function') {
     throw new TypeError('Scan repository requires a PostgreSQL pool.');
+  }
+
+  async function reserveUsageWithinTransaction(client, input, scanId) {
+    const requirements = input.usageRequirements || {};
+    if (Object.keys(requirements).length === 0) return [];
+    if (
+      !entitlementRepository ||
+      typeof entitlementRepository.reserveCapabilitiesForScanWithClient !== 'function'
+    ) {
+      throw new TypeError('Paid Scan submission requires transactional entitlement repository.');
+    }
+    return entitlementRepository.reserveCapabilitiesForScanWithClient(client, {
+      organizationId: input.organizationId,
+      scanId,
+      requirements,
+    });
   }
 
   async function createQueuedScanWithJobs(input) {
@@ -148,6 +164,7 @@ function createScanRepository(pool) {
 
       if (existingBeforeInsert) {
         assertIdempotentRequestMatches(existingBeforeInsert, input);
+        await reserveUsageWithinTransaction(client, input, existingBeforeInsert.id);
         const jobs = await loadJobsForScan(client, existingBeforeInsert.id, input.organizationId);
         await client.query('commit');
         return { created: false, scan: mapScanRow(existingBeforeInsert), jobs };
@@ -200,6 +217,7 @@ function createScanRepository(pool) {
         }
 
         assertIdempotentRequestMatches(existingAfterConflict, input);
+        await reserveUsageWithinTransaction(client, input, existingAfterConflict.id);
         const jobs = await loadJobsForScan(client, existingAfterConflict.id, input.organizationId);
         await client.query('commit');
         return { created: false, scan: mapScanRow(existingAfterConflict), jobs };
@@ -222,6 +240,8 @@ function createScanRepository(pool) {
                    result_summary, completed_at, failed_at, created_at`,
         [input.organizationId, scanRow.id, input.requestedModules],
       );
+
+      await reserveUsageWithinTransaction(client, input, scanRow.id);
 
       await client.query('commit');
       return {
