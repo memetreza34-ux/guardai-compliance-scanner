@@ -11,6 +11,7 @@ Architecture decisions:
 - `docs/adr/0001-dedicated-supabase-postgres-auth.md`
 - `docs/adr/0002-native-postgres-backend-transactions.md`
 - `docs/adr/0003-stripe-billing-provider.md`
+- `docs/adr/0004-github-app-repository-integration.md`
 
 ## Current design files
 
@@ -33,6 +34,11 @@ All files below are **design sources, not applied migrations**. Before first sta
 15. `015_public_trust_publications_draft.sql` — report-backed public Trust publications, revocation actor and audit triggers.
 16. `016_stripe_billing_invariants_draft.sql` — Stripe subscription provenance + durable webhook inbox/deduplication.
 17. `017_billing_checkout_idempotency_draft.sql` — one unresolved Checkout per Organization + Organization-scoped idempotency.
+18. `018_privacy_safe_lead_capture_draft.sql` — privacy-gated contact capture, retention and idempotency fingerprint.
+19. `019_monitoring_notifications_draft.sql` — tenant-safe Security monitors and in-app notifications.
+20. `020_monitor_run_provenance_draft.sql` — scheduled-run → Scan provenance with composite tenant binding.
+21. `021_notification_event_triggers_draft.sql` — deduplicated finding/scan-failure notification generation.
+22. `022_github_app_integration_draft.sql` — GitHub App installation provenance, one-time setup state and webhook inbox.
 
 ## Promotion to real migrations
 
@@ -56,8 +62,8 @@ When the dedicated GuardAI staging project and Supabase CLI are available:
 
 - owner/admin/member/viewer permissions are correct,
 - cross-tenant reads/writes fail,
-- composite tenant FKs reject mixed Organization/Target/Scan relationships,
-- browser roles cannot access Worker, challenge, entitlement-mutation, webhook or Checkout-request tables.
+- composite tenant FKs reject mixed Organization/Target/Scan/Monitor relationships,
+- browser roles cannot access Worker, challenge, entitlement-mutation, webhook, Checkout-request, Lead or integration-state tables.
 
 ### Target/Scan runtime
 
@@ -104,6 +110,40 @@ When the dedicated GuardAI staging project and Supabase CLI are available:
 - Checkout completion marks its stored request completed,
 - no full Stripe webhook payload is retained by GuardAI.
 
+### Lead Capture
+
+- disabled policy performs no PII write,
+- Lead idempotency replay requires an identical SHA-256 submission fingerprint,
+- same key with different content fails closed,
+- retention expiry is always present and bounded by approved configuration,
+- Marketing stays `not_requested` until a real Double-Opt-In flow exists,
+- honeypot submissions create no database row,
+- browser roles cannot query Lead rows directly.
+
+### Monitoring / notifications
+
+- only verified Website Targets can have an active `security` Monitor,
+- one non-disabled Security Monitor exists per Target,
+- scheduler leases prevent duplicate slot ownership,
+- deterministic scheduled Scan idempotency produces one Scan per Monitor slot,
+- missed intervals advance to the next future slot instead of creating a catch-up storm,
+- Monitor Run organization matches both Monitor and Scan through composite FKs,
+- deverified Targets are paused instead of scanned,
+- notification dedupe produces one event per logical finding/failure,
+- notification mutation remains backend-authorized.
+
+### GitHub App integration
+
+- installation setup state is one-time and expires,
+- state token is stored only as SHA-256,
+- a GitHub installation cannot belong to two GuardAI Organizations,
+- provider installation is re-read before linking,
+- installation tokens are never persisted,
+- raw webhook signature verification occurs before persistence,
+- webhook delivery IDs deduplicate retries,
+- installation suspend/delete lifecycle updates provider state safely,
+- integration/webhook/state tables are not browser-mutable.
+
 ## RLS / authorization rules
 
 - Every exposed customer-data table has RLS enabled.
@@ -114,7 +154,7 @@ When the dedicated GuardAI staging project and Supabase CLI are available:
 - Privileged helpers live in non-exposed `private` schema.
 - Privileged mutations also pass through backend authorization.
 - Composite FKs provide database-level tenant defense in depth.
-- Worker/verification/usage/webhook/Checkout state remains backend-only.
+- Worker/verification/usage/webhook/Checkout/Lead/integration state remains backend-only.
 
 ## Current backend transaction boundaries already implemented in source
 
@@ -134,6 +174,10 @@ When the dedicated GuardAI staging project and Supabase CLI are available:
 - concurrency-safe capability usage reservations,
 - Stripe Customer/Subscription reconciliation,
 - Stripe webhook dedupe/status lifecycle,
-- Stripe Checkout idempotency/single-active-request model.
+- Stripe Checkout idempotency/single-active-request model,
+- privacy-gated Lead persistence,
+- Monitor scheduling/provenance,
+- in-app notification lifecycle,
+- GitHub App installation state/link/webhook lifecycle.
 
-The browser never receives `DATABASE_URL`, DB passwords, target challenge hashes, Worker leases, Stripe secret/webhook keys, direct entitlement mutation access or full provider webhook payloads.
+The browser never receives `DATABASE_URL`, DB passwords, target challenge hashes, Worker leases, Stripe secret/webhook keys, GitHub App private keys/installation tokens, raw Lead rows, direct entitlement mutation access or full provider webhook payloads.
