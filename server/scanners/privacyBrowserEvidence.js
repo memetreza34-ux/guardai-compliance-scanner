@@ -6,7 +6,6 @@ const MAX_NETWORK_REQUESTS = 5000;
 const MAX_CROSS_ORIGINS = 100;
 const MAX_PRIVACY_LINKS = 20;
 const MAX_CONSENT_CONTROLS = 50;
-const MAX_CONTROL_LABEL_LENGTH = 120;
 
 const CONSENT_CONTROL_KINDS = new Set(['accept', 'reject', 'manage', 'close', 'unknown']);
 const RESOURCE_TYPES = new Set([
@@ -38,7 +37,7 @@ function normalizeRequestSummary(requests, targetOrigin) {
     throw new HttpError(422, 'Privacy browser network observation exceeds GuardAI limits.', 'PRIVACY_BROWSER_OBSERVATION_LIMIT');
   }
 
-  const crossOrigins = new Set();
+  const allCrossOrigins = new Set();
   const resourceTypes = {};
   let sameOriginCount = 0;
   let crossOriginCount = 0;
@@ -55,16 +54,17 @@ function normalizeRequestSummary(requests, targetOrigin) {
       sameOriginCount += 1;
     } else {
       crossOriginCount += 1;
-      if (crossOrigins.size < MAX_CROSS_ORIGINS) crossOrigins.add(parsed.origin);
+      allCrossOrigins.add(parsed.origin);
     }
   }
 
+  const crossOriginOrigins = [...allCrossOrigins].sort().slice(0, MAX_CROSS_ORIGINS);
   return {
     totalCount: requests.length,
     sameOriginCount,
     crossOriginCount,
-    crossOriginOrigins: [...crossOrigins].sort(),
-    crossOriginOriginsTruncated: crossOriginCount > 0 && crossOrigins.size >= MAX_CROSS_ORIGINS,
+    crossOriginOrigins,
+    crossOriginOriginsTruncated: allCrossOrigins.size > MAX_CROSS_ORIGINS,
     resourceTypes,
   };
 }
@@ -79,7 +79,7 @@ function normalizeCookieSummary(cookies, targetHost) {
   let secureCount = 0;
   let httpOnlyCount = 0;
   const sameSite = { strict: 0, lax: 0, none: 0, unspecified: 0 };
-  const domains = new Set();
+  const allDomains = new Set();
 
   for (const cookie of cookies) {
     if (!cookie || typeof cookie !== 'object' || typeof cookie.domain !== 'string') {
@@ -89,7 +89,7 @@ function normalizeCookieSummary(cookies, targetHost) {
     if (!domain || domain.length > 253 || !/^[a-z0-9.-]+$/.test(domain)) {
       throw new HttpError(502, 'Privacy browser cookie domain is invalid.', 'PRIVACY_BROWSER_OBSERVATION_INVALID');
     }
-    if (domains.size < 100) domains.add(domain);
+    allDomains.add(domain);
 
     if (targetHost === domain || targetHost.endsWith(`.${domain}`)) targetHostScoped += 1;
     else otherDomainScoped += 1;
@@ -108,8 +108,8 @@ function normalizeCookieSummary(cookies, targetHost) {
     secureCount,
     httpOnlyCount,
     sameSite,
-    domains: [...domains].sort(),
-    domainsTruncated: cookies.length > 0 && domains.size >= 100,
+    domains: [...allDomains].sort().slice(0, 100),
+    domainsTruncated: allDomains.size > 100,
   };
 }
 
@@ -136,6 +136,7 @@ function normalizePrivacyLinks(links, finalUrl) {
 
   const normalized = [];
   const seen = new Set();
+  const targetOrigin = new URL(finalUrl).origin;
   for (const link of links) {
     if (normalized.length >= MAX_PRIVACY_LINKS) break;
     if (!link || typeof link !== 'object' || typeof link.href !== 'string') continue;
@@ -151,7 +152,7 @@ function normalizePrivacyLinks(links, finalUrl) {
     seen.add(safe);
     normalized.push({
       urlWithoutQuery: safe,
-      sameOrigin: parsed.origin === new URL(finalUrl).origin,
+      sameOrigin: parsed.origin === targetOrigin,
     });
   }
   return normalized;
@@ -163,15 +164,11 @@ function normalizeConsentControls(controls) {
     throw new HttpError(422, 'Consent-control observation exceeds GuardAI limits.', 'PRIVACY_BROWSER_OBSERVATION_LIMIT');
   }
 
-  return controls.slice(0, MAX_CONSENT_CONTROLS).map((control) => {
-    const kind = typeof control?.kind === 'string' && CONSENT_CONTROL_KINDS.has(control.kind.toLowerCase())
+  return controls.slice(0, MAX_CONSENT_CONTROLS).map((control) => ({
+    kind: typeof control?.kind === 'string' && CONSENT_CONTROL_KINDS.has(control.kind.toLowerCase())
       ? control.kind.toLowerCase()
-      : 'unknown';
-    const label = typeof control?.label === 'string'
-      ? control.label.replace(/\s+/g, ' ').trim().slice(0, MAX_CONTROL_LABEL_LENGTH)
-      : '';
-    return { kind, label };
-  });
+      : 'unknown',
+  }));
 }
 
 function normalizePhase(phase, finalUrl) {
@@ -190,7 +187,8 @@ function buildPrivacyBrowserEvidence(observation) {
   if (!observation || typeof observation !== 'object') {
     throw new HttpError(502, 'Privacy browser observation is invalid.', 'PRIVACY_BROWSER_OBSERVATION_INVALID');
   }
-  const finalUrl = normalizeUrl(observation.finalUrl, 'final URL').toString();
+  const final = normalizeUrl(observation.finalUrl, 'final URL');
+  const finalUrl = final.toString();
   const initial = normalizePhase(observation.initial, finalUrl);
   const afterReject = observation.afterReject ? normalizePhase(observation.afterReject, finalUrl) : null;
   const controls = normalizeConsentControls(observation.consentControls);
@@ -207,11 +205,11 @@ function buildPrivacyBrowserEvidence(observation) {
     detectorId: PRIVACY_OBSERVATION_ID,
     detectorVersion: PRIVACY_OBSERVATION_VERSION,
     evidenceType: 'privacy-browser-observation',
-    source: new URL(finalUrl).origin,
+    source: final.origin,
     normalizedData: {
       page: {
-        finalOrigin: new URL(finalUrl).origin,
-        finalPath: new URL(finalUrl).pathname.slice(0, 500),
+        finalOrigin: final.origin,
+        finalPath: final.pathname.slice(0, 500),
       },
       initial,
       afterReject,
@@ -225,7 +223,7 @@ function buildPrivacyBrowserEvidence(observation) {
     notices: [
       'Cross-origin network requests are technical observations and are not automatically classified as trackers.',
       'This Evidence does not determine whether consent is legally required, valid or sufficient.',
-      'Cookie values, Web Storage values, request query strings and URL fragments are not persisted in this Privacy Evidence.',
+      'Cookie values, cookie names, Web Storage keys/values, request paths, request query strings, URL fragments and consent-control text are not persisted in this Privacy Evidence.',
     ],
   };
 }
