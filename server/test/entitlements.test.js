@@ -7,13 +7,15 @@ const {
 } = require('../domain/entitlements');
 
 
-test('security is currently non-paid while AI/browser modules declare capabilities', () => {
+test('technical modules declare capabilities matching their runtime architecture', () => {
   assert.equal(capabilityForModule('security'), null);
-  assert.equal(capabilityForModule('privacy'), 'ai_screening');
+  assert.equal(capabilityForModule('privacy'), 'browser_scan');
   assert.equal(capabilityForModule('accessibility'), 'browser_scan');
+  assert.equal(capabilityForModule('ai-governance'), 'ai_screening');
+  assert.equal(capabilityForModule('repository'), 'repository_scan');
   assert.deepEqual(
     requiredCapabilitiesForModules(['privacy', 'ai-governance', 'security']),
-    ['ai_screening'],
+    ['browser_scan', 'ai_screening'],
   );
 });
 
