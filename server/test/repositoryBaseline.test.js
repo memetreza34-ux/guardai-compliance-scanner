@@ -22,7 +22,7 @@ test('secret indicator locations never include matched credential values', () =>
   assert.equal(JSON.stringify(locations).includes(credential), false);
 });
 
-test('selection prioritizes manifests and rejects oversized files from blob reads', () => {
+test('selection prioritizes manifests and records oversized eligible files', () => {
   const result = selectRepositoryFiles([
     { type: 'blob', path: 'src/index.ts', sha: SHA_A, size: 10 },
     { type: 'blob', path: 'package.json', sha: SHA_B, size: 20 },
@@ -33,6 +33,46 @@ test('selection prioritizes manifests and rejects oversized files from blob read
   assert.equal(result.selected.some((entry) => entry.path === 'src/large.ts'), false);
   assert.equal(result.selected.some((entry) => entry.path.includes('node_modules')), false);
   assert.equal(result.skippedOversize, 1);
+});
+
+test('oversized eligible file makes baseline coverage incomplete instead of returning partial score', async () => {
+  const sourceText = 'export const answer = 42;\n';
+  await assert.rejects(
+    () => buildRepositoryBaselineAssessment({
+      fullName: 'example/repo',
+      canonicalUrl: 'https://github.com/example/repo',
+      snapshot: {
+        commitSha: COMMIT_SHA,
+        treeSha: TREE_SHA,
+        entries: [
+          { type: 'blob', path: 'src/index.ts', sha: SHA_A, size: Buffer.byteLength(sourceText) },
+          { type: 'blob', path: 'src/large.ts', sha: SHA_B, size: MAX_FILE_BYTES + 1 },
+        ],
+      },
+      async readBlob() {
+        return Buffer.from(sourceText);
+      },
+    }),
+    (error) => error.code === 'REPOSITORY_BASELINE_COVERAGE_INCOMPLETE' && error.statusCode === 422,
+  );
+});
+
+test('eligible text file without Git tree size metadata fails closed', () => {
+  assert.throws(
+    () => selectRepositoryFiles([
+      { type: 'blob', path: 'src/index.ts', sha: SHA_A, size: null },
+    ]),
+    (error) => error.code === 'REPOSITORY_TREE_METADATA_INCOMPLETE' && error.statusCode === 422,
+  );
+});
+
+test('unsafe repository path fails closed instead of being silently skipped', () => {
+  assert.throws(
+    () => selectRepositoryFiles([
+      { type: 'blob', path: '../secret.ts', sha: SHA_A, size: 10 },
+    ]),
+    (error) => error.code === 'REPOSITORY_TREE_PATH_UNSAFE' && error.statusCode === 422,
+  );
 });
 
 test('repository assessment pins commit, summarizes manifest counts and redacts secret text', async () => {
@@ -75,7 +115,7 @@ test('repository assessment pins commit, summarizes manifest counts and redacts 
   assert.equal(JSON.stringify(assessment).includes(githubToken), false);
 });
 
-test('clean bounded sample receives baseline score 100 with explicit scope notice', async () => {
+test('clean complete-policy sample receives baseline score 100 with explicit scope notice', async () => {
   const sourceText = 'export const answer = 42;\n';
   const assessment = await buildRepositoryBaselineAssessment({
     fullName: 'example/repo',
@@ -92,4 +132,5 @@ test('clean bounded sample receives baseline score 100 with explicit scope notic
   assert.equal(assessment.score, 100);
   assert.equal(assessment.issues.length, 0);
   assert.ok(assessment.notices.some((notice) => notice.includes('not a full SAST')));
+  assert.ok(assessment.notices.some((notice) => notice.includes('complete-coverage budgets')));
 });
