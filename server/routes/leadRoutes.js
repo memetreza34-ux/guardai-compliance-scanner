@@ -1,5 +1,7 @@
 const express = require('express');
 const { z } = require('zod');
+const { config } = require('../config');
+const { resolveLeadCapturePolicy } = require('../services/leadCaptureService');
 const { sendRouteError } = require('../middleware/errorHandler');
 const { leadLimiter } = require('../middleware/leadLimiter');
 const { getLeadPersistenceServices } = require('../services/leadPersistence');
@@ -17,8 +19,7 @@ const submissionSchema = z.object({
 
 router.get('/public/lead-capture', (_req, res) => {
   try {
-    const { leadCaptureService } = getLeadPersistenceServices();
-    res.json({ leadCapture: leadCaptureService.getPublicConfig() });
+    res.json({ leadCapture: resolveLeadCapturePolicy(config) });
   } catch (error) {
     sendRouteError(res, error, 'Lead Capture Config');
   }
