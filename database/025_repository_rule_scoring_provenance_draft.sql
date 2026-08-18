@@ -5,23 +5,34 @@
 
 begin;
 
-insert into public.rules (id, framework, category, control_key, title, status)
+insert into public.rules (id, category, title, current_version, active)
 values
-  ('repository.secret.private_key', 'repository-baseline', 'secret-indicators', 'private_key', 'Private key material indicator', 'active'),
-  ('repository.secret.github_token', 'repository-baseline', 'secret-indicators', 'github_token', 'GitHub token indicator', 'active'),
-  ('repository.secret.aws_access_key', 'repository-baseline', 'secret-indicators', 'aws_access_key', 'AWS access key identifier indicator', 'active'),
-  ('repository.secret.stripe_live_key', 'repository-baseline', 'secret-indicators', 'stripe_live_key', 'Stripe live secret key indicator', 'active')
+  ('repository.secret.private_key', 'secret-indicators', 'Private key material indicator', 1, true),
+  ('repository.secret.github_token', 'secret-indicators', 'GitHub token indicator', 1, true),
+  ('repository.secret.aws_access_key', 'secret-indicators', 'AWS access key identifier indicator', 1, true),
+  ('repository.secret.stripe_live_key', 'secret-indicators', 'Stripe live secret key indicator', 1, true)
 on conflict (id) do nothing;
 
 insert into public.rule_versions (
-  rule_id, version, implementation_version, rationale, legal_source_ids,
-  effective_from, effective_to, config
+  rule_id, version, implementation_version, legal_source_ids, definition
 )
 values
-  ('repository.secret.private_key', 1, 'repository.baseline@1.0.0', 'Detect high-confidence private-key PEM markers inside the bounded repository text-file sample without persisting matched values.', '{}'::uuid[], now(), null, '{"defaultSeverity":"critical"}'::jsonb),
-  ('repository.secret.github_token', 1, 'repository.baseline@1.0.0', 'Detect GitHub credential-prefix indicators inside the bounded repository text-file sample without persisting matched values.', '{}'::uuid[], now(), null, '{"defaultSeverity":"critical"}'::jsonb),
-  ('repository.secret.aws_access_key', 1, 'repository.baseline@1.0.0', 'Detect AWS access-key identifier indicators inside the bounded repository text-file sample. An access-key ID alone is not the secret half of an AWS credential.', '{}'::uuid[], now(), null, '{"defaultSeverity":"critical"}'::jsonb),
-  ('repository.secret.stripe_live_key', 1, 'repository.baseline@1.0.0', 'Detect Stripe live secret-key prefix indicators inside the bounded repository text-file sample without persisting matched values.', '{}'::uuid[], now(), null, '{"defaultSeverity":"critical"}'::jsonb)
+  (
+    'repository.secret.private_key', 1, 'repository.baseline@1.0.0', '{}'::uuid[],
+    '{"rulesetId":"repository-baseline","controlKey":"private_key","rationale":"Detect high-confidence private-key PEM markers inside the bounded repository text-file sample without persisting matched values.","defaultSeverity":"critical"}'::jsonb
+  ),
+  (
+    'repository.secret.github_token', 1, 'repository.baseline@1.0.0', '{}'::uuid[],
+    '{"rulesetId":"repository-baseline","controlKey":"github_token","rationale":"Detect GitHub credential-prefix indicators inside the bounded repository text-file sample without persisting matched values.","defaultSeverity":"critical"}'::jsonb
+  ),
+  (
+    'repository.secret.aws_access_key', 1, 'repository.baseline@1.0.0', '{}'::uuid[],
+    '{"rulesetId":"repository-baseline","controlKey":"aws_access_key","rationale":"Detect AWS access-key identifier indicators inside the bounded repository text-file sample. An access-key ID alone is not the secret half of an AWS credential.","defaultSeverity":"critical"}'::jsonb
+  ),
+  (
+    'repository.secret.stripe_live_key', 1, 'repository.baseline@1.0.0', '{}'::uuid[],
+    '{"rulesetId":"repository-baseline","controlKey":"stripe_live_key","rationale":"Detect Stripe live secret-key prefix indicators inside the bounded repository text-file sample without persisting matched values.","defaultSeverity":"critical"}'::jsonb
+  )
 on conflict (rule_id, version) do nothing;
 
 insert into public.scoring_profiles (id, version, description, config)
