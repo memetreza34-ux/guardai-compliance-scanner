@@ -8,6 +8,9 @@ const { HttpError } = require('../lib/httpError');
 
 const GITHUB_API_VERSION = '2022-11-28';
 const MAX_REPOSITORY_PAGES = 10;
+const MAX_GITHUB_JSON_BYTES = 8 * 1024 * 1024;
+const GIT_SHA_PATTERN = /^[a-f0-9]{40,64}$/i;
+const REPOSITORY_FULL_NAME_PATTERN = /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/;
 
 function base64url(value) {
   return Buffer.from(value).toString('base64url');
@@ -79,6 +82,54 @@ function normalizeRepository(value) {
   };
 }
 
+function splitRepositoryFullName(fullName) {
+  if (typeof fullName !== 'string' || !REPOSITORY_FULL_NAME_PATTERN.test(fullName)) {
+    throw new HttpError(422, 'GitHub repository name is invalid.', 'GITHUB_REPOSITORY_METADATA_INVALID');
+  }
+  const [owner, repo] = fullName.split('/');
+  return { owner, repo };
+}
+
+function normalizeGitTree(payload) {
+  if (
+    !payload ||
+    typeof payload !== 'object' ||
+    typeof payload.sha !== 'string' ||
+    !GIT_SHA_PATTERN.test(payload.sha) ||
+    !Array.isArray(payload.tree)
+  ) {
+    throw new HttpError(502, 'GitHub repository tree response is invalid.', 'GITHUB_PROVIDER_RESPONSE_INVALID');
+  }
+  if (payload.truncated === true) {
+    throw new HttpError(
+      422,
+      'GitHub repository tree exceeds the current complete-tree boundary.',
+      'GITHUB_REPOSITORY_TREE_TRUNCATED',
+    );
+  }
+
+  const entries = payload.tree.map((entry) => {
+    if (
+      !entry ||
+      typeof entry !== 'object' ||
+      typeof entry.path !== 'string' ||
+      entry.path.length < 1 ||
+      entry.path.length > 1000 ||
+      !['blob', 'tree', 'commit'].includes(entry.type) ||
+      typeof entry.sha !== 'string' ||
+      !GIT_SHA_PATTERN.test(entry.sha)
+    ) {
+      throw new HttpError(502, 'GitHub repository tree entry is invalid.', 'GITHUB_PROVIDER_RESPONSE_INVALID');
+    }
+    const size = entry.type === 'blob' && Number.isSafeInteger(entry.size) && entry.size >= 0
+      ? entry.size
+      : null;
+    return { path: entry.path, type: entry.type, sha: entry.sha, size };
+  });
+
+  return { treeSha: payload.sha, entries };
+}
+
 function createGitHubAppProvider({
   appId,
   appSlug,
@@ -93,7 +144,12 @@ function createGitHubAppProvider({
   const apiBase = assertHttpsUrl(apiBaseUrl, 'GitHub API base URL');
   const webBase = assertHttpsUrl(webBaseUrl, 'GitHub web base URL');
 
-  async function githubFetch(path, { method = 'GET', token, body } = {}) {
+  async function githubFetch(path, {
+    method = 'GET',
+    token,
+    body,
+    maxResponseBytes = MAX_GITHUB_JSON_BYTES,
+  } = {}) {
     let response;
     try {
       response = await fetch(`${apiBase}${path}`, {
@@ -112,10 +168,24 @@ function createGitHubAppProvider({
       throw new HttpError(502, 'GitHub API could not be reached.', 'GITHUB_PROVIDER_UNAVAILABLE');
     }
 
+    const declaredLength = Number(response.headers.get('content-length'));
+    if (Number.isFinite(declaredLength) && declaredLength > maxResponseBytes) {
+      throw new HttpError(422, 'GitHub API response exceeds GuardAI size limits.', 'GITHUB_PROVIDER_RESPONSE_TOO_LARGE');
+    }
+
     let payload = null;
     if (response.status !== 204) {
+      let bytes;
       try {
-        payload = await response.json();
+        bytes = Buffer.from(await response.arrayBuffer());
+      } catch {
+        throw new HttpError(502, 'GitHub API returned an unreadable response.', 'GITHUB_PROVIDER_RESPONSE_INVALID');
+      }
+      if (bytes.length > maxResponseBytes) {
+        throw new HttpError(422, 'GitHub API response exceeds GuardAI size limits.', 'GITHUB_PROVIDER_RESPONSE_TOO_LARGE');
+      }
+      try {
+        payload = JSON.parse(bytes.toString('utf8'));
       } catch {
         throw new HttpError(502, 'GitHub API returned an invalid response.', 'GITHUB_PROVIDER_RESPONSE_INVALID');
       }
@@ -190,6 +260,73 @@ function createGitHubAppProvider({
     return repositories;
   }
 
+  async function openRepositoryReader(installationId, fullName) {
+    const id = normalizeGitHubInstallationId(installationId);
+    const { owner, repo } = splitRepositoryFullName(fullName);
+    const access = await createInstallationAccessToken(id);
+
+    async function resolveSnapshot(ref) {
+      if (typeof ref !== 'string' || ref.length < 1 || ref.length > 255) {
+        throw new HttpError(422, 'GitHub repository ref is invalid.', 'GITHUB_REPOSITORY_REF_INVALID');
+      }
+      const commitPayload = await githubFetch(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits/${encodeURIComponent(ref)}`,
+        { token: access.token, maxResponseBytes: 512 * 1024 },
+      );
+      const commitSha = commitPayload?.sha;
+      const treeSha = commitPayload?.commit?.tree?.sha;
+      if (
+        typeof commitSha !== 'string' ||
+        !GIT_SHA_PATTERN.test(commitSha) ||
+        typeof treeSha !== 'string' ||
+        !GIT_SHA_PATTERN.test(treeSha)
+      ) {
+        throw new HttpError(502, 'GitHub commit response is invalid.', 'GITHUB_PROVIDER_RESPONSE_INVALID');
+      }
+
+      const treePayload = await githubFetch(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/trees/${treeSha}?recursive=1`,
+        { token: access.token },
+      );
+      const tree = normalizeGitTree(treePayload);
+      if (tree.treeSha.toLowerCase() !== treeSha.toLowerCase()) {
+        throw new HttpError(502, 'GitHub tree identity did not match the resolved commit.', 'GITHUB_PROVIDER_RESPONSE_INVALID');
+      }
+      return { commitSha, treeSha, entries: tree.entries };
+    }
+
+    async function readBlob(blobSha, expectedMaxBytes) {
+      if (typeof blobSha !== 'string' || !GIT_SHA_PATTERN.test(blobSha)) {
+        throw new HttpError(422, 'GitHub blob SHA is invalid.', 'GITHUB_BLOB_ID_INVALID');
+      }
+      if (!Number.isInteger(expectedMaxBytes) || expectedMaxBytes < 1 || expectedMaxBytes > 1024 * 1024) {
+        throw new TypeError('GitHub blob read limit must be between 1 byte and 1 MiB.');
+      }
+
+      const payload = await githubFetch(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/blobs/${blobSha}`,
+        { token: access.token, maxResponseBytes: Math.min(MAX_GITHUB_JSON_BYTES, expectedMaxBytes * 2 + 32 * 1024) },
+      );
+      if (
+        !payload ||
+        payload.encoding !== 'base64' ||
+        typeof payload.content !== 'string' ||
+        !Number.isSafeInteger(payload.size) ||
+        payload.size < 0 ||
+        payload.size > expectedMaxBytes
+      ) {
+        throw new HttpError(422, 'GitHub blob exceeds or violates GuardAI read limits.', 'GITHUB_BLOB_READ_LIMIT');
+      }
+      const bytes = Buffer.from(payload.content.replace(/\s+/g, ''), 'base64');
+      if (bytes.length !== payload.size || bytes.length > expectedMaxBytes) {
+        throw new HttpError(502, 'GitHub blob payload size is inconsistent.', 'GITHUB_PROVIDER_RESPONSE_INVALID');
+      }
+      return bytes;
+    }
+
+    return { resolveSnapshot, readBlob };
+  }
+
   function verifyWebhook(rawBody, signatureHeader) {
     return verifyGitHubWebhookSignature(rawBody, signatureHeader, webhookSecret);
   }
@@ -200,6 +337,7 @@ function createGitHubAppProvider({
     getInstallation,
     getInstallationUrl,
     listInstallationRepositories,
+    openRepositoryReader,
     verifyWebhook,
   };
 }
@@ -208,7 +346,12 @@ module.exports = {
   createGitHubAppJwt,
   createGitHubAppProvider,
   GITHUB_API_VERSION,
+  GIT_SHA_PATTERN,
+  MAX_GITHUB_JSON_BYTES,
   MAX_REPOSITORY_PAGES,
+  normalizeGitTree,
   normalizeInstallationPayload,
   normalizeRepository,
+  REPOSITORY_FULL_NAME_PATTERN,
+  splitRepositoryFullName,
 };
