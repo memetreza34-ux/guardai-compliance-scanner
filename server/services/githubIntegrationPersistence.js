@@ -2,6 +2,7 @@ const { getPostgresPool } = require('../database/postgres');
 const { requireGitHubProvider } = require('../integrations/githubRuntime');
 const { createGitHubIntegrationRepository } = require('../repositories/githubIntegrationRepository');
 const { createMembershipRepository } = require('../repositories/membershipRepository');
+const { createTargetRepository } = require('../repositories/targetRepository');
 const { createGitHubIntegrationService } = require('./githubIntegrationService');
 const { createOrganizationAuthorizationService } = require('./organizationAuthorization');
 
@@ -12,17 +13,20 @@ function createGitHubIntegrationPersistenceServices() {
   const membershipRepository = createMembershipRepository(pool);
   const organizationAuthorization = createOrganizationAuthorizationService(membershipRepository);
   const githubRepository = createGitHubIntegrationRepository(pool);
+  const targetRepository = createTargetRepository(pool);
   const githubProvider = requireGitHubProvider();
   const githubIntegrationService = createGitHubIntegrationService({
     organizationAuthorization,
     githubRepository,
     githubProvider,
+    targetRepository,
   });
   return {
     githubIntegrationService,
     githubProvider,
     githubRepository,
     organizationAuthorization,
+    targetRepository,
   };
 }
 
