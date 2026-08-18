@@ -76,6 +76,107 @@ function createTargetRepository(pool) {
     }
   }
 
+  async function createGitHubRepositoryTarget({
+    organizationId,
+    userId,
+    displayName,
+    canonicalUrl,
+    installationId,
+    repositoryId,
+    repositorySelection,
+    repositoryMetadata,
+  }) {
+    const client = await pool.connect();
+    try {
+      await client.query('begin');
+      const verificationMetadata = {
+        githubInstallationId: installationId,
+        githubRepositoryId: repositoryId,
+        fullName: displayName,
+        repositorySelection: repositorySelection || null,
+        private: repositoryMetadata.private === true,
+        archived: repositoryMetadata.archived === true,
+        disabled: repositoryMetadata.disabled === true,
+        defaultBranch: repositoryMetadata.defaultBranch || null,
+      };
+
+      let insertResult;
+      try {
+        insertResult = await client.query(
+          `insert into public.targets (
+             organization_id, type, display_name, canonical_url, provider,
+             verification_state, verification_metadata, created_by
+           ) values ($1, 'repository', $2, $3, 'github', 'verified', $4::jsonb, $5)
+           returning id, organization_id, type, display_name, canonical_url,
+                     provider, verification_state, verification_metadata,
+                     created_by, created_at, updated_at`,
+          [
+            organizationId,
+            displayName,
+            canonicalUrl,
+            JSON.stringify(verificationMetadata),
+            userId,
+          ],
+        );
+      } catch (error) {
+        if (error?.code === '23505') {
+          throw new HttpError(
+            409,
+            'This GitHub repository target already exists in the organization.',
+            'TARGET_ALREADY_EXISTS',
+          );
+        }
+        throw error;
+      }
+
+      const target = insertResult.rows[0];
+      await client.query(
+        `insert into public.audit_events (
+           organization_id, actor_id, action, target_type, target_id, metadata
+         ) values ($1, $2, 'target.created', 'target', $3, $4::jsonb)`,
+        [
+          organizationId,
+          userId,
+          target.id,
+          JSON.stringify({
+            type: 'repository',
+            provider: 'github',
+            repositoryId,
+            fullName: displayName,
+          }),
+        ],
+      );
+
+      await client.query('commit');
+      return mapTargetRow(target);
+    } catch (error) {
+      try {
+        await client.query('rollback');
+      } catch (rollbackError) {
+        console.error('[Database] Repository Target creation rollback failed:', rollbackError);
+      }
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async function invalidateGitHubInstallationTargets({ organizationId, installationId }) {
+    const result = await pool.query(
+      `update public.targets
+          set verification_state = 'failed',
+              updated_at = now()
+        where organization_id = $1
+          and type = 'repository'
+          and provider = 'github'
+          and verification_metadata->>'githubInstallationId' = $2::text
+          and verification_state <> 'failed'
+        returning id`,
+      [organizationId, installationId],
+    );
+    return result.rowCount;
+  }
+
   async function listTargets(organizationId) {
     const result = await pool.query(
       `select id, organization_id, type, display_name, canonical_url,
@@ -105,8 +206,10 @@ function createTargetRepository(pool) {
   }
 
   return {
+    createGitHubRepositoryTarget,
     createWebsiteTarget,
     getTarget,
+    invalidateGitHubInstallationTargets,
     listTargets,
   };
 }
