@@ -9,7 +9,14 @@ const { requestContext } = require('./middleware/requestContext');
 const { auditRoutes } = require('./routes/auditRoutes');
 const { authRoutes } = require('./routes/authRoutes');
 const { billingRoutes, stripeWebhookHandler } = require('./routes/billingRoutes');
+const {
+  githubIntegrationRoutes,
+  githubWebhookHandler,
+} = require('./routes/githubIntegrationRoutes');
 const { healthRoutes } = require('./routes/healthRoutes');
+const { leadRoutes } = require('./routes/leadRoutes');
+const { monitorRoutes } = require('./routes/monitorRoutes');
+const { notificationRoutes } = require('./routes/notificationRoutes');
 const { organizationRoutes } = require('./routes/organizationRoutes');
 const { reportRoutes } = require('./routes/reportRoutes');
 const { scanRoutes } = require('./routes/scanRoutes');
@@ -36,12 +43,17 @@ function createApp() {
     },
   }));
 
-  // Stripe signature verification requires the exact raw request bytes. This route must
-  // stay before express.json() and must never be wrapped by middleware that rewrites body.
+  // Provider signature verification requires the exact raw request bytes. These routes
+  // must stay before express.json() and must never be wrapped by body-rewriting middleware.
   app.post(
     '/api/v1/billing/stripe/webhook',
     express.raw({ type: 'application/json', limit: '1mb' }),
     stripeWebhookHandler,
+  );
+  app.post(
+    '/api/v1/integrations/github/webhook',
+    express.raw({ type: 'application/json', limit: '1mb' }),
+    githubWebhookHandler,
   );
 
   app.use(express.json({ limit: '10kb' }));
@@ -51,6 +63,10 @@ function createApp() {
   app.use('/api/v1', organizationRoutes);
   app.use('/api/v1', auditRoutes);
   app.use('/api/v1', billingRoutes);
+  app.use('/api/v1', leadRoutes);
+  app.use('/api/v1', githubIntegrationRoutes);
+  app.use('/api/v1', monitorRoutes);
+  app.use('/api/v1', notificationRoutes);
   app.use('/api/v1', scanRoutes);
   app.use('/api/v1', targetRoutes);
   app.use('/api/v1', targetVerificationRoutes);
