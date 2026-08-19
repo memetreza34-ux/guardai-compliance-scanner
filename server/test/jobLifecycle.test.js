@@ -59,6 +59,7 @@ test('programming, authorization and deterministic coverage/result failures are 
   assert.equal(shouldRetryWorkerError({ code: 'TARGET_VERIFICATION_LOST' }), false);
   assert.equal(shouldRetryWorkerError({ code: 'WORKER_JOB_TYPE_MISMATCH' }), false);
   assert.equal(shouldRetryWorkerError({ code: 'INVALID_WORKER_RESULT' }), false);
+  assert.equal(shouldRetryWorkerError({ code: 'RULE_DEFINITION_HASH_MISMATCH' }), false);
 
   assert.equal(shouldRetryWorkerError({ code: 'REPOSITORY_BASELINE_COVERAGE_INCOMPLETE' }), false);
   assert.equal(shouldRetryWorkerError({ code: 'REPOSITORY_TREE_METADATA_INCOMPLETE' }), false);
@@ -74,6 +75,8 @@ test('programming, authorization and deterministic coverage/result failures are 
   assert.equal(shouldRetryWorkerError({ code: 'ASSET_MEDIA_TYPE_MISMATCH' }), false);
   assert.equal(shouldRetryWorkerError({ code: 'ASSET_BINARY_CONTENT_REJECTED' }), false);
   assert.equal(shouldRetryWorkerError({ code: 'ASSET_TEXT_ENCODING_INVALID' }), false);
+  assert.equal(shouldRetryWorkerError({ code: 'ASSET_PARSER_INPUT_HASH_MISMATCH' }), false);
+  assert.equal(shouldRetryWorkerError({ code: 'ASSET_PARSER_PROTOCOL_INVALID' }), false);
   assert.equal(shouldRetryWorkerError({ code: 'ASSET_PARSER_OUTPUT_LIMIT' }), false);
   assert.equal(shouldRetryWorkerError({ code: 'ASSET_STORAGE_PROMOTION_INVALID' }), false);
 });
