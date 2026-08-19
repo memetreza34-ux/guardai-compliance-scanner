@@ -78,6 +78,7 @@ function createAssetUploadService({
   malwareScanner,
   parserProvider,
   limits = DEFAULT_ASSET_LIMITS,
+  enabled = false,
 }) {
   if (!organizationAuthorization || typeof organizationAuthorization.requireRole !== 'function') {
     throw new TypeError('Asset upload service requires Organization authorization.');
@@ -86,6 +87,9 @@ function createAssetUploadService({
   const normalizedLimits = normalizeAssetLimits(limits);
 
   function assertProviders() {
+    if (enabled !== true) {
+      throw new HttpError(503, 'Persistent Asset ingestion is not enabled in this environment.', 'ASSET_PIPELINE_DISABLED');
+    }
     return assertAssetPipelineProviders({ storageProvider, malwareScanner, parserProvider });
   }
 
@@ -152,8 +156,6 @@ function createAssetUploadService({
       throw new HttpError(409, 'Asset upload cannot be finalized in its current state.', 'ASSET_UPLOAD_STATE_INVALID');
     }
 
-    // Fast path for clearly expired sessions. The repository repeats this check under a
-    // row lock to close the race between this check and queue creation.
     if (new Date(upload.uploadExpiresAt).getTime() <= Date.now()) {
       const expired = await assetUploadRepository.finalizeUploadAndQueue({ organizationId, uploadId });
       if (expired.expired) await cleanupQuarantine(expired.upload);
