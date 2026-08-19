@@ -19,6 +19,7 @@ function completedScan() {
       requestedModules: ['security'],
       scoringProfileId: 'security-mvp',
       scoringProfileVersion: 1,
+      scoringProfileDefinitionHash: 'e'.repeat(64),
       targetSnapshot: {
         id: '22222222-2222-4222-8222-222222222222',
         type: 'website',
@@ -74,6 +75,7 @@ test('completed Scan produces deterministic report hash with immutable provenanc
   assert.equal(first.snapshot.target.canonicalUrl, 'https://example.com/');
   assert.equal(first.snapshot.scoring.profileId, 'security-mvp');
   assert.equal(first.snapshot.scoring.profileVersion, 1);
+  assert.equal(first.snapshot.scoring.profileDefinitionHash, 'e'.repeat(64));
   assert.equal(first.snapshot.findings[0].ruleId, 'security.content_security_policy');
   assert.equal(first.snapshot.findings[0].ruleVersion, 1);
   assert.equal(first.snapshot.findings[0].ruleDefinitionHash, 'c'.repeat(64));
@@ -84,7 +86,7 @@ test('report snapshot keeps explicit limitations', () => {
   assert.ok(report.snapshot.limitations.some((line) => line.includes('not a legal opinion')));
 });
 
-test('stored report integrity verification rejects tampering', () => {
+test('stored report integrity verification rejects Rule or scoring tampering', () => {
   const built = buildTechnicalReportSnapshot(completedScan());
   const stored = {
     schemaVersion: REPORT_SCHEMA_VERSION,
@@ -94,18 +96,27 @@ test('stored report integrity verification rejects tampering', () => {
   };
   assert.equal(assertReportSnapshotIntegrity(stored), stored);
 
-  stored.snapshot.findings[0].ruleDefinitionHash = 'd'.repeat(64);
+  const ruleTampered = structuredClone(stored);
+  ruleTampered.snapshot.findings[0].ruleDefinitionHash = 'd'.repeat(64);
   assert.throws(
-    () => assertReportSnapshotIntegrity(stored),
+    () => assertReportSnapshotIntegrity(ruleTampered),
+    (error) => error.code === 'REPORT_INTEGRITY_FAILED' && error.statusCode === 500,
+  );
+
+  const scoringTampered = structuredClone(stored);
+  scoringTampered.snapshot.scoring.profileDefinitionHash = 'f'.repeat(64);
+  assert.throws(
+    () => assertReportSnapshotIntegrity(scoringTampered),
     (error) => error.code === 'REPORT_INTEGRITY_FAILED' && error.statusCode === 500,
   );
 });
 
-test('historical schema v2 report remains integrity-readable without definition hash', () => {
+test('historical schema v2 report remains integrity-readable without definition hashes', () => {
   const built = buildTechnicalReportSnapshot(completedScan());
   const legacySnapshot = structuredClone(built.snapshot);
   legacySnapshot.schemaVersion = 2;
   delete legacySnapshot.findings[0].ruleDefinitionHash;
+  delete legacySnapshot.scoring.profileDefinitionHash;
   const stored = {
     schemaVersion: 2,
     reportType: 'technical-screening',
@@ -124,7 +135,7 @@ test('report creation rejects missing Target, scoring or Rule definition provena
   );
 
   const missingScoring = completedScan();
-  missingScoring.scan.scoringProfileId = null;
+  missingScoring.scan.scoringProfileDefinitionHash = null;
   assert.throws(
     () => buildTechnicalReportSnapshot(missingScoring),
     (error) => error.code === 'SCAN_PROVENANCE_INCOMPLETE',
