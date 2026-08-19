@@ -1,0 +1,27 @@
+{
+  "registryId": "eu-ai-act-guided-review",
+  "version": 1,
+  "jurisdiction": "EU",
+  "instrument": "Regulation (EU) 2024/1689",
+  "officialSourceUrl": "https://eur-lex.europa.eu/eli/reg/2024/1689/oj",
+  "sources": [
+    {
+      "key": "eu-ai-act-2024-1689-art-4",
+      "article": "4",
+      "title": "AI literacy",
+      "reviewPurpose": "Evidence that the organization has considered and documented AI-literacy measures for relevant staff/persons. GuardAI does not determine legal sufficiency."
+    },
+    {
+      "key": "eu-ai-act-2024-1689-art-14",
+      "article": "14",
+      "title": "Human oversight",
+      "reviewPurpose": "Human-review reference for oversight controls where Article 14 is legally applicable. GuardAI does not classify a system as high-risk or determine applicability."
+    },
+    {
+      "key": "eu-ai-act-2024-1689-art-50",
+      "article": "50",
+      "title": "Transparency obligations for providers and deployers of certain AI systems",
+      "reviewPurpose": "Human-review reference for transparency disclosures where Article 50 is legally applicable. GuardAI does not determine applicability from technical observations alone."
+    }
+  ]
+}
