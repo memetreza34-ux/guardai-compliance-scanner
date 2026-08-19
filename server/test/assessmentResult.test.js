@@ -25,10 +25,41 @@ const valid = {
 
 test('normalizes a valid assessment result with immutable rule provenance', () => {
   const result = normalizeAssessmentResult(valid);
+  assert.equal(result.state, 'assessed');
   assert.equal(result.score, 75);
   assert.equal(result.issues[0].remediation, 'Add CSP.');
   assert.equal(result.issues[0].ruleId, 'security.content_security_policy');
   assert.equal(result.issues[0].ruleVersion, 1);
+});
+
+test('observed-only evidence remains explicitly unscored', () => {
+  const result = normalizeAssessmentResult({
+    state: 'observed',
+    detectorId: 'privacy.browser-observation',
+    detectorVersion: '0.1.0',
+    evidenceType: 'privacy-browser-observation',
+    source: 'https://example.com',
+    normalizedData: { consent: { bannerDetected: false } },
+    score: null,
+    issues: [],
+    notices: ['Technical observation only.'],
+  });
+
+  assert.equal(result.state, 'observed');
+  assert.equal(result.score, null);
+  assert.deepEqual(result.issues, []);
+});
+
+test('observed-only evidence rejects accidental numeric scoring', () => {
+  assert.throws(
+    () => normalizeAssessmentResult({
+      ...valid,
+      state: 'observed',
+      score: 100,
+      issues: [],
+    }),
+    (error) => error.code === 'INVALID_WORKER_RESULT',
+  );
 });
 
 test('rejects invalid scores and severities', () => {
