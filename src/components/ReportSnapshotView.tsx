@@ -135,6 +135,12 @@ export default function ReportSnapshotView({ report, onClose }: ReportSnapshotVi
                     <div>{finding.ruleVersion === null ? 'Keine Rule-Version' : `Rule v${finding.ruleVersion}`}</div>
                   </div>
                 </div>
+                {finding.ruleDefinitionHash && (
+                  <div className="text-xs text-muted-foreground">
+                    Rule Definition SHA-256:{' '}
+                    <span className="break-all font-mono">{finding.ruleDefinitionHash}</span>
+                  </div>
+                )}
                 {finding.remediation && <p className="text-sm text-muted-foreground">{finding.remediation}</p>}
                 <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
                   <div>Fingerprint: <span className="break-all font-mono">{finding.fingerprint}</span></div>
