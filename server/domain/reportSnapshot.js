@@ -37,6 +37,16 @@ function assertReportSnapshotIntegrity(report) {
   }
 
   if (report.schemaVersion >= 3) {
+    if (
+      !isPlainObject(report.snapshot.scoring)
+      || typeof report.snapshot.scoring.profileId !== 'string'
+      || !Number.isInteger(report.snapshot.scoring.profileVersion)
+      || typeof report.snapshot.scoring.profileDefinitionHash !== 'string'
+      || !/^[a-f0-9]{64}$/.test(report.snapshot.scoring.profileDefinitionHash)
+    ) {
+      throw new HttpError(500, 'Stored report scoring provenance is incomplete.', 'REPORT_INTEGRITY_FAILED');
+    }
+
     for (const finding of report.snapshot.findings || []) {
       const hasRule = finding.ruleId !== null && finding.ruleId !== undefined;
       const hasVersion = finding.ruleVersion !== null && finding.ruleVersion !== undefined;
@@ -72,7 +82,9 @@ function buildTechnicalReportSnapshot(scanResult) {
   if (
     typeof scan.scoringProfileId !== 'string' ||
     !Number.isInteger(scan.scoringProfileVersion) ||
-    scan.scoringProfileVersion < 1
+    scan.scoringProfileVersion < 1 ||
+    typeof scan.scoringProfileDefinitionHash !== 'string' ||
+    !/^[a-f0-9]{64}$/.test(scan.scoringProfileDefinitionHash)
   ) {
     throw new HttpError(
       500,
@@ -101,6 +113,7 @@ function buildTechnicalReportSnapshot(scanResult) {
     scoring: {
       profileId: scan.scoringProfileId,
       profileVersion: scan.scoringProfileVersion,
+      profileDefinitionHash: scan.scoringProfileDefinitionHash,
     },
     scan: {
       id: scan.id,
