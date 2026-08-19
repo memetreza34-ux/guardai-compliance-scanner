@@ -17,6 +17,7 @@ function safeStorage() {
     boundedUploadPolicy: true,
     organizationObjectKeyIsolation: true,
     quarantineLifecycleConfigured: true,
+    cleanObjectLifecycleConfigured: true,
   };
 }
 
@@ -43,11 +44,15 @@ function safeParser() {
   };
 }
 
-test('asset storage safety fails closed when public access or quarantine controls are absent', () => {
+test('asset storage safety fails closed when public access or lifecycle controls are absent', () => {
   assert.equal(assertStorageAttestation(safeStorage()).providerId, 'guardai-quarantine');
   assert.throws(
     () => assertStorageAttestation({ ...safeStorage(), publicReadDisabled: false }),
     (error) => error.code === 'ASSET_STORAGE_NOT_SAFE' && error.details.missingControls.includes('publicReadDisabled'),
+  );
+  assert.throws(
+    () => assertStorageAttestation({ ...safeStorage(), cleanObjectLifecycleConfigured: false }),
+    (error) => error.code === 'ASSET_STORAGE_NOT_SAFE',
   );
 });
 
@@ -72,6 +77,7 @@ test('asset pipeline refuses to activate unless all provider capabilities exist'
       async createQuarantineUpload() {},
       async statQuarantineObject() {},
       async openQuarantineReadStream() {},
+      async promoteQuarantineObject() {},
       async deleteQuarantineObject() {},
     },
     malwareScanner: {
@@ -88,6 +94,14 @@ test('asset pipeline refuses to activate unless all provider capabilities exist'
   assert.equal(result.storage.providerId, 'guardai-quarantine');
   assert.equal(storageAttestationCalls, 1);
 
+  const withoutPromotion = {
+    ...providers,
+    storageProvider: { ...providers.storageProvider, promoteQuarantineObject: undefined },
+  };
+  assert.throws(
+    () => assertAssetPipelineProviders(withoutPromotion),
+    (error) => error.code === 'ASSET_STORAGE_NOT_CONFIGURED',
+  );
   assert.throws(
     () => assertAssetPipelineProviders({ ...providers, malwareScanner: null }),
     (error) => error.code === 'ASSET_MALWARE_SCANNER_NOT_CONFIGURED',
