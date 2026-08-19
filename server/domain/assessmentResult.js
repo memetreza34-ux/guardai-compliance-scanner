@@ -1,6 +1,7 @@
 const { HttpError } = require('../lib/httpError');
 
 const SEVERITIES = new Set(['critical', 'warning', 'info']);
+const RESULT_STATES = new Set(['assessed', 'observed']);
 const RULE_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{2,119}$/;
 
 function isPlainObject(value) {
@@ -41,14 +42,35 @@ function normalizeRuleProvenance(issue) {
   return { ruleId, ruleVersion: issue.ruleVersion };
 }
 
+function normalizeResultState(result) {
+  const state = result.state ?? 'assessed';
+  if (!RESULT_STATES.has(state)) {
+    throw new HttpError(500, 'Worker result state is invalid.', 'INVALID_WORKER_RESULT');
+  }
+
+  if (state === 'assessed') {
+    if (!Number.isInteger(result.score) || result.score < 0 || result.score > 100) {
+      throw new HttpError(500, 'Worker assessment score is invalid.', 'INVALID_WORKER_RESULT');
+    }
+    return { state, score: result.score };
+  }
+
+  if (result.score !== null && result.score !== undefined) {
+    throw new HttpError(
+      500,
+      'Observed-only Worker evidence must not carry a numeric score.',
+      'INVALID_WORKER_RESULT',
+    );
+  }
+  return { state, score: null };
+}
+
 function normalizeAssessmentResult(result) {
   if (!isPlainObject(result)) {
     throw new HttpError(500, 'Worker assessment result is invalid.', 'INVALID_WORKER_RESULT');
   }
 
-  if (!Number.isInteger(result.score) || result.score < 0 || result.score > 100) {
-    throw new HttpError(500, 'Worker assessment score is invalid.', 'INVALID_WORKER_RESULT');
-  }
+  const resultState = normalizeResultState(result);
 
   if (!isPlainObject(result.normalizedData)) {
     throw new HttpError(500, 'Worker evidence payload must be an object.', 'INVALID_WORKER_RESULT');
@@ -84,7 +106,8 @@ function normalizeAssessmentResult(result) {
     evidenceType: normalizeText(result.evidenceType, 'evidenceType', 120),
     source: normalizeText(result.source, 'source', 2048),
     normalizedData: result.normalizedData,
-    score: result.score,
+    state: resultState.state,
+    score: resultState.score,
     issues,
     notices,
   };
@@ -93,5 +116,7 @@ function normalizeAssessmentResult(result) {
 module.exports = {
   isPlainObject,
   normalizeAssessmentResult,
+  normalizeResultState,
   normalizeRuleProvenance,
+  RESULT_STATES,
 };
