@@ -10,7 +10,8 @@ create table public.asset_uploads (
   target_id uuid,
   status text not null default 'awaiting_upload',
   pipeline_version text not null,
-  object_key text not null,
+  quarantine_object_key text not null,
+  clean_object_key text,
   file_name text not null,
   declared_media_type text not null,
   declared_byte_length bigint not null,
@@ -36,7 +37,8 @@ create table public.asset_uploads (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (organization_id, id),
-  unique (object_key),
+  unique (quarantine_object_key),
+  unique (clean_object_key),
   constraint asset_uploads_target_fk
     foreign key (organization_id, target_id)
     references public.targets(organization_id, id)
@@ -45,9 +47,15 @@ create table public.asset_uploads (
     status in ('awaiting_upload','uploaded','processing','clean','infected','rejected','failed','expired')
   ),
   constraint asset_uploads_pipeline_version_format check (pipeline_version ~ '^[0-9]+\.[0-9]+\.[0-9]+$'),
-  constraint asset_uploads_object_key_safe check (
-    object_key ~ '^quarantine/[0-9a-fA-F-]{36}/[0-9a-fA-F-]{36}$'
-    and position('..' in object_key) = 0
+  constraint asset_uploads_quarantine_key_safe check (
+    quarantine_object_key ~ '^quarantine/[0-9a-fA-F-]{36}/[0-9a-fA-F-]{36}$'
+    and position('..' in quarantine_object_key) = 0
+  ),
+  constraint asset_uploads_clean_key_safe check (
+    clean_object_key is null or (
+      clean_object_key ~ '^assets/[0-9a-fA-F-]{36}/[0-9a-fA-F-]{36}$'
+      and position('..' in clean_object_key) = 0
+    )
   ),
   constraint asset_uploads_file_name_length check (char_length(file_name) between 1 and 180),
   constraint asset_uploads_declared_media_type check (declared_media_type in ('application/pdf','text/plain')),
@@ -65,13 +73,14 @@ create table public.asset_uploads (
   constraint asset_uploads_error_message_length check (error_message is null or char_length(error_message) <= 1000),
   constraint asset_uploads_upload_expiry_order check (upload_expires_at > created_at),
   constraint asset_uploads_observed_metadata_complete check (
-    (status in ('awaiting_upload') and detected_media_type is null and actual_byte_length is null and content_sha256 is null)
+    (status = 'awaiting_upload' and detected_media_type is null and actual_byte_length is null and content_sha256 is null)
     or
     (status in ('uploaded','processing','clean','infected','rejected','failed','expired'))
   ),
   constraint asset_uploads_clean_requires_complete_provenance check (
     status <> 'clean' or (
-      detected_media_type = declared_media_type
+      clean_object_key is not null
+      and detected_media_type = declared_media_type
       and actual_byte_length = declared_byte_length
       and content_sha256 is not null
       and malware_verdict = 'clean'
@@ -85,6 +94,9 @@ create table public.asset_uploads (
       and completed_at is not null
       and error_code is null
     )
+  ),
+  constraint asset_uploads_nonclean_has_no_clean_object check (
+    status = 'clean' or clean_object_key is null
   ),
   constraint asset_uploads_infected_never_targets check (
     status <> 'infected' or (malware_verdict = 'infected' and target_id is null)
@@ -163,6 +175,9 @@ begin
   end if;
   if old.malware_verdict is not null and new.malware_verdict is distinct from old.malware_verdict then
     raise exception 'Asset malware verdict is immutable once persisted';
+  end if;
+  if old.clean_object_key is not null and new.clean_object_key is distinct from old.clean_object_key then
+    raise exception 'Asset clean object key is immutable once promoted';
   end if;
   if old.parser_id is not null and (
     new.parser_id is distinct from old.parser_id
