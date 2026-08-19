@@ -4,6 +4,7 @@ const {
   CONTRACT_VERSION,
   finalizePersistentStatus,
   finalizePersistentSubmission,
+  SUPPORTED_READ_VERSIONS,
 } = require('../lib/persistentScanContract');
 
 const ids = {
@@ -52,13 +53,75 @@ function submissionPayload() {
   };
 }
 
+function completedStatusPayload({ contractVersion = CONTRACT_VERSION, coverage, overallScore, requestedModules = ['security'] }) {
+  const base = submissionPayload();
+  return {
+    scan: {
+      ...base.scan,
+      contractVersion,
+      requestedModules,
+      status: 'completed',
+      overallScore,
+      coverage,
+      notices: [],
+      startedAt: now,
+      completedAt: now,
+      failedAt: null,
+      errorCode: null,
+      errorMessage: null,
+      updatedAt: now,
+    },
+    jobs: [{
+      ...base.jobs[0],
+      jobType: requestedModules[0],
+      status: 'completed',
+      resultSummary: {},
+      completedAt: now,
+    }],
+    evidence: [],
+    findings: [],
+  };
+}
+
 test('persistent submission injects version and strips internal worker fields', () => {
   const result = finalizePersistentSubmission(submissionPayload());
+  assert.equal(CONTRACT_VERSION, '0.3.0');
   assert.equal(result.contractVersion, CONTRACT_VERSION);
   assert.equal(result.jobs[0].workerId, undefined);
   assert.equal(result.scan.createdAt, now.toISOString());
 });
 
+test('current persistent reader keeps explicit support for contract 0.2.0', () => {
+  assert.deepEqual(SUPPORTED_READ_VERSIONS, ['0.2.0', '0.3.0']);
+
+  const result = finalizePersistentStatus(completedStatusPayload({
+    contractVersion: '0.2.0',
+    coverage: { security: { state: 'assessed', score: 75 } },
+    overallScore: 75,
+  }));
+
+  assert.equal(result.contractVersion, '0.3.0');
+  assert.equal(result.scan.contractVersion, '0.2.0');
+});
+
+test('persistent status carries observed coverage without inventing a score', () => {
+  const result = finalizePersistentStatus(completedStatusPayload({
+    coverage: {
+      privacy: {
+        state: 'observed',
+        score: null,
+        detectorId: 'privacy.browser-observation',
+        detectorVersion: '0.1.0',
+      },
+    },
+    overallScore: null,
+    requestedModules: ['privacy'],
+  }));
+
+  assert.equal(result.scan.coverage.privacy.state, 'observed');
+  assert.equal(result.scan.coverage.privacy.score, null);
+  assert.equal(result.scan.overallScore, null);
+});
 
 test('persistent status validates evidence and findings', () => {
   const base = submissionPayload();
@@ -76,7 +139,7 @@ test('persistent status validates evidence and findings', () => {
       errorMessage: null,
       updatedAt: now,
     },
-    jobs: [{ ...base.jobs[0], status: 'completed', resultSummary: { score: 75 }, completedAt: now }],
+    jobs: [{ ...base.jobs[0], status: 'completed', resultSummary: { state: 'assessed', score: 75 }, completedAt: now }],
     evidence: [{
       id: ids.evidence,
       detectorId: 'security.headers',
