@@ -88,6 +88,34 @@ async function rollbackQuietly(client, label) {
   }
 }
 
+async function loadReviewWithClient(client, organizationId, reviewId) {
+  const reviewResult = await client.query(
+    `select ${reviewColumns()}
+       from public.ai_governance_reviews
+      where organization_id = $1 and id = $2
+      limit 1`,
+    [organizationId, reviewId],
+  );
+  if (reviewResult.rowCount === 0) return null;
+
+  const itemsResult = await client.query(
+    `select i.review_id, i.item_key, i.legal_source_id,
+            i.documentation_state, i.applicability_state, i.trigger_key,
+            i.created_at, i.updated_at,
+            l.jurisdiction, l.source_name, l.reference, l.source_url
+       from public.ai_governance_review_items i
+       join public.legal_sources l on l.id = i.legal_source_id
+      where i.organization_id = $1 and i.review_id = $2
+      order by i.item_key asc`,
+    [organizationId, reviewId],
+  );
+
+  return {
+    ...mapReviewRow(reviewResult.rows[0]),
+    items: itemsResult.rows.map(mapReviewItemRow),
+  };
+}
+
 function createAiGovernanceRepository(pool) {
   if (!pool || typeof pool.connect !== 'function') {
     throw new TypeError('AI Governance repository requires a PostgreSQL pool.');
@@ -253,8 +281,9 @@ function createAiGovernanceRepository(pool) {
         );
       }
 
+      const created = await loadReviewWithClient(client, organizationId, review.id);
       await client.query('commit');
-      return getReview(organizationId, review.id);
+      return created;
     } catch (error) {
       await rollbackQuietly(client, 'AI Governance review creation');
       throw error;
@@ -264,31 +293,7 @@ function createAiGovernanceRepository(pool) {
   }
 
   async function getReview(organizationId, reviewId) {
-    const reviewResult = await pool.query(
-      `select ${reviewColumns()}
-         from public.ai_governance_reviews
-        where organization_id = $1 and id = $2
-        limit 1`,
-      [organizationId, reviewId],
-    );
-    if (reviewResult.rowCount === 0) return null;
-
-    const itemsResult = await pool.query(
-      `select i.review_id, i.item_key, i.legal_source_id,
-              i.documentation_state, i.applicability_state, i.trigger_key,
-              i.created_at, i.updated_at,
-              l.jurisdiction, l.source_name, l.reference, l.source_url
-         from public.ai_governance_review_items i
-         join public.legal_sources l on l.id = i.legal_source_id
-        where i.organization_id = $1 and i.review_id = $2
-        order by i.item_key asc`,
-      [organizationId, reviewId],
-    );
-
-    return {
-      ...mapReviewRow(reviewResult.rows[0]),
-      items: itemsResult.rows.map(mapReviewItemRow),
-    };
+    return loadReviewWithClient(pool, organizationId, reviewId);
   }
 
   async function listReviews(organizationId, aiSystemId = null) {
@@ -321,23 +326,11 @@ function createAiGovernanceRepository(pool) {
 
       let update;
       if (action === 'submit' && ['draft', 'reopened'].includes(current.status)) {
-        update = {
-          status: 'submitted',
-          submittedBy: actorId,
-          reviewedBy: null,
-        };
+        update = { status: 'submitted', submittedBy: actorId, reviewedBy: null };
       } else if (action === 'review' && current.status === 'submitted') {
-        update = {
-          status: 'reviewed',
-          submittedBy: current.submitted_by,
-          reviewedBy: actorId,
-        };
+        update = { status: 'reviewed', submittedBy: current.submitted_by, reviewedBy: actorId };
       } else if (action === 'reopen' && current.status === 'reviewed') {
-        update = {
-          status: 'reopened',
-          submittedBy: current.submitted_by,
-          reviewedBy: null,
-        };
+        update = { status: 'reopened', submittedBy: current.submitted_by, reviewedBy: null };
       } else {
         throw new HttpError(
           409,
@@ -392,6 +385,7 @@ function createAiGovernanceRepository(pool) {
 
 module.exports = {
   createAiGovernanceRepository,
+  loadReviewWithClient,
   mapReviewItemRow,
   mapReviewRow,
   mapSystemRow,
