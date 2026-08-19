@@ -340,7 +340,7 @@ function createJobRepository(pool) {
       }
 
       const resultSummary = {
-        state: 'assessed',
+        state: normalized.state,
         score: normalized.score,
         detectorId: normalized.detectorId,
         detectorVersion: normalized.detectorVersion,
@@ -364,7 +364,7 @@ function createJobRepository(pool) {
       );
 
       const coverageEntry = {
-        state: 'assessed',
+        state: normalized.state,
         score: normalized.score,
         detectorId: normalized.detectorId,
         detectorVersion: normalized.detectorVersion,
