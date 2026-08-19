@@ -31,7 +31,7 @@ All files below are **design sources, not applied migrations**. Before first sta
 8. `008_rule_provenance_security_seed_draft.sql` — historical Security Rule seed design; **not canonical seed source after Phase 15**.
 9. `009_finding_lifecycle_draft.sql` — remediation/finding lifecycle state.
 10. `010_finding_rediscovery_trigger_draft.sql` — deterministic finding rediscovery behavior.
-11. `011_scoring_profile_provenance_draft.sql` — stored/versioned scoring-profile provenance.
+11. `011_scoring_profile_provenance_draft.sql` — historical scoring-profile provenance/seed design; **not canonical scoring seed source after Phase 16**.
 12. `012_immutable_scan_provenance_draft.sql` — historical provenance immutability constraints.
 13. `013_report_snapshots_draft.sql` — immutable technical report snapshots + snapshot hash.
 14. `014_scan_target_snapshot_draft.sql` — Target identity frozen at Scan submission time.
@@ -45,16 +45,17 @@ All files below are **design sources, not applied migrations**. Before first sta
 22. `022_github_app_integration_draft.sql` — GitHub App installation provenance, one-time setup state and webhook inbox.
 23. `023_github_repository_target_invariants_draft.sql` — provider-authorized GitHub Repository Target provenance and uniqueness.
 24. `024_scan_usage_terminal_finalization_draft.sql` — automatic consume/release of reserved capability usage on terminal Scan status.
-25. `025_repository_rule_scoring_provenance_draft.sql` — historical Repository Rule seed/scoring design; Rule rows are **not canonical seed source after Phase 15**.
+25. `025_repository_rule_scoring_provenance_draft.sql` — historical Repository Rule/scoring seed design; **not canonical Rule/scoring seed source after Phases 15/16**.
 26. `026_ai_governance_guided_review_draft.sql` — typed AI System profiles, immutable Guided Review snapshot/source provenance, RLS and human-review workflow.
 27. `027_ai_governance_review_cycle_invariant_draft.sql` — one open AI Governance review cycle per AI System.
 28. `028_asset_quarantine_pipeline_draft.sql` — private Asset upload quarantine, ingestion jobs, content/malware/parser provenance.
 29. `029_asset_target_provenance_draft.sql` — only clean, same-tenant Asset uploads may become verified `guardai-upload` Targets.
 30. `030_rule_definition_hash_provenance_draft.sql` — immutable Rule definition SHA-256, Finding-instance triple provenance and Rule-version rewrite prevention.
+31. `031_scoring_definition_hash_provenance_draft.sql` — immutable scoring-profile SHA-256, Scan triple provenance and scoring-version rewrite prevention.
 
-### Canonical Rule seed source
+## Canonical generated seed sources
 
-Phase 15 changes the Rule migration model:
+### Rules
 
 ```text
 shared/rules/*.json
@@ -64,7 +65,19 @@ shared/rules/*.json
 → generated staging migration seed
 ```
 
-The hand-maintained Rule bodies inside older drafts `008_*` and `025_*` must **not** be copied into real migrations as canonical definitions. Real migrations must generate Rule rows from the canonical shared registries and verify the exact same `definition_hash` used by Workers.
+The hand-maintained Rule bodies inside older drafts `008_*` and `025_*` must **not** be copied into real migrations as canonical definitions.
+
+### Scoring profiles
+
+```text
+shared/scoring/*.json
+→ server/domain/scoringPolicy.js
+→ deterministic Scoring definition SHA-256
+→ server/scripts/generateScoringProfileSeedSql.js
+→ generated staging migration seed
+```
+
+The hand-maintained scoring seed bodies in older drafts `011_*` and `025_*` must **not** be copied into real migrations as canonical profile definitions.
 
 ## Promotion to real migrations
 
@@ -74,7 +87,7 @@ When the dedicated GuardAI staging project and Supabase CLI are available:
 2. verify the installed Supabase CLI and commands,
 3. generate real migrations through the CLI,
 4. consolidate/review the draft SQL in dependency-safe order,
-5. generate canonical Rule seeds from `shared/rules/*.json`,
+5. generate canonical Rule + Scoring seeds from shared JSON,
 6. apply to local/staging only,
 7. run database/security/performance advisors,
 8. generate DB types,
@@ -125,16 +138,31 @@ When the dedicated GuardAI staging project and Supabase CLI are available:
 - Rule Catalog reads only actual schema fields (`category`, `current_version`, `active`, `definition`, `definition_hash`, `changed_at`),
 - Rule API/UI never depend on removed prototype fields such as `framework`, `control_key`, `rationale`, `effective_from` or `config`.
 
+### Scoring / coverage provenance
+
+- each scoring profile has an immutable lower-case SHA-256 definition hash,
+- Scan stores `scoring_profile_id + scoring_profile_version + scoring_profile_definition_hash`,
+- all three fields are present together for scored persistent Scans,
+- generated scoring seed SQL is deterministic from `shared/scoring/*.json`,
+- same profile ID/version with a different definition hash fails migration/release validation,
+- existing profile description/config/hash cannot be rewritten; semantic changes require a new version,
+- idempotent Scan replay must match the exact profile tuple,
+- Worker completion resolves scoring profile using the stored expected hash,
+- stale/mutated scoring registry cannot silently complete an old Scan,
+- `observed` modules never become numeric 100s,
+- insufficient configured assessed coverage produces no numeric aggregate score,
+- future partial multi-module scores must expose explicit coverage before they can be product-enabled.
+
 ### Provenance/Reports
 
 - Finding Instance keeps exact Rule ID/version/definition hash,
-- Scan keeps exact scoring profile ID/version,
+- Scan keeps exact scoring profile ID/version/definition hash,
 - Website Security uses `security-mvp@1`,
 - Repository baseline uses `repository-mvp@1`,
 - Scan keeps immutable Target snapshot,
 - report snapshot hash is reproducible,
-- new Report schema v3 freezes Rule definition hash in each Rule-backed Finding,
-- historical Report schema v2 remains hash-readable without retroactively inventing a Rule hash,
+- new Report schema v3 freezes both Rule and scoring definition hashes,
+- historical Report schema v2 remains hash-readable without retroactively inventing missing hashes,
 - historical report snapshots cannot be rewritten,
 - Trust publication references the exact report/target in the same Organization,
 - revoked Trust publication cannot resolve publicly,
@@ -262,13 +290,13 @@ When the dedicated GuardAI staging project and Supabase CLI are available:
 - DNS TXT verification lifecycle,
 - verified-Target requirement before persistent scanning,
 - atomic Scan + Jobs + paid-capability reservation creation,
-- organization-scoped Scan idempotency,
+- organization-scoped Scan idempotency with scoring profile hash parity,
 - Job claim/lease/renew/reclaim,
 - bounded retries/terminal failures,
 - atomic Evidence/Finding persistence with Rule ID/version/definition-hash validation,
-- Rule/Score/Target provenance capture,
+- Rule/Scoring/Target provenance capture,
 - tenant-scoped Scan/Job/Evidence/Finding reads,
-- immutable report snapshot creation/verification (new v3 includes Rule hash),
+- immutable report snapshot creation/verification (new v3 includes Rule + Scoring hashes),
 - public Trust publish/revoke/read projection,
 - concurrency-safe capability usage reservations,
 - Stripe Customer/Subscription reconciliation,
