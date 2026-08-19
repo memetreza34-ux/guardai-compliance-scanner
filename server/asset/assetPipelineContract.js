@@ -63,7 +63,13 @@ function assertStorageAttestation(attestation) {
 }
 
 function assertMalwareScannerAttestation(attestation) {
-  const requiredTrue = ['isolatedExecution', 'failClosedOnScannerError', 'signatureVersionReported', 'noPublicArtifactAccess'];
+  const requiredTrue = [
+    'isolatedExecution',
+    'failClosedOnScannerError',
+    'signatureVersionReported',
+    'noPublicArtifactAccess',
+    'noDirectStorageCredentials',
+  ];
   if (!attestation || typeof attestation !== 'object' || Array.isArray(attestation)) {
     throw new HttpError(503, 'Malware scanner attestation is missing.', 'ASSET_MALWARE_SCANNER_NOT_SAFE');
   }
@@ -85,7 +91,14 @@ function assertMalwareScannerAttestation(attestation) {
 }
 
 function assertParserAttestation(attestation) {
-  const requiredTrue = ['isolatedExecution', 'networkDisabled', 'ephemeralFilesystem', 'resourceLimitsEnforced', 'outputLimitEnforced'];
+  const requiredTrue = [
+    'isolatedExecution',
+    'networkDisabled',
+    'ephemeralFilesystem',
+    'resourceLimitsEnforced',
+    'outputLimitEnforced',
+    'noDirectStorageCredentials',
+  ];
   if (!attestation || typeof attestation !== 'object' || Array.isArray(attestation)) {
     throw new HttpError(503, 'Asset parser attestation is missing.', 'ASSET_PARSER_NOT_SAFE');
   }
@@ -121,14 +134,14 @@ function assertAssetPipelineProviders({ storageProvider, malwareScanner, parserP
   if (
     !malwareScanner ||
     typeof malwareScanner.getSafetyAttestation !== 'function' ||
-    typeof malwareScanner.scanQuarantineObject !== 'function'
+    typeof malwareScanner.scanStream !== 'function'
   ) {
     throw new HttpError(503, 'Asset malware scanner is not configured.', 'ASSET_MALWARE_SCANNER_NOT_CONFIGURED');
   }
   if (
     !parserProvider ||
     typeof parserProvider.getSafetyAttestation !== 'function' ||
-    typeof parserProvider.parseQuarantineObject !== 'function'
+    typeof parserProvider.parseStream !== 'function'
   ) {
     throw new HttpError(503, 'Asset parser provider is not configured.', 'ASSET_PARSER_NOT_CONFIGURED');
   }
