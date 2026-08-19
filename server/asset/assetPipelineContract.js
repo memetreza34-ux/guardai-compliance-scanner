@@ -110,6 +110,7 @@ function assertAssetPipelineProviders({ storageProvider, malwareScanner, parserP
     typeof storageProvider.getSafetyAttestation !== 'function' ||
     typeof storageProvider.createQuarantineUpload !== 'function' ||
     typeof storageProvider.statQuarantineObject !== 'function' ||
+    typeof storageProvider.openQuarantineReadStream !== 'function' ||
     typeof storageProvider.deleteQuarantineObject !== 'function'
   ) {
     throw new HttpError(503, 'Asset quarantine storage provider is not configured.', 'ASSET_STORAGE_NOT_CONFIGURED');
