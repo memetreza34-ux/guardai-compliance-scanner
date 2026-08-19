@@ -9,7 +9,7 @@ import type {
   TechnicalReportRecord,
 } from '../types/report';
 
-const CURRENT_REPORT_SCHEMA_VERSION = 2;
+const SUPPORTED_REPORT_SCHEMA_VERSIONS = new Set([2, 3]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -19,13 +19,14 @@ function assertReportRecord(value: unknown): TechnicalReportRecord {
   if (!isRecord(value) || !isRecord(value.snapshot)) {
     throw new GuardApiError('Technical report response is invalid.', 'INVALID_API_RESPONSE', 200);
   }
+  const schemaVersion = typeof value.schemaVersion === 'number' ? value.schemaVersion : NaN;
   if (
     typeof value.id !== 'string' ||
     typeof value.organizationId !== 'string' ||
     typeof value.scanId !== 'string' ||
     value.reportType !== 'technical-screening' ||
-    value.schemaVersion !== CURRENT_REPORT_SCHEMA_VERSION ||
-    value.snapshot.schemaVersion !== CURRENT_REPORT_SCHEMA_VERSION ||
+    !SUPPORTED_REPORT_SCHEMA_VERSIONS.has(schemaVersion) ||
+    value.snapshot.schemaVersion !== schemaVersion ||
     value.snapshot.reportType !== 'technical-screening' ||
     typeof value.snapshotHash !== 'string' ||
     !/^[a-f0-9]{64}$/.test(value.snapshotHash)
@@ -36,6 +37,24 @@ function assertReportRecord(value: unknown): TechnicalReportRecord {
       200,
     );
   }
+
+  if (schemaVersion >= 3) {
+    if (!Array.isArray(value.snapshot.findings)) {
+      throw new GuardApiError('Technical report findings are invalid.', 'INVALID_API_RESPONSE', 200);
+    }
+    for (const finding of value.snapshot.findings) {
+      if (!isRecord(finding)) {
+        throw new GuardApiError('Technical report finding is invalid.', 'INVALID_API_RESPONSE', 200);
+      }
+      const hasRule = typeof finding.ruleId === 'string';
+      const hasVersion = typeof finding.ruleVersion === 'number' && Number.isInteger(finding.ruleVersion);
+      const hasHash = typeof finding.ruleDefinitionHash === 'string' && /^[a-f0-9]{64}$/.test(finding.ruleDefinitionHash);
+      if (hasRule !== hasVersion || hasRule !== hasHash) {
+        throw new GuardApiError('Technical report Rule provenance is invalid.', 'INVALID_API_RESPONSE', 200);
+      }
+    }
+  }
+
   return value as unknown as TechnicalReportRecord;
 }
 
