@@ -52,6 +52,9 @@ test('programming, authorization and deterministic coverage/result failures are 
   assert.equal(shouldRetryWorkerError({ code: 'TARGET_FETCH_FAILED' }), true);
   assert.equal(shouldRetryWorkerError({ code: 'GITHUB_PROVIDER_UNAVAILABLE' }), true);
   assert.equal(shouldRetryWorkerError({ code: 'BROWSER_PROVIDER_UNAVAILABLE' }), true);
+  assert.equal(shouldRetryWorkerError({ code: 'ASSET_STORAGE_STAT_FAILED' }), true);
+  assert.equal(shouldRetryWorkerError({ code: 'ASSET_MALWARE_PROVIDER_UNAVAILABLE' }), true);
+  assert.equal(shouldRetryWorkerError({ code: 'ASSET_PARSER_PROVIDER_UNAVAILABLE' }), true);
 
   assert.equal(shouldRetryWorkerError({ code: 'TARGET_VERIFICATION_LOST' }), false);
   assert.equal(shouldRetryWorkerError({ code: 'WORKER_JOB_TYPE_MISMATCH' }), false);
@@ -66,4 +69,11 @@ test('programming, authorization and deterministic coverage/result failures are 
   assert.equal(shouldRetryWorkerError({ code: 'ACCESSIBILITY_ENGINE_RESULT_INVALID' }), false);
   assert.equal(shouldRetryWorkerError({ code: 'ACCESSIBILITY_ENGINE_RESULT_LIMIT' }), false);
   assert.equal(shouldRetryWorkerError({ code: 'BROWSER_TARGET_INVALID' }), false);
+
+  assert.equal(shouldRetryWorkerError({ code: 'ASSET_UPLOAD_SIZE_MISMATCH' }), false);
+  assert.equal(shouldRetryWorkerError({ code: 'ASSET_MEDIA_TYPE_MISMATCH' }), false);
+  assert.equal(shouldRetryWorkerError({ code: 'ASSET_BINARY_CONTENT_REJECTED' }), false);
+  assert.equal(shouldRetryWorkerError({ code: 'ASSET_TEXT_ENCODING_INVALID' }), false);
+  assert.equal(shouldRetryWorkerError({ code: 'ASSET_PARSER_OUTPUT_LIMIT' }), false);
+  assert.equal(shouldRetryWorkerError({ code: 'ASSET_STORAGE_PROMOTION_INVALID' }), false);
 });
