@@ -46,6 +46,7 @@ function assertStorageAttestation(attestation) {
     'boundedUploadPolicy',
     'organizationObjectKeyIsolation',
     'quarantineLifecycleConfigured',
+    'cleanObjectLifecycleConfigured',
   ];
   if (!attestation || typeof attestation !== 'object' || Array.isArray(attestation)) {
     throw new HttpError(503, 'Asset quarantine storage attestation is missing.', 'ASSET_STORAGE_NOT_SAFE');
@@ -111,6 +112,7 @@ function assertAssetPipelineProviders({ storageProvider, malwareScanner, parserP
     typeof storageProvider.createQuarantineUpload !== 'function' ||
     typeof storageProvider.statQuarantineObject !== 'function' ||
     typeof storageProvider.openQuarantineReadStream !== 'function' ||
+    typeof storageProvider.promoteQuarantineObject !== 'function' ||
     typeof storageProvider.deleteQuarantineObject !== 'function'
   ) {
     throw new HttpError(503, 'Asset quarantine storage provider is not configured.', 'ASSET_STORAGE_NOT_CONFIGURED');
