@@ -64,6 +64,17 @@ function assertPromotionResult(result, expected) {
   return { objectKey: result.objectKey, sha256: expected.sha256 };
 }
 
+async function openVerifiedAssetStream(storageProvider, context) {
+  const stream = await storageProvider.openQuarantineReadStream({
+    organizationId: context.organizationId,
+    objectKey: context.quarantineObjectKey,
+  });
+  if (!stream || typeof stream[Symbol.asyncIterator] !== 'function') {
+    throw new HttpError(502, 'Asset storage provider returned an invalid private read stream.', 'ASSET_STORAGE_READ_STREAM_INVALID');
+  }
+  return stream;
+}
+
 async function executeAssetIngestion(context, {
   storageProvider,
   malwareScanner,
@@ -71,11 +82,8 @@ async function executeAssetIngestion(context, {
   attestations,
   limits,
 }) {
-  const stream = await storageProvider.openQuarantineReadStream({
-    organizationId: context.organizationId,
-    objectKey: context.quarantineObjectKey,
-  });
-  const observedRaw = await hashAndSniffAssetStream(stream, limits.maxUploadBytes);
+  const verificationStream = await openVerifiedAssetStream(storageProvider, context);
+  const observedRaw = await hashAndSniffAssetStream(verificationStream, limits.maxUploadBytes);
   const observed = assertObservedAssetMetadata({
     declared: {
       fileName: context.fileName,
@@ -85,13 +93,14 @@ async function executeAssetIngestion(context, {
     observed: observedRaw,
   });
 
+  const malwareStream = await openVerifiedAssetStream(storageProvider, context);
   const malware = normalizeMalwareVerdict(
-    await malwareScanner.scanQuarantineObject({
-      organizationId: context.organizationId,
-      objectKey: context.quarantineObjectKey,
+    await malwareScanner.scanStream({
+      contentStream: malwareStream,
       expectedSha256: observed.sha256,
       mediaType: observed.detectedMediaType,
       byteLength: observed.actualByteLength,
+      maxBytes: limits.maxUploadBytes,
     }),
     attestations.malware,
   );
@@ -100,12 +109,14 @@ async function executeAssetIngestion(context, {
     return { outcome: 'infected', observed, malware };
   }
 
+  const parserStream = await openVerifiedAssetStream(storageProvider, context);
   const parserResult = normalizeParserResult(
-    await parserProvider.parseQuarantineObject({
-      organizationId: context.organizationId,
-      objectKey: context.quarantineObjectKey,
+    await parserProvider.parseStream({
+      contentStream: parserStream,
       mediaType: observed.detectedMediaType,
       expectedSha256: observed.sha256,
+      byteLength: observed.actualByteLength,
+      maxBytes: limits.maxUploadBytes,
       maxExtractedTextChars: limits.maxExtractedTextChars,
       timeoutSeconds: limits.maxParserSeconds,
     }),
@@ -239,6 +250,7 @@ async function processOneAssetIngestionJob({
 module.exports = {
   assertPromotionResult,
   executeAssetIngestion,
+  openVerifiedAssetStream,
   processOneAssetIngestionJob,
   startAssetLeaseHeartbeat,
 };
