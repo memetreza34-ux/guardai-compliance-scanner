@@ -207,7 +207,8 @@ function createUnixParserProvider({
           socket.destroy();
           throw new HttpError(422, 'Parser stream SHA-256 changed after Asset verification.', 'ASSET_PARSER_INPUT_HASH_MISMATCH');
         }
-        socket.end();
+        // The server knows the exact byte length from the header and owns connection
+        // termination after the parser response. Do not half-close the client here.
         const response = await responsePromise;
         if (!response || typeof response !== 'object' || Array.isArray(response)) {
           throw new HttpError(502, 'Parser sandbox returned an invalid response.', 'ASSET_PARSER_RESULT_INVALID');
