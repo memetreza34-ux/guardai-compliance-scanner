@@ -8,50 +8,131 @@
       "id": "security.https_transport",
       "version": 1,
       "findingId": "insecure-http-transport",
+      "category": "transport",
       "title": "HTTPS transport",
-      "defaultSeverity": "critical"
+      "defaultSeverity": "critical",
+      "evidenceRequirements": [
+        "Final validated Target URL after allowed redirects"
+      ],
+      "detectorLogic": "Fail when the final validated Target URL uses the http scheme instead of https.",
+      "severityLogic": "Critical when the final validated Target is delivered over HTTP.",
+      "confidenceLogic": "Deterministic scheme observation from the final GuardAI fetch URL; does not assess TLS configuration quality beyond HTTPS use.",
+      "messageTemplate": "The analyzed Target finished on unencrypted HTTP after allowed redirects.",
+      "remediation": "Redirect HTTP to HTTPS and ensure the Target is served exclusively over correctly configured HTTPS.",
+      "requirementMappings": [],
+      "changelog": "v1: initial deterministic HTTPS transport rule."
     },
     {
       "id": "security.content_security_policy",
       "version": 1,
       "findingId": "missing-csp",
+      "category": "headers",
       "title": "Content-Security-Policy presence",
-      "defaultSeverity": "critical"
+      "defaultSeverity": "critical",
+      "evidenceRequirements": [
+        "Final HTTP response headers"
+      ],
+      "detectorLogic": "Fail when the final observed response does not contain a Content-Security-Policy header.",
+      "severityLogic": "Critical for the current GuardAI security baseline when CSP is absent; policy quality is not assessed by this rule.",
+      "confidenceLogic": "High confidence for header presence/absence on the observed response only; does not prove CSP coverage across all application routes.",
+      "messageTemplate": "No Content-Security-Policy header was observed on the analyzed response.",
+      "remediation": "Define a suitable Content-Security-Policy and test it safely, commonly beginning with Report-Only before enforcement.",
+      "requirementMappings": [],
+      "changelog": "v1: initial CSP-presence rule."
     },
     {
       "id": "security.strict_transport_security",
       "version": 1,
       "findingId": "missing-hsts",
+      "category": "headers",
       "title": "Strict-Transport-Security presence",
-      "defaultSeverity": "warning"
+      "defaultSeverity": "warning",
+      "evidenceRequirements": [
+        "Final validated HTTPS Target URL",
+        "Final HTTP response headers"
+      ],
+      "detectorLogic": "Applicable only when the final Target uses HTTPS; fail when Strict-Transport-Security is absent from the observed response.",
+      "severityLogic": "Warning when HSTS is absent on an observed HTTPS response.",
+      "confidenceLogic": "High confidence for the observed response header only; does not infer preload readiness or subdomain policy correctness.",
+      "messageTemplate": "No Strict-Transport-Security header was observed on the analyzed HTTPS response.",
+      "remediation": "Enable HSTS only after HTTPS is complete and stable for the intended hosts, using a policy appropriate to the deployment.",
+      "requirementMappings": [],
+      "changelog": "v1: initial HTTPS-only HSTS presence rule."
     },
     {
       "id": "security.frame_protection",
       "version": 1,
       "findingId": "missing-frame-protection",
+      "category": "headers",
       "title": "Frame embedding protection",
-      "defaultSeverity": "warning"
+      "defaultSeverity": "warning",
+      "evidenceRequirements": [
+        "Content-Security-Policy header",
+        "X-Frame-Options header"
+      ],
+      "detectorLogic": "Pass when X-Frame-Options is present or CSP contains an observable frame-ancestors directive; otherwise fail.",
+      "severityLogic": "Warning when neither supported frame-protection mechanism is observed.",
+      "confidenceLogic": "High confidence for presence of the two inspected mechanisms on the observed response; policy semantics are not fully evaluated.",
+      "messageTemplate": "No unambiguous frame-embedding protection was observed on the analyzed response.",
+      "remediation": "Prefer a deliberate CSP frame-ancestors policy and verify the embedding origins the application actually requires.",
+      "requirementMappings": [],
+      "changelog": "v1: initial X-Frame-Options or CSP frame-ancestors presence rule."
     },
     {
       "id": "security.content_type_nosniff",
       "version": 1,
       "findingId": "missing-nosniff",
+      "category": "headers",
       "title": "X-Content-Type-Options nosniff",
-      "defaultSeverity": "warning"
+      "defaultSeverity": "warning",
+      "evidenceRequirements": [
+        "Final HTTP response headers"
+      ],
+      "detectorLogic": "Pass only when X-Content-Type-Options normalizes to the value nosniff on the observed response.",
+      "severityLogic": "Warning when the nosniff directive is not observed.",
+      "confidenceLogic": "Deterministic header-value observation for the analyzed response only.",
+      "messageTemplate": "X-Content-Type-Options: nosniff was not observed on the analyzed response.",
+      "remediation": "Set X-Content-Type-Options to nosniff unless a documented technical exception requires different behavior.",
+      "requirementMappings": [],
+      "changelog": "v1: initial nosniff rule."
     },
     {
       "id": "security.cookie_secure",
       "version": 1,
       "findingId": "cookies-without-secure",
+      "category": "cookies",
       "title": "Secure attribute on HTTPS cookies",
-      "defaultSeverity": "warning"
+      "defaultSeverity": "warning",
+      "evidenceRequirements": [
+        "Final validated HTTPS Target URL",
+        "Set-Cookie headers from the observed response"
+      ],
+      "detectorLogic": "Applicable when the observed HTTPS response sets at least one cookie; fail when one or more observed Set-Cookie values lack the Secure attribute.",
+      "severityLogic": "Warning when any cookie set by the observed HTTPS response lacks Secure.",
+      "confidenceLogic": "High confidence for the cookies set in the observed response; does not prove attributes for cookies created on other routes or client-side code.",
+      "messageTemplate": "One or more cookies set by the analyzed HTTPS response were observed without the Secure attribute.",
+      "remediation": "Review affected cookies and apply Secure to cookies that must only travel over HTTPS.",
+      "requirementMappings": [],
+      "changelog": "v1: initial Secure-attribute observation rule."
     },
     {
       "id": "security.mixed_content",
       "version": 1,
       "findingId": "mixed-content-observed",
+      "category": "content",
       "title": "Mixed HTTP content on HTTPS document",
-      "defaultSeverity": "warning"
+      "defaultSeverity": "warning",
+      "evidenceRequirements": [
+        "Final validated HTTPS Target URL",
+        "Bounded HTML body of the observed response"
+      ],
+      "detectorLogic": "For an HTTPS document, inspect bounded supported resource attributes and fail when absolute HTTP resource URLs are observed.",
+      "severityLogic": "Critical when at least one observed mixed-content resource is classified as active by this detector; otherwise warning when only passive supported resources are observed.",
+      "confidenceLogic": "Deterministic for supported HTML attributes in the bounded observed document; runtime-generated or unsupported resource references may remain unassessed.",
+      "messageTemplate": "Absolute HTTP resources were observed in the analyzed HTTPS document.",
+      "remediation": "Load the affected resources over HTTPS or remove the insecure embedding, then run a new scan.",
+      "requirementMappings": [],
+      "changelog": "v1: initial bounded mixed-content observation rule."
     }
   ]
 }
