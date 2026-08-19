@@ -77,6 +77,11 @@ export default function ReportSnapshotView({ report, onClose }: ReportSnapshotVi
           <div className="text-xs text-muted-foreground">Scoring-Profil</div>
           <div className="font-semibold">{snapshot.scoring.profileId}</div>
           <div className="text-xs text-muted-foreground">Version {snapshot.scoring.profileVersion}</div>
+          {snapshot.scoring.profileDefinitionHash && (
+            <div className="mt-1 break-all font-mono text-[10px] text-muted-foreground">
+              SHA-256 {snapshot.scoring.profileDefinitionHash}
+            </div>
+          )}
         </div>
       </section>
 
