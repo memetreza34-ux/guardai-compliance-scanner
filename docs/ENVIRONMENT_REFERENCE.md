@@ -12,7 +12,7 @@ VITE_SUPABASE_URL
 VITE_SUPABASE_PUBLISHABLE_KEY
 ```
 
-Never place database passwords, Supabase secret/service-role keys, Stripe secrets, GitHub App private keys, webhook secrets or Gemini API keys in `VITE_*`.
+Never place database passwords, Supabase secret/service-role keys, Stripe secrets, GitHub App private keys, webhook secrets, storage credentials or Gemini API keys in `VITE_*`.
 
 ## Core API
 
@@ -36,7 +36,7 @@ DATABASE_POOL_MAX=10
 
 These point only to the dedicated GuardAI environment. The existing connected multi-application Supabase project is not a GuardAI runtime target.
 
-## Security Worker
+## Security / general Worker runtime
 
 ```text
 WORKER_LEASE_SECONDS=60
@@ -44,6 +44,41 @@ WORKER_POLL_MS=2000
 ```
 
 The separate Security Worker process executes the real persistent `security` module.
+
+## Asset ingestion — currently fail-closed
+
+```text
+ASSET_PIPELINE_ENABLED=false
+GUARDAI_ASSET_MAX_BYTES=10485760
+GUARDAI_ASSET_UPLOAD_TTL_SECONDS=900
+GUARDAI_ASSET_MAX_EXTRACTED_TEXT_CHARS=100000
+GUARDAI_ASSET_PARSER_TIMEOUT_SECONDS=30
+GUARDAI_ASSET_WORKER_LEASE_SECONDS=120
+GUARDAI_CLAMD_SOCKET=/run/guardai/clamd.sock
+GUARDAI_CLAMD_TIMEOUT_MS=30000
+GUARDAI_ASSET_PARSER_SOCKET=/run/guardai/asset-parser.sock
+GUARDAI_ASSET_PARSER_TIMEOUT_MS=30000
+```
+
+Rules:
+
+- `ASSET_PIPELINE_ENABLED` remains `false` in production until ADR 0008's S3 adapter, reproducible backend lockfile and staging IAM/lifecycle/isolation proof are complete.
+- the Asset API and Asset Worker both fail closed when the feature flag is disabled.
+- clamd is Unix-socket-only in GuardAI source; do not expose an unauthenticated clamd TCP port publicly.
+- the parser process uses its own Unix socket and must be deployed with no network, an ephemeral filesystem and resource limits before its safety attestation may be considered true.
+- the parser and malware scanner receive byte streams, not S3 credentials or object URLs.
+- quarantine upload URLs are short-lived transfer data and must never enter logs, analytics or persistent customer-visible DTOs.
+- AWS/S3 bucket/credential variables are deliberately absent until the reviewed S3 adapter is added with a real backend lockfile.
+
+Source process commands:
+
+```text
+npm run worker:asset
+npm run worker:asset:once
+npm run parser:asset:sandbox
+```
+
+Their presence is not proof the production Asset pipeline is enabled or validated.
 
 ## Controlled prototype / AI
 
@@ -54,7 +89,7 @@ ALLOW_PROTOTYPE_SCAN_ENDPOINTS=false
 ALLOW_UNAUTHENTICATED_AI_SCANS=false
 ```
 
-Both access flags remain false in shared/public/production environments.
+Both access flags remain false in shared/public/production environments. Persistent Privacy/Accessibility are evidence-first Browser modules, not Gemini fallbacks.
 
 ## Stripe Billing
 
@@ -128,8 +163,9 @@ At minimum maintain separate local/staging/production values for:
 - PostgreSQL,
 - Stripe mode/keys/webhook endpoint/Prices,
 - GitHub App/private key/webhook endpoint,
+- Asset storage/clamd/parser runtime,
 - Gemini key,
 - CORS/public URL,
-- storage and future mail provider.
+- future mail provider.
 
 No staging secret is promoted to production by copying a `.env` file.
