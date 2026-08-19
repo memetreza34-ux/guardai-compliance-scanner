@@ -48,13 +48,22 @@ test('worker errors are bounded and normalized', () => {
 });
 
 
-test('programming, authorization and deterministic repository coverage failures are terminal', () => {
+test('programming, authorization and deterministic coverage/result failures are terminal', () => {
   assert.equal(shouldRetryWorkerError({ code: 'TARGET_FETCH_FAILED' }), true);
   assert.equal(shouldRetryWorkerError({ code: 'GITHUB_PROVIDER_UNAVAILABLE' }), true);
+  assert.equal(shouldRetryWorkerError({ code: 'BROWSER_PROVIDER_UNAVAILABLE' }), true);
+
   assert.equal(shouldRetryWorkerError({ code: 'TARGET_VERIFICATION_LOST' }), false);
   assert.equal(shouldRetryWorkerError({ code: 'WORKER_JOB_TYPE_MISMATCH' }), false);
   assert.equal(shouldRetryWorkerError({ code: 'INVALID_WORKER_RESULT' }), false);
+
   assert.equal(shouldRetryWorkerError({ code: 'REPOSITORY_BASELINE_COVERAGE_INCOMPLETE' }), false);
   assert.equal(shouldRetryWorkerError({ code: 'REPOSITORY_TREE_METADATA_INCOMPLETE' }), false);
   assert.equal(shouldRetryWorkerError({ code: 'REPOSITORY_TREE_PATH_UNSAFE' }), false);
+
+  assert.equal(shouldRetryWorkerError({ code: 'PRIVACY_BROWSER_OBSERVATION_INVALID' }), false);
+  assert.equal(shouldRetryWorkerError({ code: 'PRIVACY_BROWSER_OBSERVATION_LIMIT' }), false);
+  assert.equal(shouldRetryWorkerError({ code: 'ACCESSIBILITY_ENGINE_RESULT_INVALID' }), false);
+  assert.equal(shouldRetryWorkerError({ code: 'ACCESSIBILITY_ENGINE_RESULT_LIMIT' }), false);
+  assert.equal(shouldRetryWorkerError({ code: 'BROWSER_TARGET_INVALID' }), false);
 });
