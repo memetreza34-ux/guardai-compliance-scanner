@@ -228,7 +228,8 @@ function createJobRepository(pool) {
         `select j.id, j.organization_id, j.scan_id, j.job_type, j.status,
                 j.worker_id, (j.lease_expires_at > now()) as lease_valid,
                 s.status as scan_status, s.target_id,
-                s.scoring_profile_id, s.scoring_profile_version
+                s.scoring_profile_id, s.scoring_profile_version,
+                s.scoring_profile_definition_hash
            from public.scan_jobs j
            join public.scans s
              on s.id = j.scan_id and s.organization_id = j.organization_id
@@ -429,6 +430,7 @@ function createJobRepository(pool) {
         const scoringProfile = getScoringProfile(
           row.scoring_profile_id,
           row.scoring_profile_version,
+          row.scoring_profile_definition_hash,
         );
         const moduleResults = Object.fromEntries(
           aggregate.rows.map((job) => [job.job_type, job.result_summary || {}]),
@@ -446,8 +448,9 @@ function createJobRepository(pool) {
                   updated_at = now()
             where id = $1
               and organization_id = $2
+              and scoring_profile_definition_hash = $4
               and status = 'running'`,
-          [row.scan_id, row.organization_id, scoringResult.score],
+          [row.scan_id, row.organization_id, scoringResult.score, scoringResult.profileDefinitionHash],
         );
       }
 
