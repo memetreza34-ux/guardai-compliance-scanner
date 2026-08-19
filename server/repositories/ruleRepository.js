@@ -1,8 +1,4 @@
 const { HttpError } = require('../lib/httpError');
-const {
-  decodeTimestampIdCursor,
-  encodeTimestampIdCursor,
-} = require('../lib/paginationCursor');
 
 function normalizeRuleLimit(value) {
   if (value === undefined || value === null || value === '') return 50;
@@ -16,11 +12,10 @@ function normalizeRuleLimit(value) {
 function mapRule(row) {
   return {
     id: row.id,
-    framework: row.framework,
     category: row.category,
-    controlKey: row.control_key,
     title: row.title,
-    status: row.status,
+    currentVersion: row.current_version,
+    active: row.active,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -31,12 +26,10 @@ function mapRuleVersion(row) {
     ruleId: row.rule_id,
     version: row.version,
     implementationVersion: row.implementation_version,
-    rationale: row.rationale,
     legalSourceIds: row.legal_source_ids || [],
-    effectiveFrom: row.effective_from,
-    effectiveTo: row.effective_to,
-    config: row.config || {},
-    createdAt: row.created_at,
+    definition: row.definition || {},
+    definitionHash: row.definition_hash,
+    changedAt: row.changed_at,
   };
 }
 
@@ -45,25 +38,25 @@ function createRuleRepository(pool) {
     throw new TypeError('Rule repository requires a PostgreSQL pool.');
   }
 
-  async function listRules({ framework = null, status = 'active', limit }) {
+  async function listRules({ category = null, active = true, limit }) {
     const pageSize = normalizeRuleLimit(limit);
     const params = [];
     const where = [];
-    if (framework) {
-      params.push(framework);
-      where.push(`framework = $${params.length}`);
+    if (category) {
+      params.push(category);
+      where.push(`category = $${params.length}`);
     }
-    if (status) {
-      params.push(status);
-      where.push(`status = $${params.length}`);
+    if (typeof active === 'boolean') {
+      params.push(active);
+      where.push(`active = $${params.length}`);
     }
     params.push(pageSize);
 
     const result = await pool.query(
-      `select id, framework, category, control_key, title, status, created_at, updated_at
+      `select id, category, title, current_version, active, created_at, updated_at
          from public.rules
         ${where.length > 0 ? `where ${where.join(' and ')}` : ''}
-        order by framework asc, category asc, id asc
+        order by category asc, id asc
         limit $${params.length}`,
       params,
     );
@@ -72,7 +65,7 @@ function createRuleRepository(pool) {
 
   async function getRule(ruleId) {
     const result = await pool.query(
-      `select id, framework, category, control_key, title, status, created_at, updated_at
+      `select id, category, title, current_version, active, created_at, updated_at
          from public.rules
         where id = $1
         limit 1`,
@@ -83,8 +76,8 @@ function createRuleRepository(pool) {
 
   async function listRuleVersions(ruleId) {
     const result = await pool.query(
-      `select rule_id, version, implementation_version, rationale,
-              legal_source_ids, effective_from, effective_to, config, created_at
+      `select rule_id, version, implementation_version,
+              legal_source_ids, definition, definition_hash, changed_at
          from public.rule_versions
         where rule_id = $1
         order by version desc`,
@@ -95,8 +88,8 @@ function createRuleRepository(pool) {
 
   async function getRuleVersion(ruleId, version) {
     const result = await pool.query(
-      `select rule_id, version, implementation_version, rationale,
-              legal_source_ids, effective_from, effective_to, config, created_at
+      `select rule_id, version, implementation_version,
+              legal_source_ids, definition, definition_hash, changed_at
          from public.rule_versions
         where rule_id = $1 and version = $2
         limit 1`,
