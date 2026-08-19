@@ -11,6 +11,26 @@ export type PersistentModuleId =
   | 'repository'
   | 'asset';
 export type PersistentFindingSeverity = 'critical' | 'warning' | 'info';
+export type PersistentCoverageState =
+  | 'queued'
+  | 'running'
+  | 'retrying'
+  | 'assessed'
+  | 'observed'
+  | 'error'
+  | 'cancelled'
+  | 'not_assessed';
+
+export interface PersistentCoverageEntry {
+  state: PersistentCoverageState;
+  score?: number | null;
+  detectorId?: string;
+  detectorVersion?: string;
+  evidenceId?: string;
+  attemptCount?: number;
+  maxAttempts?: number;
+  [key: string]: unknown;
+}
 
 export interface WorkspaceOrganization {
   id: string;
@@ -84,7 +104,7 @@ export interface PersistentScan {
   contractVersion: string;
   requestedModules: PersistentModuleId[];
   overallScore?: number | null;
-  coverage?: Record<string, unknown>;
+  coverage?: Partial<Record<PersistentModuleId, PersistentCoverageEntry>>;
   notices?: string[];
   startedAt?: string | null;
   completedAt?: string | null;
