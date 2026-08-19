@@ -60,7 +60,13 @@ function createHarness(options = {}) {
     async getUpload() { return options.upload || storedUpload; },
     async finalizeUploadAndQueue() {
       finalizeCalls += 1;
-      return { upload: { ...(options.upload || storedUpload), status: 'uploaded' }, job: { id: 'job-1', status: 'queued' }, idempotentReplay: false };
+      if (options.finalizeResult) return options.finalizeResult;
+      return {
+        upload: { ...(options.upload || storedUpload), status: 'uploaded' },
+        job: { id: 'job-1', status: 'queued' },
+        idempotentReplay: false,
+        expired: false,
+      };
     },
     async listUploads() { return storedUpload ? [storedUpload] : []; },
   };
@@ -160,4 +166,47 @@ test('finalize rejects storage size mismatch, marks upload failed and deletes qu
   assert.equal(harness.getFailedInput().errorCode, 'ASSET_UPLOAD_SIZE_MISMATCH');
   assert.equal(harness.getDeleteCalls(), 1);
   assert.equal(harness.getFinalizeCalls(), 0);
+});
+
+test('expired upload is atomically expired, creates no job and cleans quarantine', async () => {
+  const upload = {
+    id: '44444444-4444-4444-8444-444444444444', organizationId: orgId,
+    status: 'awaiting_upload',
+    quarantineObjectKey: `quarantine/${orgId}/44444444-4444-4444-8444-444444444444`,
+    declaredByteLength: 3, uploadExpiresAt: new Date(Date.now() - 1000),
+  };
+  const expiredUpload = { ...upload, status: 'expired', errorCode: 'ASSET_UPLOAD_EXPIRED' };
+  const harness = createHarness({
+    upload,
+    finalizeResult: { upload: expiredUpload, job: null, idempotentReplay: false, expired: true },
+  });
+
+  await assert.rejects(
+    () => harness.service.finalizeUpload({ organizationId: orgId, userId, uploadId: upload.id }),
+    (error) => error.code === 'ASSET_UPLOAD_EXPIRED' && error.statusCode === 410,
+  );
+  assert.equal(harness.getFinalizeCalls(), 1);
+  assert.equal(harness.getDeleteCalls(), 1);
+});
+
+test('repository expiry race after object stat still cleans quarantine and returns 410', async () => {
+  const upload = {
+    id: '55555555-5555-4555-8555-555555555555', organizationId: orgId,
+    status: 'awaiting_upload',
+    quarantineObjectKey: `quarantine/${orgId}/55555555-5555-4555-8555-555555555555`,
+    declaredByteLength: 3, uploadExpiresAt: new Date(Date.now() + 60000),
+  };
+  const expiredUpload = { ...upload, status: 'expired', errorCode: 'ASSET_UPLOAD_EXPIRED' };
+  const harness = createHarness({
+    upload,
+    stat: { exists: true, byteLength: 3 },
+    finalizeResult: { upload: expiredUpload, job: null, idempotentReplay: false, expired: true },
+  });
+
+  await assert.rejects(
+    () => harness.service.finalizeUpload({ organizationId: orgId, userId, uploadId: upload.id }),
+    (error) => error.code === 'ASSET_UPLOAD_EXPIRED' && error.statusCode === 410,
+  );
+  assert.equal(harness.getFinalizeCalls(), 1);
+  assert.equal(harness.getDeleteCalls(), 1);
 });
