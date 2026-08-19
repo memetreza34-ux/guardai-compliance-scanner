@@ -12,6 +12,8 @@
     "worker:security:once": "node workers/securityWorkerProcess.js --once",
     "worker:repository": "node workers/repositoryWorkerProcess.js",
     "worker:repository:once": "node workers/repositoryWorkerProcess.js --once",
+    "worker:asset": "node workers/assetIngestionWorkerProcess.js",
+    "worker:asset:once": "node workers/assetIngestionWorkerProcess.js --once",
     "scheduler:monitor": "node workers/monitorSchedulerProcess.js",
     "scheduler:monitor:once": "node workers/monitorSchedulerProcess.js --once",
     "parser:asset:sandbox": "node workers/parserSandboxProcess.js",
