@@ -1,6 +1,6 @@
 -- GuardAI AI Governance guided-review persistence draft
 -- NOT an applied migration. Consolidate into generated GuardAI staging migrations.
--- Purpose: tenant-safe structured AI-system declarations + human-review workflow.
+-- Purpose: tenant-safe structured AI-system declarations + immutable review provenance.
 -- Explicit non-goal: no automatic EU AI Act risk classification or compliance verdict.
 
 begin;
@@ -55,6 +55,7 @@ create table public.ai_system_profiles (
   human_oversight_controls_documented text not null default 'unknown',
   interaction_disclosure_documented text not null default 'unknown',
   synthetic_content_disclosure_documented text not null default 'unknown',
+  archived_at timestamptz,
   created_by uuid not null references auth.users(id),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -91,6 +92,7 @@ create table public.ai_governance_reviews (
   source_registry_id text not null,
   source_registry_version integer not null,
   legal_applicability_state text not null default 'requires_human_review',
+  system_snapshot jsonb not null default '{}'::jsonb,
   submitted_by uuid references auth.users(id),
   reviewed_by uuid references auth.users(id),
   submitted_at timestamptz,
@@ -101,11 +103,12 @@ create table public.ai_governance_reviews (
   constraint ai_governance_reviews_system_fk
     foreign key (organization_id, ai_system_id)
     references public.ai_system_profiles(organization_id, id)
-    on delete cascade,
+    on delete restrict,
   constraint ai_governance_reviews_status_allowed check (status in ('draft', 'submitted', 'reviewed', 'reopened')),
   constraint ai_governance_reviews_registry_id_format check (source_registry_id ~ '^[a-z0-9][a-z0-9._-]{2,119}$'),
   constraint ai_governance_reviews_registry_version_positive check (source_registry_version > 0),
   constraint ai_governance_reviews_legal_state check (legal_applicability_state = 'requires_human_review'),
+  constraint ai_governance_reviews_snapshot_object check (jsonb_typeof(system_snapshot) = 'object'),
   constraint ai_governance_reviews_timestamps check (
     (status = 'draft' and submitted_at is null and reviewed_at is null)
     or (status in ('submitted', 'reopened') and submitted_at is not null and reviewed_at is null)
@@ -156,6 +159,74 @@ for each row execute function private.set_updated_at();
 create trigger ai_governance_review_items_set_updated_at
 before update on public.ai_governance_review_items
 for each row execute function private.set_updated_at();
+
+create or replace function private.freeze_ai_governance_review_snapshot()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  profile_row public.ai_system_profiles%rowtype;
+begin
+  select *
+    into profile_row
+    from public.ai_system_profiles
+   where organization_id = new.organization_id
+     and id = new.ai_system_id
+     and archived_at is null;
+
+  if not found then
+    raise exception 'AI Governance review requires an active AI System profile';
+  end if;
+
+  new.system_snapshot = jsonb_build_object(
+    'systemName', profile_row.name,
+    'organizationRole', profile_row.organization_role,
+    'providerName', profile_row.provider_name,
+    'modelName', profile_row.model_name,
+    'deploymentContext', profile_row.deployment_context,
+    'useCases', to_jsonb(profile_row.use_cases),
+    'declarations', jsonb_build_object(
+      'interactsDirectlyWithPeople', profile_row.interacts_directly_with_people,
+      'generatesSyntheticContent', profile_row.generates_synthetic_content,
+      'aiLiteracyMeasuresDocumented', profile_row.ai_literacy_measures_documented,
+      'humanOversightControlsDocumented', profile_row.human_oversight_controls_documented,
+      'interactionDisclosureDocumented', profile_row.interaction_disclosure_documented,
+      'syntheticContentDisclosureDocumented', profile_row.synthetic_content_disclosure_documented
+    )
+  );
+  return new;
+end;
+$$;
+
+revoke all on function private.freeze_ai_governance_review_snapshot() from public;
+
+create trigger ai_governance_reviews_freeze_snapshot
+before insert on public.ai_governance_reviews
+for each row execute function private.freeze_ai_governance_review_snapshot();
+
+create or replace function private.prevent_ai_governance_snapshot_rewrite()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.system_snapshot is distinct from old.system_snapshot
+     or new.ai_system_id is distinct from old.ai_system_id
+     or new.source_registry_id is distinct from old.source_registry_id
+     or new.source_registry_version is distinct from old.source_registry_version then
+    raise exception 'AI Governance review provenance is immutable';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function private.prevent_ai_governance_snapshot_rewrite() from public;
+
+create trigger ai_governance_reviews_prevent_provenance_rewrite
+before update on public.ai_governance_reviews
+for each row execute function private.prevent_ai_governance_snapshot_rewrite();
 
 revoke all on public.ai_system_profiles, public.ai_governance_reviews, public.ai_governance_review_items from anon;
 revoke all on public.ai_system_profiles, public.ai_governance_reviews, public.ai_governance_review_items from authenticated;
@@ -216,11 +287,12 @@ $$;
 revoke all on function private.audit_ai_governance_review_status() from public;
 
 create trigger ai_governance_reviews_audit_status
-before update of status on public.ai_governance_reviews
+after update of status on public.ai_governance_reviews
 for each row execute function private.audit_ai_governance_review_status();
 
--- No prompt text, model output, customer content or free-form legal conclusion column exists
--- in this MVP schema. Backend mutations must still enforce Organization RBAC and the
--- source registry/version contract.
+-- The review snapshot is generated only from the typed AI System columns by a DB trigger
+-- and is immutable afterwards. No prompt text, model output, customer content or free-form
+-- legal conclusion column exists in this MVP schema. Backend mutations must still enforce
+-- Organization RBAC and the source registry/version contract.
 
 commit;
