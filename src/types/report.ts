@@ -48,6 +48,8 @@ export interface ReportFindingSnapshot {
   fingerprint: string;
   ruleId: string | null;
   ruleVersion: number | null;
+  /** Present on report schema v3+. Historical v2 reports did not freeze this hash. */
+  ruleDefinitionHash?: string | null;
   severity: 'critical' | 'warning' | 'info';
   status: string;
   message: string;
