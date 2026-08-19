@@ -49,7 +49,8 @@ function createAssetUploadIdentity(organizationId) {
   const uploadId = crypto.randomUUID();
   return Object.freeze({
     uploadId,
-    objectKey: `quarantine/${organizationId}/${uploadId}`,
+    quarantineObjectKey: `quarantine/${organizationId}/${uploadId}`,
+    cleanObjectKey: `assets/${organizationId}/${uploadId}`,
   });
 }
 
