@@ -43,6 +43,22 @@ const config = Object.freeze({
   leadMarketingOptInEnabled: readBoolean(process.env.LEAD_MARKETING_OPT_IN_ENABLED),
   leadMarketingConsentVersion: String(process.env.LEAD_MARKETING_CONSENT_VERSION || '').trim(),
   leadMarketingConfirmTtlHours: readInteger(process.env.LEAD_MARKETING_CONFIRM_TTL_HOURS, 24),
+
+  // Asset ingestion remains disabled until the selected S3 adapter and staging isolation
+  // controls are present. These values are bounded again by the Asset domain layer.
+  assetPipelineEnabled: readBoolean(process.env.ASSET_PIPELINE_ENABLED),
+  assetMaxUploadBytes: readInteger(process.env.GUARDAI_ASSET_MAX_BYTES, 10 * 1024 * 1024),
+  assetUploadSessionTtlSeconds: readInteger(process.env.GUARDAI_ASSET_UPLOAD_TTL_SECONDS, 15 * 60),
+  assetMaxExtractedTextChars: readInteger(process.env.GUARDAI_ASSET_MAX_EXTRACTED_TEXT_CHARS, 100000),
+  assetParserTimeoutSeconds: readInteger(process.env.GUARDAI_ASSET_PARSER_TIMEOUT_SECONDS, 30),
+  assetWorkerLeaseSeconds: readInteger(process.env.GUARDAI_ASSET_WORKER_LEASE_SECONDS, 120),
+  assetClamdSocket: String(process.env.GUARDAI_CLAMD_SOCKET || '').trim(),
+  assetClamdTimeoutMs: readInteger(process.env.GUARDAI_CLAMD_TIMEOUT_MS, 30000),
+  assetParserSocket: String(process.env.GUARDAI_ASSET_PARSER_SOCKET || '').trim(),
+  assetParserTimeoutMs: readInteger(process.env.GUARDAI_ASSET_PARSER_TIMEOUT_MS, 30000),
+
+  // Legacy prototype limits. The production Asset pipeline does not use Multer or parse
+  // uploads inside the API process.
   maxUploadBytes: 10 * 1024 * 1024,
   maxHtmlBytes: 2 * 1024 * 1024,
   maxExtractedTextChars: 30000,
