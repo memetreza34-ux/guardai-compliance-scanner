@@ -1,6 +1,6 @@
 # GuardAI Phase 14 — Asset Scanner Tracker
 
-> Status: **SOURCE IN PROGRESS — disabled in persistent scan submission**
+> Status: **SOURCE IN PROGRESS — explicitly disabled in production/persistent scan submission**
 >
 > Nothing in this tracker is proof of an executed clean install, applied migration or production-safe provider deployment.
 
@@ -33,6 +33,8 @@ authenticated member
 
 - [x] PDF/TXT-only current media allowlist.
 - [x] bounded upload/session/parser limits.
+- [x] dedicated Asset runtime limits separated from legacy prototype limits.
+- [x] explicit `ASSET_PIPELINE_ENABLED` feature gate shared by API/Worker composition.
 - [x] server-generated upload UUID and object keys.
 - [x] filenames are display-only; no user path controls storage key.
 - [x] streaming SHA-256 + byte budget.
@@ -50,6 +52,8 @@ authenticated member
 - [x] separate `quarantine/...` and `assets/...` namespaces.
 - [x] clean promotion contract requires idempotent copy.
 - [x] quarantine deletion occurs only after committed terminal DB state.
+- [x] expired finalize paths mark DB state first and then best-effort clean quarantine.
+- [x] race where expiry occurs between API precheck and row-lock finalize is modeled/tested in source.
 - [x] signed upload URL/object keys are never returned by status/list responses.
 - [ ] AWS SDK dependencies added with a verified backend lockfile.
 - [ ] S3 provider adapter implemented and exercised.
@@ -72,6 +76,7 @@ authenticated member
 - [x] `pdf-parse@2.4.5` v2 API source integration (`PDFParse({data}) → getText() → destroy()`).
 - [x] TXT UTF-8 parser.
 - [x] separate Unix-socket parser service/process.
+- [x] `npm run parser:asset:sandbox` source command.
 - [x] bounded binary protocol with exact byte length + expected SHA-256.
 - [x] parser-side SHA/type revalidation.
 - [x] provider-side stream SHA/length revalidation.
@@ -103,12 +108,21 @@ authenticated member
 - [x] list/read status routes.
 - [x] public Asset DTO hides storage object keys.
 - [x] persistent ingestion Worker with lease heartbeat.
+- [x] standalone `assetIngestionWorkerProcess.js` with `worker:asset` / `worker:asset:once` commands.
+- [x] Worker refuses startup when `ASSET_PIPELINE_ENABLED` is false or provider attestations fail.
 - [x] no terminal DB write with uncertain Worker lease.
-- [x] deterministic input/parser errors do not retry pointlessly.
+- [x] deterministic input/parser/Rule-independent Asset errors do not retry pointlessly.
 - [x] temporary provider/storage errors remain retryable.
 - [x] clean completion creates verified Asset Target only after all gates.
 - [x] malware detection creates no Target.
-- [ ] real Asset ingestion Worker process composed with S3 + clamd + parser providers.
+- [ ] real Asset Worker composed with the selected S3 adapter and proven staging providers.
+
+### Production safety
+
+- [x] Production safety rejects `ASSET_PIPELINE_ENABLED=true` today.
+- [x] This rejection remains until the reviewed S3 adapter, reproducible backend lockfile and staging isolation proof exist.
+- [x] `.env.example` and `docs/ENVIRONMENT_REFERENCE.md` document the disabled-by-default Asset configuration.
+- [x] legacy Multer `/scan-file` remains explicitly a prototype path and is not used as a fallback.
 
 ## Source test files
 
@@ -121,6 +135,7 @@ Current source tests include:
 - `server/test/assetIngestionWorker.test.js`
 - `server/test/clamdStreamScanner.test.js`
 - `server/test/parserSandbox.test.js`
+- `server/test/runtimeSafety.test.js`
 - asset terminal cases in `server/test/jobLifecycle.test.js`
 
 **These are not marked passed until the backend clean-install/test gate executes.**
