@@ -6,6 +6,19 @@ const {
 const { legalSourceIdForKey } = require('../domain/aiGovernanceLegalSources');
 const { HttpError } = require('../lib/httpError');
 
+const OPEN_REVIEW_CONSTRAINT = 'ai_governance_one_open_review_per_system_uidx';
+
+function mapOpenReviewConflict(error) {
+  if (error?.code === '23505' && error?.constraint === OPEN_REVIEW_CONSTRAINT) {
+    return new HttpError(
+      409,
+      'This AI System already has an open Governance review cycle.',
+      'AI_GOVERNANCE_REVIEW_ALREADY_OPEN',
+    );
+  }
+  return error;
+}
+
 function createAiGovernanceService({ organizationAuthorization, aiGovernanceRepository }) {
   if (!organizationAuthorization || typeof organizationAuthorization.requireRole !== 'function') {
     throw new TypeError('AI Governance service requires Organization authorization.');
@@ -72,13 +85,17 @@ function createAiGovernanceService({ organizationAuthorization, aiGovernanceRepo
       trigger: item.trigger,
     }));
 
-    return aiGovernanceRepository.createReviewWithItems({
-      organizationId,
-      aiSystemId: systemId,
-      sourceRegistryId: sourceRegistry.registryId,
-      sourceRegistryVersion: sourceRegistry.version,
-      reviewItems,
-    });
+    try {
+      return await aiGovernanceRepository.createReviewWithItems({
+        organizationId,
+        aiSystemId: systemId,
+        sourceRegistryId: sourceRegistry.registryId,
+        sourceRegistryVersion: sourceRegistry.version,
+        reviewItems,
+      });
+    } catch (error) {
+      throw mapOpenReviewConflict(error);
+    }
   }
 
   async function listReviews({ organizationId, userId, systemId = null }) {
@@ -117,12 +134,16 @@ function createAiGovernanceService({ organizationAuthorization, aiGovernanceRepo
 
   async function reopenReview({ organizationId, userId, reviewId }) {
     await organizationAuthorization.requireRole(organizationId, userId, 'admin');
-    return aiGovernanceRepository.transitionReview({
-      organizationId,
-      reviewId,
-      action: 'reopen',
-      actorId: userId,
-    });
+    try {
+      return await aiGovernanceRepository.transitionReview({
+        organizationId,
+        reviewId,
+        action: 'reopen',
+        actorId: userId,
+      });
+    } catch (error) {
+      throw mapOpenReviewConflict(error);
+    }
   }
 
   return {
@@ -140,4 +161,8 @@ function createAiGovernanceService({ organizationAuthorization, aiGovernanceRepo
   };
 }
 
-module.exports = { createAiGovernanceService };
+module.exports = {
+  createAiGovernanceService,
+  mapOpenReviewConflict,
+  OPEN_REVIEW_CONSTRAINT,
+};
