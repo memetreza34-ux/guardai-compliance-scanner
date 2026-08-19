@@ -1,6 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createAiGovernanceService } = require('../services/aiGovernanceService');
+const {
+  createAiGovernanceService,
+  mapOpenReviewConflict,
+  OPEN_REVIEW_CONSTRAINT,
+} = require('../services/aiGovernanceService');
 
 function systemProfile() {
   return {
@@ -135,4 +139,13 @@ test('archived AI Systems cannot create new guided reviews', async () => {
     }),
     (error) => error.code === 'AI_SYSTEM_NOT_FOUND' && error.statusCode === 404,
   );
+});
+
+test('open-review unique violation becomes a stable GuardAI conflict', () => {
+  const mapped = mapOpenReviewConflict({ code: '23505', constraint: OPEN_REVIEW_CONSTRAINT });
+  assert.equal(mapped.statusCode, 409);
+  assert.equal(mapped.code, 'AI_GOVERNANCE_REVIEW_ALREADY_OPEN');
+
+  const unrelated = new Error('other database error');
+  assert.equal(mapOpenReviewConflict(unrelated), unrelated);
 });
