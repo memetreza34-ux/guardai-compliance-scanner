@@ -70,7 +70,6 @@ function validateLeadProductionConfig(env, errors) {
     errors.push('LEAD_RETENTION_DAYS must be an integer between 1 and 3650 when Lead Capture is enabled.');
   }
 
-  // The current source deliberately has no outbound Double-Opt-In mail flow yet.
   if (readFlag(env.LEAD_MARKETING_OPT_IN_ENABLED)) {
     errors.push('LEAD_MARKETING_OPT_IN_ENABLED must remain false until Double-Opt-In delivery is implemented.');
   }
@@ -113,6 +112,18 @@ function validateGitHubProductionConfig(env, errors) {
   }
 }
 
+function validateAssetProductionConfig(env, errors) {
+  if (!readFlag(env.ASSET_PIPELINE_ENABLED)) return;
+
+  // Phase 14 deliberately remains unavailable in production until the selected S3
+  // adapter is introduced together with a reproducible backend lockfile and its IAM /
+  // lifecycle configuration is proven in dedicated staging. Do not allow a partial
+  // ClamAV/parser deployment to make Asset ingestion appear production-ready.
+  errors.push(
+    'ASSET_PIPELINE_ENABLED must remain false in production until the S3 storage adapter, verified backend lockfile and staging Asset isolation gates are complete.',
+  );
+}
+
 function validateProductionConfiguration(env = process.env) {
   const errors = [];
   if ((env.NODE_ENV || '').toLowerCase() !== 'production') return errors;
@@ -151,6 +162,7 @@ function validateProductionConfiguration(env = process.env) {
   validateStripeProductionConfig(env, errors);
   validateLeadProductionConfig(env, errors);
   validateGitHubProductionConfig(env, errors);
+  validateAssetProductionConfig(env, errors);
   return errors;
 }
 
@@ -167,6 +179,7 @@ module.exports = {
   assertSafeRuntimeConfiguration,
   readFlag,
   splitOrigins,
+  validateAssetProductionConfig,
   validateGitHubProductionConfig,
   validateLeadProductionConfig,
   validateProductionConfiguration,
