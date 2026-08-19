@@ -27,6 +27,7 @@ function mapScanRow(row) {
     idempotencyKey: row.idempotency_key,
     scoringProfileId: row.scoring_profile_id,
     scoringProfileVersion: row.scoring_profile_version,
+    scoringProfileDefinitionHash: row.scoring_profile_definition_hash,
     targetSnapshot: row.target_snapshot || null,
     createdAt: row.created_at,
   };
@@ -77,6 +78,24 @@ function assertIdempotentRequestMatches(existing, input) {
   }
 }
 
+function assertScoringProfileMatches(existing, scoringProfile) {
+  if (
+    existing.scoring_profile_id !== scoringProfile.profileId ||
+    existing.scoring_profile_version !== scoringProfile.version ||
+    existing.scoring_profile_definition_hash !== scoringProfile.definitionHash
+  ) {
+    throw new HttpError(
+      500,
+      'Existing Scan scoring provenance does not match the canonical scoring registry.',
+      'SCORING_PROFILE_DEFINITION_MISMATCH',
+      {
+        profileId: existing.scoring_profile_id,
+        version: existing.scoring_profile_version,
+      },
+    );
+  }
+}
+
 async function findExistingByIdempotency(client, organizationId, idempotencyKey) {
   if (!idempotencyKey) return null;
 
@@ -84,7 +103,7 @@ async function findExistingByIdempotency(client, organizationId, idempotencyKey)
     `select id, organization_id, target_id, requested_by, status,
             scanner_version, contract_version, requested_modules,
             idempotency_key, scoring_profile_id, scoring_profile_version,
-            target_snapshot, created_at
+            scoring_profile_definition_hash, target_snapshot, created_at
        from public.scans
       where organization_id = $1
         and idempotency_key = $2
@@ -165,6 +184,7 @@ function createScanRepository(pool, { entitlementRepository = null } = {}) {
 
       if (existingBeforeInsert) {
         assertIdempotentRequestMatches(existingBeforeInsert, input);
+        assertScoringProfileMatches(existingBeforeInsert, scoringProfile);
         await reserveUsageWithinTransaction(client, input, existingBeforeInsert.id);
         const jobs = await loadJobsForScan(client, existingBeforeInsert.id, input.organizationId);
         await client.query('commit');
@@ -183,15 +203,16 @@ function createScanRepository(pool, { entitlementRepository = null } = {}) {
            idempotency_key,
            scoring_profile_id,
            scoring_profile_version,
+           scoring_profile_definition_hash,
            target_snapshot
-         ) values ($1, $2, $3, 'queued', $4, $5, $6::text[], $7, $8, $9, $10::jsonb)
+         ) values ($1, $2, $3, 'queued', $4, $5, $6::text[], $7, $8, $9, $10, $11::jsonb)
          on conflict (organization_id, idempotency_key)
            where idempotency_key is not null
          do nothing
          returning id, organization_id, target_id, requested_by, status,
                    scanner_version, contract_version, requested_modules,
                    idempotency_key, scoring_profile_id, scoring_profile_version,
-                   target_snapshot, created_at`,
+                   scoring_profile_definition_hash, target_snapshot, created_at`,
         [
           input.organizationId,
           input.targetId,
@@ -202,6 +223,7 @@ function createScanRepository(pool, { entitlementRepository = null } = {}) {
           input.idempotencyKey,
           scoringProfile.profileId,
           scoringProfile.version,
+          scoringProfile.definitionHash,
           JSON.stringify(targetSnapshot),
         ],
       );
@@ -218,6 +240,7 @@ function createScanRepository(pool, { entitlementRepository = null } = {}) {
         }
 
         assertIdempotentRequestMatches(existingAfterConflict, input);
+        assertScoringProfileMatches(existingAfterConflict, scoringProfile);
         await reserveUsageWithinTransaction(client, input, existingAfterConflict.id);
         const jobs = await loadJobsForScan(client, existingAfterConflict.id, input.organizationId);
         await client.query('commit');
@@ -269,6 +292,7 @@ function createScanRepository(pool, { entitlementRepository = null } = {}) {
 
 module.exports = {
   assertIdempotentRequestMatches,
+  assertScoringProfileMatches,
   buildTargetSnapshot,
   createScanRepository,
   mapJobRow,
