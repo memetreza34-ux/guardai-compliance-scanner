@@ -15,6 +15,7 @@ Architecture decisions:
 - `docs/adr/0005-privacy-browser-evidence-boundary.md`
 - `docs/adr/0006-browser-worker-network-isolation.md`
 - `docs/adr/0007-accessibility-automated-evidence-boundary.md`
+- `docs/adr/0008-asset-quarantine-malware-parser.md`
 
 ## Current design files
 
@@ -27,7 +28,7 @@ All files below are **design sources, not applied migrations**. Before first sta
 5. `005_workspace_onboarding_invariants_draft.sql` — canonical Target uniqueness and initial subscription constraints.
 6. `006_entitlements_usage_draft.sql` — price-neutral plan capabilities, monthly usage counters and reservations.
 7. `007_audit_invariants_draft.sql` — Scan/verification lifecycle audit triggers.
-8. `008_rule_provenance_security_seed_draft.sql` — versioned Security Rule provenance and Security baseline seeds.
+8. `008_rule_provenance_security_seed_draft.sql` — historical Security Rule seed design; **not canonical seed source after Phase 15**.
 9. `009_finding_lifecycle_draft.sql` — remediation/finding lifecycle state.
 10. `010_finding_rediscovery_trigger_draft.sql` — deterministic finding rediscovery behavior.
 11. `011_scoring_profile_provenance_draft.sql` — stored/versioned scoring-profile provenance.
@@ -44,9 +45,26 @@ All files below are **design sources, not applied migrations**. Before first sta
 22. `022_github_app_integration_draft.sql` — GitHub App installation provenance, one-time setup state and webhook inbox.
 23. `023_github_repository_target_invariants_draft.sql` — provider-authorized GitHub Repository Target provenance and uniqueness.
 24. `024_scan_usage_terminal_finalization_draft.sql` — automatic consume/release of reserved capability usage on terminal Scan status.
-25. `025_repository_rule_scoring_provenance_draft.sql` — versioned bounded Repository baseline Rules and `repository-mvp@1` scoring provenance.
+25. `025_repository_rule_scoring_provenance_draft.sql` — historical Repository Rule seed/scoring design; Rule rows are **not canonical seed source after Phase 15**.
 26. `026_ai_governance_guided_review_draft.sql` — typed AI System profiles, immutable Guided Review snapshot/source provenance, RLS and human-review workflow.
 27. `027_ai_governance_review_cycle_invariant_draft.sql` — one open AI Governance review cycle per AI System.
+28. `028_asset_quarantine_pipeline_draft.sql` — private Asset upload quarantine, ingestion jobs, content/malware/parser provenance.
+29. `029_asset_target_provenance_draft.sql` — only clean, same-tenant Asset uploads may become verified `guardai-upload` Targets.
+30. `030_rule_definition_hash_provenance_draft.sql` — immutable Rule definition SHA-256, Finding-instance triple provenance and Rule-version rewrite prevention.
+
+### Canonical Rule seed source
+
+Phase 15 changes the Rule migration model:
+
+```text
+shared/rules/*.json
+→ server/rules/versionedRuleRegistry.js
+→ deterministic Rule definition SHA-256
+→ server/scripts/generateRuleSeedSql.js
+→ generated staging migration seed
+```
+
+The hand-maintained Rule bodies inside older drafts `008_*` and `025_*` must **not** be copied into real migrations as canonical definitions. Real migrations must generate Rule rows from the canonical shared registries and verify the exact same `definition_hash` used by Workers.
 
 ## Promotion to real migrations
 
@@ -56,13 +74,14 @@ When the dedicated GuardAI staging project and Supabase CLI are available:
 2. verify the installed Supabase CLI and commands,
 3. generate real migrations through the CLI,
 4. consolidate/review the draft SQL in dependency-safe order,
-5. apply to local/staging only,
-6. run database/security/performance advisors,
-7. generate DB types,
-8. run the full multi-tenant/invariant test matrix below,
-9. review migration rollback/forward compatibility,
-10. commit generated migration + generated types,
-11. only then promote staging → production.
+5. generate canonical Rule seeds from `shared/rules/*.json`,
+6. apply to local/staging only,
+7. run database/security/performance advisors,
+8. generate DB types,
+9. run the full multi-tenant/invariant test matrix below,
+10. review migration rollback/forward compatibility,
+11. commit generated migration + generated types,
+12. only then promote staging → production.
 
 ## Mandatory database/integration proof matrix
 
@@ -70,7 +89,7 @@ When the dedicated GuardAI staging project and Supabase CLI are available:
 
 - owner/admin/member/viewer permissions are correct,
 - cross-tenant reads/writes fail,
-- composite tenant FKs reject mixed Organization/Target/Scan/Monitor/AI-Governance relationships,
+- composite tenant FKs reject mixed Organization/Target/Scan/Monitor/AI-Governance/Asset relationships,
 - browser roles cannot access Worker, challenge, entitlement-mutation, webhook, Checkout-request, Lead or integration-state tables,
 - AI Governance browser access is read-only and tenant-scoped; mutations remain backend-authorized.
 
@@ -91,19 +110,53 @@ When the dedicated GuardAI staging project and Supabase CLI are available:
 - duplicate completion cannot duplicate Evidence/Finding instances,
 - `observed` Worker results persist with `score = null` and are not converted to assessed/pass state.
 
+### Rule Engine / provenance
+
+- every Rule-backed Finding carries `rule_id + rule_version + rule_definition_hash`,
+- all three fields are either present together or absent together,
+- `rule_versions.definition_hash` contains canonical lower-case SHA-256 values,
+- zero enabled Rule-backed scanner versions reference a `rule_versions` row with a null definition hash,
+- Worker Rule hash must exactly match the persisted `(rule_id, version, definition_hash)` tuple before Finding persistence,
+- a hash mismatch fails terminally and creates no Finding instance,
+- existing Rule-version definition/hash/implementation/legal-source fields cannot be rewritten,
+- changing detector logic, severity logic, confidence logic, remediation, requirement mapping or changelog requires a new Rule version,
+- generated Rule seed SQL is deterministic from `shared/rules/*.json`,
+- generated ruleset manifest hashes are captured as release evidence,
+- Rule Catalog reads only actual schema fields (`category`, `current_version`, `active`, `definition`, `definition_hash`, `changed_at`),
+- Rule API/UI never depend on removed prototype fields such as `framework`, `control_key`, `rationale`, `effective_from` or `config`.
+
 ### Provenance/Reports
 
-- Finding Instance keeps exact `rule_id` + `rule_version`,
-- Security Rule seeds and Repository Rule seeds conform to the actual `rules` / `rule_versions` schema,
+- Finding Instance keeps exact Rule ID/version/definition hash,
 - Scan keeps exact scoring profile ID/version,
 - Website Security uses `security-mvp@1`,
 - Repository baseline uses `repository-mvp@1`,
 - Scan keeps immutable Target snapshot,
 - report snapshot hash is reproducible,
+- new Report schema v3 freezes Rule definition hash in each Rule-backed Finding,
+- historical Report schema v2 remains hash-readable without retroactively inventing a Rule hash,
 - historical report snapshots cannot be rewritten,
 - Trust publication references the exact report/target in the same Organization,
 - revoked Trust publication cannot resolve publicly,
 - `revoked_by` records the actual acting admin.
+
+### Asset quarantine / ingestion
+
+- `ASSET_PIPELINE_ENABLED=false` creates/finalizes no persistent Asset upload session,
+- upload object keys are generated server-side and are not controlled by filenames,
+- quarantine and clean object namespaces are tenant/upload scoped,
+- browser-visible Asset DTOs never expose object keys,
+- expired upload finalization creates no ingestion job and cleanup is attempted after committed `expired` state,
+- expiry race between API precheck and DB row lock still produces no job,
+- ingestion lease prevents stale Workers writing terminal results,
+- stream SHA-256/actual bytes/type must match declared upload metadata,
+- malware scanner errors never map to `clean`,
+- `infected` upload never reaches parser/promotion and never creates a Target,
+- parser output text is not stored in the Asset repository; only parser provenance/hash/length/page count are stored,
+- clean promotion is idempotent copy and quarantine is deleted only after committed clean state,
+- verified Asset Target must match clean same-Organization upload ID/content SHA/media type/pipeline version,
+- infected/rejected/failed/expired uploads cannot reference Targets,
+- Asset ingestion-job tables remain backend-only.
 
 ### Entitlements/usage
 
@@ -199,7 +252,7 @@ When the dedicated GuardAI staging project and Supabase CLI are available:
 - Privileged helpers live in non-exposed `private` schema.
 - Privileged mutations also pass through backend authorization.
 - Composite FKs provide database-level tenant defense in depth.
-- Worker/verification/usage/webhook/Checkout/Lead/integration mutation state remains backend-only.
+- Worker/verification/usage/webhook/Checkout/Lead/integration/Asset mutation state remains backend-only.
 
 ## Current backend transaction boundaries already implemented in source
 
@@ -212,10 +265,10 @@ When the dedicated GuardAI staging project and Supabase CLI are available:
 - organization-scoped Scan idempotency,
 - Job claim/lease/renew/reclaim,
 - bounded retries/terminal failures,
-- atomic Evidence/Finding persistence,
+- atomic Evidence/Finding persistence with Rule ID/version/definition-hash validation,
 - Rule/Score/Target provenance capture,
 - tenant-scoped Scan/Job/Evidence/Finding reads,
-- immutable report snapshot creation/verification,
+- immutable report snapshot creation/verification (new v3 includes Rule hash),
 - public Trust publish/revoke/read projection,
 - concurrency-safe capability usage reservations,
 - Stripe Customer/Subscription reconciliation,
@@ -226,6 +279,7 @@ When the dedicated GuardAI staging project and Supabase CLI are available:
 - in-app notification lifecycle,
 - GitHub App installation state/link/webhook lifecycle,
 - bounded commit-pinned GitHub Repository baseline worker source,
-- AI Governance Review + Review-item creation in one PostgreSQL transaction with frozen DB-generated declaration provenance.
+- AI Governance Review + Review-item creation in one PostgreSQL transaction with frozen DB-generated declaration provenance,
+- Asset upload/session finalization + separate leased ingestion lifecycle with clean-Target creation only after all gates.
 
-The browser never receives `DATABASE_URL`, DB passwords, target challenge hashes, Worker leases, Stripe secret/webhook keys, GitHub App private keys/installation tokens, raw Lead rows, direct entitlement mutation access, full provider webhook payloads or detected credential values. AI Governance HTTP input rejects arbitrary prompt/output/customer-content fields and does not accept client-controlled LegalSource or applicability state.
+The browser never receives `DATABASE_URL`, DB passwords, target challenge hashes, Worker leases, Stripe secret/webhook keys, GitHub App private keys/installation tokens, Asset storage object keys, raw Lead rows, direct entitlement mutation access, full provider webhook payloads or detected credential values. AI Governance HTTP input rejects arbitrary prompt/output/customer-content fields and does not accept client-controlled LegalSource or applicability state.
