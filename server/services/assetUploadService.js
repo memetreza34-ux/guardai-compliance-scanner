@@ -131,6 +131,14 @@ function createAssetUploadService({
     }
   }
 
+  async function cleanupQuarantine(upload) {
+    if (!upload?.quarantineObjectKey) return;
+    await storageProvider.deleteQuarantineObject({
+      organizationId: upload.organizationId,
+      objectKey: upload.quarantineObjectKey,
+    }).catch(() => {});
+  }
+
   async function finalizeUpload({ organizationId, userId, uploadId }) {
     await organizationAuthorization.requireRole(organizationId, userId, 'member');
     assertProviders();
@@ -143,8 +151,13 @@ function createAssetUploadService({
     if (upload.status !== 'awaiting_upload') {
       throw new HttpError(409, 'Asset upload cannot be finalized in its current state.', 'ASSET_UPLOAD_STATE_INVALID');
     }
+
+    // Fast path for clearly expired sessions. The repository repeats this check under a
+    // row lock to close the race between this check and queue creation.
     if (new Date(upload.uploadExpiresAt).getTime() <= Date.now()) {
-      await assetUploadRepository.finalizeUploadAndQueue({ organizationId, uploadId });
+      const expired = await assetUploadRepository.finalizeUploadAndQueue({ organizationId, uploadId });
+      if (expired.expired) await cleanupQuarantine(expired.upload);
+      throw new HttpError(410, 'Asset upload session has expired.', 'ASSET_UPLOAD_EXPIRED');
     }
 
     let stat;
@@ -166,11 +179,15 @@ function createAssetUploadService({
         errorCode: 'ASSET_UPLOAD_SIZE_MISMATCH',
         errorMessage: 'Stored Asset size differs from the declared upload size.',
       });
-      await storageProvider.deleteQuarantineObject({ organizationId, objectKey: upload.quarantineObjectKey }).catch(() => {});
+      await cleanupQuarantine(upload);
       throw new HttpError(422, 'Stored Asset size differs from the declared upload size.', 'ASSET_UPLOAD_SIZE_MISMATCH');
     }
 
     const finalized = await assetUploadRepository.finalizeUploadAndQueue({ organizationId, uploadId });
+    if (finalized.expired) {
+      await cleanupQuarantine(finalized.upload);
+      throw new HttpError(410, 'Asset upload session expired before it could be queued.', 'ASSET_UPLOAD_EXPIRED');
+    }
     return { ...finalized, upload: publicAssetUpload(finalized.upload) };
   }
 
