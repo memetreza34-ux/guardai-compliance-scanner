@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const {
   assertReportSnapshotIntegrity,
   buildTechnicalReportSnapshot,
+  calculateReportSnapshotHash,
   REPORT_SCHEMA_VERSION,
 } = require('../domain/reportSnapshot');
 
@@ -14,7 +15,7 @@ function completedScan() {
       targetId: '22222222-2222-4222-8222-222222222222',
       status: 'completed',
       scannerVersion: '0.1.0',
-      contractVersion: '0.2.0',
+      contractVersion: '0.3.0',
       requestedModules: ['security'],
       scoringProfileId: 'security-mvp',
       scoringProfileVersion: 1,
@@ -52,6 +53,7 @@ function completedScan() {
       fingerprint: 'b'.repeat(64),
       ruleId: 'security.content_security_policy',
       ruleVersion: 1,
+      ruleDefinitionHash: 'c'.repeat(64),
       severity: 'warning',
       status: 'open',
       message: 'Missing CSP',
@@ -74,6 +76,7 @@ test('completed Scan produces deterministic report hash with immutable provenanc
   assert.equal(first.snapshot.scoring.profileVersion, 1);
   assert.equal(first.snapshot.findings[0].ruleId, 'security.content_security_policy');
   assert.equal(first.snapshot.findings[0].ruleVersion, 1);
+  assert.equal(first.snapshot.findings[0].ruleDefinitionHash, 'c'.repeat(64));
 });
 
 test('report snapshot keeps explicit limitations', () => {
@@ -91,14 +94,28 @@ test('stored report integrity verification rejects tampering', () => {
   };
   assert.equal(assertReportSnapshotIntegrity(stored), stored);
 
-  stored.snapshot.scan.overallScore = 100;
+  stored.snapshot.findings[0].ruleDefinitionHash = 'd'.repeat(64);
   assert.throws(
     () => assertReportSnapshotIntegrity(stored),
     (error) => error.code === 'REPORT_INTEGRITY_FAILED' && error.statusCode === 500,
   );
 });
 
-test('report creation rejects missing Target or scoring provenance', () => {
+test('historical schema v2 report remains integrity-readable without definition hash', () => {
+  const built = buildTechnicalReportSnapshot(completedScan());
+  const legacySnapshot = structuredClone(built.snapshot);
+  legacySnapshot.schemaVersion = 2;
+  delete legacySnapshot.findings[0].ruleDefinitionHash;
+  const stored = {
+    schemaVersion: 2,
+    reportType: 'technical-screening',
+    snapshot: legacySnapshot,
+    snapshotHash: calculateReportSnapshotHash(legacySnapshot),
+  };
+  assert.equal(assertReportSnapshotIntegrity(stored), stored);
+});
+
+test('report creation rejects missing Target, scoring or Rule definition provenance', () => {
   const missingTarget = completedScan();
   missingTarget.scan.targetSnapshot = null;
   assert.throws(
@@ -110,6 +127,13 @@ test('report creation rejects missing Target or scoring provenance', () => {
   missingScoring.scan.scoringProfileId = null;
   assert.throws(
     () => buildTechnicalReportSnapshot(missingScoring),
+    (error) => error.code === 'SCAN_PROVENANCE_INCOMPLETE',
+  );
+
+  const missingRuleHash = completedScan();
+  delete missingRuleHash.findings[0].ruleDefinitionHash;
+  assert.throws(
+    () => buildTechnicalReportSnapshot(missingRuleHash),
     (error) => error.code === 'SCAN_PROVENANCE_INCOMPLETE',
   );
 });
