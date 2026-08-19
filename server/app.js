@@ -6,6 +6,7 @@ const { buildApiErrorBody } = require('./lib/apiError');
 const { HttpError } = require('./lib/httpError');
 const { errorHandler } = require('./middleware/errorHandler');
 const { requestContext } = require('./middleware/requestContext');
+const { aiGovernanceRoutes } = require('./routes/aiGovernanceRoutes');
 const { auditRoutes } = require('./routes/auditRoutes');
 const { authRoutes } = require('./routes/authRoutes');
 const { billingRoutes, stripeWebhookHandler } = require('./routes/billingRoutes');
@@ -61,6 +62,7 @@ function createApp() {
   app.use('/api', healthRoutes);
   app.use('/api/v1', authRoutes);
   app.use('/api/v1', organizationRoutes);
+  app.use('/api/v1', aiGovernanceRoutes);
   app.use('/api/v1', auditRoutes);
   app.use('/api/v1', billingRoutes);
   app.use('/api/v1', leadRoutes);
