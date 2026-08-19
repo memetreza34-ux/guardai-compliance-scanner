@@ -12,6 +12,9 @@ Architecture decisions:
 - `docs/adr/0002-native-postgres-backend-transactions.md`
 - `docs/adr/0003-stripe-billing-provider.md`
 - `docs/adr/0004-github-app-repository-integration.md`
+- `docs/adr/0005-privacy-browser-evidence-boundary.md`
+- `docs/adr/0006-browser-worker-network-isolation.md`
+- `docs/adr/0007-accessibility-automated-evidence-boundary.md`
 
 ## Current design files
 
@@ -42,6 +45,8 @@ All files below are **design sources, not applied migrations**. Before first sta
 23. `023_github_repository_target_invariants_draft.sql` — provider-authorized GitHub Repository Target provenance and uniqueness.
 24. `024_scan_usage_terminal_finalization_draft.sql` — automatic consume/release of reserved capability usage on terminal Scan status.
 25. `025_repository_rule_scoring_provenance_draft.sql` — versioned bounded Repository baseline Rules and `repository-mvp@1` scoring provenance.
+26. `026_ai_governance_guided_review_draft.sql` — typed AI System profiles, immutable Guided Review snapshot/source provenance, RLS and human-review workflow.
+27. `027_ai_governance_review_cycle_invariant_draft.sql` — one open AI Governance review cycle per AI System.
 
 ## Promotion to real migrations
 
@@ -65,8 +70,9 @@ When the dedicated GuardAI staging project and Supabase CLI are available:
 
 - owner/admin/member/viewer permissions are correct,
 - cross-tenant reads/writes fail,
-- composite tenant FKs reject mixed Organization/Target/Scan/Monitor relationships,
-- browser roles cannot access Worker, challenge, entitlement-mutation, webhook, Checkout-request, Lead or integration-state tables.
+- composite tenant FKs reject mixed Organization/Target/Scan/Monitor/AI-Governance relationships,
+- browser roles cannot access Worker, challenge, entitlement-mutation, webhook, Checkout-request, Lead or integration-state tables,
+- AI Governance browser access is read-only and tenant-scoped; mutations remain backend-authorized.
 
 ### Target/Scan runtime
 
@@ -82,7 +88,8 @@ When the dedicated GuardAI staging project and Supabase CLI are available:
 - expired leases can be reclaimed,
 - stale Worker result writes fail,
 - retry exhaustion/permanent errors fail/cancel correctly,
-- duplicate completion cannot duplicate Evidence/Finding instances.
+- duplicate completion cannot duplicate Evidence/Finding instances,
+- `observed` Worker results persist with `score = null` and are not converted to assessed/pass state.
 
 ### Provenance/Reports
 
@@ -163,6 +170,25 @@ When the dedicated GuardAI staging project and Supabase CLI are available:
 - Repository baseline is not represented as full SAST, comprehensive secret scanning, dependency vulnerability analysis or SBOM,
 - integration/webhook/state tables are not browser-mutable.
 
+### AI Governance Guided Review
+
+- AI System profiles accept only the typed/allowlisted declaration fields,
+- raw prompts, model outputs, customer content and free-form legal conclusions have no intended persistence column,
+- Review creation freezes a server/DB-generated snapshot from the typed AI System profile,
+- editing the AI System after Review creation cannot rewrite the historical Review snapshot,
+- Review `ai_system_id`, source Registry ID/version and frozen snapshot cannot be rewritten,
+- deleting an AI System cannot cascade-delete historical Reviews; product workflow archives instead,
+- archived AI Systems cannot create new Reviews,
+- `legal_applicability_state` and item applicability stay `requires_human_review`,
+- client input cannot choose LegalSource IDs, Review items or Registry versions,
+- Article 4/14/50 source records resolve to the expected official EUR-Lex references,
+- only one `draft/submitted/reopened` Review cycle exists per AI System,
+- concurrent Review creation produces one open cycle and a stable conflict for the loser,
+- `reviewed` does not create a compliance/certification state,
+- Member can create/submit; Viewer cannot mutate; Admin/Owner controls review/reopen/archive,
+- status changes produce tenant-scoped Audit Events,
+- cross-tenant AI System/Review access fails.
+
 ## RLS / authorization rules
 
 - Every exposed customer-data table has RLS enabled.
@@ -173,7 +199,7 @@ When the dedicated GuardAI staging project and Supabase CLI are available:
 - Privileged helpers live in non-exposed `private` schema.
 - Privileged mutations also pass through backend authorization.
 - Composite FKs provide database-level tenant defense in depth.
-- Worker/verification/usage/webhook/Checkout/Lead/integration state remains backend-only.
+- Worker/verification/usage/webhook/Checkout/Lead/integration mutation state remains backend-only.
 
 ## Current backend transaction boundaries already implemented in source
 
@@ -199,6 +225,7 @@ When the dedicated GuardAI staging project and Supabase CLI are available:
 - Monitor scheduling/provenance,
 - in-app notification lifecycle,
 - GitHub App installation state/link/webhook lifecycle,
-- bounded commit-pinned GitHub Repository baseline worker source.
+- bounded commit-pinned GitHub Repository baseline worker source,
+- AI Governance Review + Review-item creation in one PostgreSQL transaction with frozen DB-generated declaration provenance.
 
-The browser never receives `DATABASE_URL`, DB passwords, target challenge hashes, Worker leases, Stripe secret/webhook keys, GitHub App private keys/installation tokens, raw Lead rows, direct entitlement mutation access, full provider webhook payloads or detected credential values.
+The browser never receives `DATABASE_URL`, DB passwords, target challenge hashes, Worker leases, Stripe secret/webhook keys, GitHub App private keys/installation tokens, raw Lead rows, direct entitlement mutation access, full provider webhook payloads or detected credential values. AI Governance HTTP input rejects arbitrary prompt/output/customer-content fields and does not accept client-controlled LegalSource or applicability state.
