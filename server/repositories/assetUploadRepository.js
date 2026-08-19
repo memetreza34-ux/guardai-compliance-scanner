@@ -107,6 +107,7 @@ function createAssetUploadRepository(pool) {
         limit 1`,
       [organizationId, uploadId],
     );
+
     return result.rowCount > 0 ? mapAssetUploadRow(result.rows[0]) : null;
   }
 
@@ -152,20 +153,31 @@ function createAssetUploadRepository(pool) {
           upload: mapAssetUploadRow(row),
           job: existingJob.rows[0] || null,
           idempotentReplay: true,
+          expired: false,
         };
       }
       if (row.status !== 'awaiting_upload') {
         throw new HttpError(409, 'Asset upload is not finalizable in its current state.', 'ASSET_UPLOAD_STATE_INVALID');
       }
       if (new Date(row.upload_expires_at).getTime() <= Date.now()) {
-        await client.query(
+        const expired = await client.query(
           `update public.asset_uploads
-              set status = 'expired', completed_at = now(), updated_at = now()
-            where id = $1`,
+              set status = 'expired',
+                  completed_at = now(),
+                  error_code = 'ASSET_UPLOAD_EXPIRED',
+                  error_message = 'Asset upload session expired before finalization.',
+                  updated_at = now()
+            where id = $1
+            returning ${uploadColumns()}`,
           [uploadId],
         );
         await client.query('commit');
-        throw new HttpError(410, 'Asset upload session has expired.', 'ASSET_UPLOAD_EXPIRED');
+        return {
+          upload: mapAssetUploadRow(expired.rows[0]),
+          job: null,
+          idempotentReplay: false,
+          expired: true,
+        };
       }
 
       const updated = await client.query(
@@ -206,6 +218,7 @@ function createAssetUploadRepository(pool) {
         upload: mapAssetUploadRow(updated.rows[0]),
         job: job.rows[0],
         idempotentReplay: false,
+        expired: false,
       };
     } catch (error) {
       try {
