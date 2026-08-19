@@ -8,29 +8,77 @@
       "id": "repository.secret.private_key",
       "version": 1,
       "findingId": "private-key-material-indicator",
+      "category": "secrets",
       "title": "Private key material indicator",
-      "defaultSeverity": "critical"
+      "defaultSeverity": "critical",
+      "evidenceRequirements": [
+        "GitHub blob content pinned to the immutable scanned commit",
+        "Bounded text-eligible file selected by the repository baseline policy"
+      ],
+      "detectorLogic": "Detect high-confidence PEM private-key boundary indicators without persisting the matched private-key material.",
+      "severityLogic": "Critical when the bounded detector observes a private-key material indicator.",
+      "confidenceLogic": "High confidence for the indicator pattern in the inspected blob; repository-wide absence is not claimed when coverage is incomplete.",
+      "messageTemplate": "Private-key material indicators were observed in the bounded repository baseline.",
+      "remediation": "Remove exposed private-key material from the repository, rotate affected credentials where applicable, and review repository history and downstream copies.",
+      "requirementMappings": [],
+      "changelog": "v1: initial bounded private-key indicator rule."
     },
     {
       "id": "repository.secret.github_token",
       "version": 1,
       "findingId": "github-token-indicator",
+      "category": "secrets",
       "title": "GitHub token indicator",
-      "defaultSeverity": "critical"
+      "defaultSeverity": "critical",
+      "evidenceRequirements": [
+        "GitHub blob content pinned to the immutable scanned commit",
+        "Bounded text-eligible file selected by the repository baseline policy"
+      ],
+      "detectorLogic": "Detect supported high-confidence GitHub token formats; persist only indicator type, path and line rather than the matched token value.",
+      "severityLogic": "Critical when a supported GitHub token indicator is observed.",
+      "confidenceLogic": "High confidence for supported token formats in inspected blobs; this is not a comprehensive secret-scanning guarantee.",
+      "messageTemplate": "A supported GitHub token indicator was observed in the bounded repository baseline.",
+      "remediation": "Revoke or rotate the affected token, remove it from the repository and history where necessary, and move secrets to an appropriate secret-management mechanism.",
+      "requirementMappings": [],
+      "changelog": "v1: initial bounded GitHub-token indicator rule."
     },
     {
       "id": "repository.secret.aws_access_key",
       "version": 1,
       "findingId": "aws-access-key-indicator",
+      "category": "secrets",
       "title": "AWS access key identifier indicator",
-      "defaultSeverity": "critical"
+      "defaultSeverity": "critical",
+      "evidenceRequirements": [
+        "GitHub blob content pinned to the immutable scanned commit",
+        "Bounded text-eligible file selected by the repository baseline policy"
+      ],
+      "detectorLogic": "Detect supported AWS access-key identifier formats; never persist the matched credential value.",
+      "severityLogic": "Critical when a supported AWS access-key identifier indicator is observed.",
+      "confidenceLogic": "High confidence for supported identifier formats in inspected blobs; possession of a corresponding secret key is not inferred.",
+      "messageTemplate": "An AWS access-key identifier indicator was observed in the bounded repository baseline.",
+      "remediation": "Investigate the credential, rotate or disable it when exposure is possible, remove it from source/history as needed, and use workload identity or secret management instead.",
+      "requirementMappings": [],
+      "changelog": "v1: initial bounded AWS access-key identifier rule."
     },
     {
       "id": "repository.secret.stripe_live_key",
       "version": 1,
       "findingId": "stripe-live-secret-indicator",
+      "category": "secrets",
       "title": "Stripe live secret key indicator",
-      "defaultSeverity": "critical"
+      "defaultSeverity": "critical",
+      "evidenceRequirements": [
+        "GitHub blob content pinned to the immutable scanned commit",
+        "Bounded text-eligible file selected by the repository baseline policy"
+      ],
+      "detectorLogic": "Detect supported Stripe live secret-key formats and persist only redacted indicator metadata.",
+      "severityLogic": "Critical when a supported Stripe live secret-key indicator is observed.",
+      "confidenceLogic": "High confidence for supported live-key formats in inspected blobs; unsupported formats and uninspected files remain outside coverage.",
+      "messageTemplate": "A Stripe live secret-key indicator was observed in the bounded repository baseline.",
+      "remediation": "Roll the exposed live key in Stripe, remove it from source/history, audit recent use and store replacement credentials outside the repository.",
+      "requirementMappings": [],
+      "changelog": "v1: initial bounded Stripe-live-key indicator rule."
     }
   ]
 }
