@@ -3,6 +3,7 @@ const { HttpError } = require('../lib/httpError');
 const SEVERITIES = new Set(['critical', 'warning', 'info']);
 const RESULT_STATES = new Set(['assessed', 'observed']);
 const RULE_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{2,119}$/;
+const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 
 function isPlainObject(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -23,12 +24,15 @@ function normalizeText(value, field, maxLength, { optional = false } = {}) {
 function normalizeRuleProvenance(issue) {
   const hasRuleId = issue.ruleId !== null && issue.ruleId !== undefined && issue.ruleId !== '';
   const hasRuleVersion = issue.ruleVersion !== null && issue.ruleVersion !== undefined;
+  const hasDefinitionHash = issue.ruleDefinitionHash !== null
+    && issue.ruleDefinitionHash !== undefined
+    && issue.ruleDefinitionHash !== '';
 
-  if (hasRuleId !== hasRuleVersion) {
+  if (hasRuleId !== hasRuleVersion || hasRuleId !== hasDefinitionHash) {
     throw new HttpError(500, 'Worker finding rule provenance is incomplete.', 'INVALID_WORKER_RESULT');
   }
   if (!hasRuleId) {
-    return { ruleId: null, ruleVersion: null };
+    return { ruleId: null, ruleVersion: null, ruleDefinitionHash: null };
   }
 
   const ruleId = normalizeText(issue.ruleId, 'issue.ruleId', 120);
@@ -38,8 +42,20 @@ function normalizeRuleProvenance(issue) {
   if (!Number.isInteger(issue.ruleVersion) || issue.ruleVersion < 1) {
     throw new HttpError(500, 'Worker finding rule version is invalid.', 'INVALID_WORKER_RESULT');
   }
+  const ruleDefinitionHash = normalizeText(
+    issue.ruleDefinitionHash,
+    'issue.ruleDefinitionHash',
+    64,
+  ).toLowerCase();
+  if (!SHA256_PATTERN.test(ruleDefinitionHash)) {
+    throw new HttpError(500, 'Worker finding rule definition hash is invalid.', 'INVALID_WORKER_RESULT');
+  }
 
-  return { ruleId, ruleVersion: issue.ruleVersion };
+  return {
+    ruleId,
+    ruleVersion: issue.ruleVersion,
+    ruleDefinitionHash,
+  };
 }
 
 function normalizeResultState(result) {
@@ -119,4 +135,5 @@ module.exports = {
   normalizeResultState,
   normalizeRuleProvenance,
   RESULT_STATES,
+  SHA256_PATTERN,
 };
