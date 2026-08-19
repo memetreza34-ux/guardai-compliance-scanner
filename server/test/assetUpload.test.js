@@ -14,12 +14,16 @@ const {
 
 const orgId = '11111111-1111-4111-8111-111111111111';
 
-test('asset filenames are display-only and cannot influence quarantine object keys', () => {
+test('asset filenames are display-only and cannot influence server-generated object keys', () => {
   assert.equal(normalizeAssetFileName('../../private/report.pdf'), 'report.pdf');
   const identity = createAssetUploadIdentity(orgId);
   assert.match(identity.uploadId, /^[0-9a-f-]{36}$/i);
-  assert.equal(identity.objectKey.startsWith(`quarantine/${orgId}/`), true);
-  assert.equal(identity.objectKey.includes('report.pdf'), false);
+  assert.equal(identity.quarantineObjectKey.startsWith(`quarantine/${orgId}/`), true);
+  assert.equal(identity.cleanObjectKey.startsWith(`assets/${orgId}/`), true);
+  assert.equal(identity.quarantineObjectKey.endsWith(identity.uploadId), true);
+  assert.equal(identity.cleanObjectKey.endsWith(identity.uploadId), true);
+  assert.equal(identity.quarantineObjectKey.includes('report.pdf'), false);
+  assert.equal(identity.cleanObjectKey.includes('report.pdf'), false);
 });
 
 test('asset upload request requires matching PDF/TXT extension, media type and bounded size', () => {
