@@ -42,7 +42,7 @@ create table public.asset_uploads (
   constraint asset_uploads_target_fk
     foreign key (organization_id, target_id)
     references public.targets(organization_id, id)
-    on delete set null,
+    on delete restrict,
   constraint asset_uploads_status_allowed check (
     status in ('awaiting_upload','uploaded','processing','clean','infected','rejected','failed','expired')
   ),
