@@ -39,6 +39,20 @@ function assertReportRecord(value: unknown): TechnicalReportRecord {
   }
 
   if (schemaVersion >= 3) {
+    if (!isRecord(value.snapshot.scoring)) {
+      throw new GuardApiError('Technical report scoring provenance is invalid.', 'INVALID_API_RESPONSE', 200);
+    }
+    const scoring = value.snapshot.scoring;
+    if (
+      typeof scoring.profileId !== 'string' ||
+      typeof scoring.profileVersion !== 'number' ||
+      !Number.isInteger(scoring.profileVersion) ||
+      typeof scoring.profileDefinitionHash !== 'string' ||
+      !/^[a-f0-9]{64}$/.test(scoring.profileDefinitionHash)
+    ) {
+      throw new GuardApiError('Technical report scoring provenance is invalid.', 'INVALID_API_RESPONSE', 200);
+    }
+
     if (!Array.isArray(value.snapshot.findings)) {
       throw new GuardApiError('Technical report findings are invalid.', 'INVALID_API_RESPONSE', 200);
     }
