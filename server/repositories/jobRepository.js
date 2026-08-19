@@ -290,6 +290,29 @@ function createJobRepository(pool) {
       }
 
       for (const issue of normalized.issues) {
+        if (issue.ruleId) {
+          const ruleMatch = await client.query(
+            `select 1
+               from public.rule_versions
+              where rule_id = $1
+                and version = $2
+                and definition_hash = $3
+              limit 1`,
+            [issue.ruleId, issue.ruleVersion, issue.ruleDefinitionHash],
+          );
+          if (ruleMatch.rowCount === 0) {
+            throw new HttpError(
+              500,
+              'Worker Rule definition does not match the persisted Rule version.',
+              'RULE_DEFINITION_HASH_MISMATCH',
+              {
+                ruleId: issue.ruleId,
+                ruleVersion: issue.ruleVersion,
+              },
+            );
+          }
+        }
+
         const fingerprint = createFindingFingerprint({
           targetId: row.target_id,
           detectorId: normalized.detectorId,
@@ -321,9 +344,10 @@ function createJobRepository(pool) {
 
         await client.query(
           `insert into public.finding_instances (
-             organization_id, finding_id, scan_id, rule_id, rule_version,
+             organization_id, finding_id, scan_id,
+             rule_id, rule_version, rule_definition_hash,
              severity, confidence, evidence_ids, message, remediation
-           ) values ($1, $2, $3, $4, $5, $6, null, $7::uuid[], $8, $9)
+           ) values ($1, $2, $3, $4, $5, $6, $7, null, $8::uuid[], $9, $10)
            on conflict (finding_id, scan_id) do nothing`,
           [
             row.organization_id,
@@ -331,6 +355,7 @@ function createJobRepository(pool) {
             row.scan_id,
             issue.ruleId,
             issue.ruleVersion,
+            issue.ruleDefinitionHash,
             issue.severity,
             [evidenceId],
             `${issue.title}: ${issue.description}`,
