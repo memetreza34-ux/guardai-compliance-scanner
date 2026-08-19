@@ -1,8 +1,9 @@
 const { HttpError } = require('../lib/httpError');
 const { canonicalize, sha256Hex } = require('../lib/evidenceIntegrity');
 
-const REPORT_SCHEMA_VERSION = 2;
+const REPORT_SCHEMA_VERSION = 3;
 const REPORT_TYPE = 'technical-screening';
+const SUPPORTED_REPORT_SCHEMA_VERSIONS = Object.freeze([2, 3]);
 
 function isPlainObject(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -16,7 +17,11 @@ function assertReportSnapshotIntegrity(report) {
   if (!report || !isPlainObject(report) || !isPlainObject(report.snapshot)) {
     throw new HttpError(500, 'Stored report snapshot is invalid.', 'REPORT_INTEGRITY_FAILED');
   }
-  if (!Number.isInteger(report.schemaVersion) || report.schemaVersion !== report.snapshot.schemaVersion) {
+  if (
+    !Number.isInteger(report.schemaVersion)
+    || report.schemaVersion !== report.snapshot.schemaVersion
+    || !SUPPORTED_REPORT_SCHEMA_VERSIONS.includes(report.schemaVersion)
+  ) {
     throw new HttpError(500, 'Stored report schema provenance is invalid.', 'REPORT_INTEGRITY_FAILED');
   }
   if (report.reportType !== report.snapshot.reportType) {
@@ -29,6 +34,17 @@ function assertReportSnapshotIntegrity(report) {
   const calculatedHash = calculateReportSnapshotHash(report.snapshot);
   if (calculatedHash !== report.snapshotHash) {
     throw new HttpError(500, 'Stored report snapshot failed integrity verification.', 'REPORT_INTEGRITY_FAILED');
+  }
+
+  if (report.schemaVersion >= 3) {
+    for (const finding of report.snapshot.findings || []) {
+      const hasRule = finding.ruleId !== null && finding.ruleId !== undefined;
+      const hasVersion = finding.ruleVersion !== null && finding.ruleVersion !== undefined;
+      const hasHash = typeof finding.ruleDefinitionHash === 'string' && /^[a-f0-9]{64}$/.test(finding.ruleDefinitionHash);
+      if (hasRule !== hasVersion || hasRule !== hasHash) {
+        throw new HttpError(500, 'Stored report Rule provenance is incomplete.', 'REPORT_INTEGRITY_FAILED');
+      }
+    }
   }
 
   return report;
@@ -63,6 +79,19 @@ function buildTechnicalReportSnapshot(scanResult) {
       'Completed Scan is missing immutable scoring provenance.',
       'SCAN_PROVENANCE_INCOMPLETE',
     );
+  }
+
+  for (const finding of findings || []) {
+    const hasRule = finding.ruleId !== null && finding.ruleId !== undefined;
+    const hasVersion = finding.ruleVersion !== null && finding.ruleVersion !== undefined;
+    const hasHash = typeof finding.ruleDefinitionHash === 'string' && /^[a-f0-9]{64}$/.test(finding.ruleDefinitionHash);
+    if (hasRule !== hasVersion || hasRule !== hasHash) {
+      throw new HttpError(
+        500,
+        'Completed Scan is missing immutable Rule definition provenance.',
+        'SCAN_PROVENANCE_INCOMPLETE',
+      );
+    }
   }
 
   const snapshot = {
@@ -106,6 +135,7 @@ function buildTechnicalReportSnapshot(scanResult) {
       fingerprint: finding.fingerprint,
       ruleId: finding.ruleId,
       ruleVersion: finding.ruleVersion,
+      ruleDefinitionHash: finding.ruleDefinitionHash,
       severity: finding.severity,
       status: finding.status,
       message: finding.message,
@@ -133,4 +163,5 @@ module.exports = {
   calculateReportSnapshotHash,
   REPORT_SCHEMA_VERSION,
   REPORT_TYPE,
+  SUPPORTED_REPORT_SCHEMA_VERSIONS,
 };
