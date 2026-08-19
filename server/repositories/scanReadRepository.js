@@ -10,6 +10,7 @@ function mapScanStatusRow(row) {
     requestedModules: row.requested_modules,
     scoringProfileId: row.scoring_profile_id,
     scoringProfileVersion: row.scoring_profile_version,
+    scoringProfileDefinitionHash: row.scoring_profile_definition_hash,
     targetSnapshot: row.target_snapshot || null,
     overallScore: row.overall_score,
     coverage: row.coverage || {},
@@ -87,7 +88,8 @@ function createScanReadRepository(pool) {
     const scanResult = await pool.query(
       `select id, organization_id, target_id, requested_by, status,
               scanner_version, contract_version, requested_modules,
-              scoring_profile_id, scoring_profile_version, target_snapshot,
+              scoring_profile_id, scoring_profile_version,
+              scoring_profile_definition_hash, target_snapshot,
               overall_score, coverage, notices,
               started_at, completed_at, failed_at,
               error_code, error_message, created_at, updated_at
