@@ -1,12 +1,7 @@
-const securityProfile = require('../../shared/scoring/security-mvp-v1.json');
-const repositoryProfile = require('../../shared/scoring/repository-mvp-v1.json');
+const securityProfileSource = require('../../shared/scoring/security-mvp-v1.json');
+const repositoryProfileSource = require('../../shared/scoring/repository-mvp-v1.json');
+const { sha256Canonical } = require('../lib/canonicalJson');
 const { HttpError } = require('../lib/httpError');
-
-const defaultProfile = securityProfile;
-const SCORING_PROFILES = Object.freeze([
-  securityProfile,
-  repositoryProfile,
-]);
 
 function validateScoringProfile(profile) {
   if (!profile || typeof profile !== 'object' || Array.isArray(profile)) {
@@ -18,41 +13,103 @@ function validateScoringProfile(profile) {
   if (!Number.isInteger(profile.version) || profile.version < 1) {
     throw new TypeError('Scoring profile version is invalid.');
   }
+  if (typeof profile.description !== 'string' || profile.description.trim().length < 1 || profile.description.length > 1000) {
+    throw new TypeError('Scoring profile description is invalid.');
+  }
   if (!profile.modules || typeof profile.modules !== 'object' || Array.isArray(profile.modules)) {
     throw new TypeError('Scoring profile modules are invalid.');
   }
 
   const moduleEntries = Object.entries(profile.modules);
-  if (moduleEntries.length === 0) {
-    throw new TypeError('Scoring profile must contain at least one module.');
+  if (moduleEntries.length === 0 || moduleEntries.length > 50) {
+    throw new TypeError('Scoring profile must contain 1-50 modules.');
   }
   for (const [moduleId, config] of moduleEntries) {
     if (!/^[a-z0-9][a-z0-9._-]{1,79}$/.test(moduleId)) {
       throw new TypeError(`Scoring module ID is invalid: ${moduleId}`);
     }
-    if (!config || typeof config !== 'object' || !Number.isFinite(config.weight) || config.weight <= 0) {
+    if (
+      !config ||
+      typeof config !== 'object' ||
+      Array.isArray(config) ||
+      !Number.isFinite(config.weight) ||
+      config.weight <= 0 ||
+      config.weight > 1000
+    ) {
       throw new TypeError(`Scoring weight is invalid: ${moduleId}`);
     }
   }
 
-  if (!Number.isInteger(profile.minimumAssessedModules) || profile.minimumAssessedModules < 1) {
+  if (
+    !Number.isInteger(profile.minimumAssessedModules) ||
+    profile.minimumAssessedModules < 1 ||
+    profile.minimumAssessedModules > moduleEntries.length
+  ) {
     throw new TypeError('minimumAssessedModules is invalid.');
   }
   return profile;
 }
 
-function getScoringProfile(profileId, version) {
+function scoringProfileDefinition(profile) {
+  validateScoringProfile(profile);
+  return {
+    profileId: profile.profileId,
+    version: profile.version,
+    description: profile.description,
+    modules: Object.fromEntries(
+      Object.entries(profile.modules).map(([moduleId, config]) => [moduleId, { weight: config.weight }]),
+    ),
+    minimumAssessedModules: profile.minimumAssessedModules,
+  };
+}
+
+function calculateScoringProfileHash(profile) {
+  return sha256Canonical(scoringProfileDefinition(profile));
+}
+
+function createVersionedScoringProfile(source) {
+  const definition = scoringProfileDefinition(source);
+  const modules = Object.freeze(Object.fromEntries(
+    Object.entries(definition.modules).map(([moduleId, config]) => [moduleId, Object.freeze({ ...config })]),
+  ));
+  return Object.freeze({
+    ...definition,
+    modules,
+    definitionHash: sha256Canonical(definition),
+  });
+}
+
+const securityProfile = createVersionedScoringProfile(securityProfileSource);
+const repositoryProfile = createVersionedScoringProfile(repositoryProfileSource);
+const defaultProfile = securityProfile;
+const SCORING_PROFILES = Object.freeze([securityProfile, repositoryProfile]);
+
+function getScoringProfile(profileId, version, expectedDefinitionHash = null) {
   const profile = SCORING_PROFILES.find(
     (candidate) => candidate.profileId === profileId && candidate.version === version,
   );
-  if (profile) return profile;
+  if (!profile) {
+    throw new HttpError(
+      500,
+      'Scan references an unsupported scoring profile version.',
+      'SCORING_PROFILE_NOT_AVAILABLE',
+      { profileId, version },
+    );
+  }
 
-  throw new HttpError(
-    500,
-    'Scan references an unsupported scoring profile version.',
-    'SCORING_PROFILE_NOT_AVAILABLE',
-    { profileId, version },
-  );
+  if (
+    expectedDefinitionHash !== null &&
+    expectedDefinitionHash !== undefined &&
+    profile.definitionHash !== expectedDefinitionHash
+  ) {
+    throw new HttpError(
+      500,
+      'Scan scoring profile definition does not match the current immutable profile registry.',
+      'SCORING_PROFILE_DEFINITION_MISMATCH',
+      { profileId, version },
+    );
+  }
+  return profile;
 }
 
 function selectScoringProfile(targetType, requestedModules) {
@@ -85,6 +142,9 @@ function selectScoringProfile(targetType, requestedModules) {
 
 function computeWeightedScanScore(moduleResults, profile = defaultProfile) {
   validateScoringProfile(profile);
+  const definitionHash = typeof profile.definitionHash === 'string'
+    ? profile.definitionHash
+    : calculateScoringProfileHash(profile);
   if (!moduleResults || typeof moduleResults !== 'object' || Array.isArray(moduleResults)) {
     throw new TypeError('Module results must be an object.');
   }
@@ -105,6 +165,7 @@ function computeWeightedScanScore(moduleResults, profile = defaultProfile) {
       state: 'insufficient_coverage',
       profileId: profile.profileId,
       profileVersion: profile.version,
+      profileDefinitionHash: definitionHash,
       assessedModules: assessed.map((entry) => entry.moduleId),
     };
   }
@@ -116,18 +177,20 @@ function computeWeightedScanScore(moduleResults, profile = defaultProfile) {
     state: 'scored',
     profileId: profile.profileId,
     profileVersion: profile.version,
+    profileDefinitionHash: definitionHash,
     assessedModules: assessed.map((entry) => entry.moduleId),
   };
 }
 
-for (const profile of SCORING_PROFILES) validateScoringProfile(profile);
-
 module.exports = {
+  calculateScoringProfileHash,
   computeWeightedScanScore,
+  createVersionedScoringProfile,
   defaultProfile,
   getScoringProfile,
   repositoryProfile,
   SCORING_PROFILES,
+  scoringProfileDefinition,
   securityProfile,
   selectScoringProfile,
   validateScoringProfile,
