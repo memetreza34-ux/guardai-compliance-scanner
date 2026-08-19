@@ -1,10 +1,31 @@
+export type RuleSeverity = 'critical' | 'warning' | 'info';
+
+export interface RuleDefinition {
+  rulesetId: string;
+  rulesetVersion: number;
+  detectorId: string;
+  detectorVersion: string;
+  rule: {
+    findingId: string;
+    category: string;
+    defaultSeverity: RuleSeverity;
+    evidenceRequirements: string[];
+    detectorLogic: string;
+    severityLogic: string;
+    confidenceLogic: string;
+    messageTemplate: string;
+    remediation: string;
+    requirementMappings: string[];
+    changelog: string;
+  };
+}
+
 export interface RuleCatalogItem {
   id: string;
-  framework: string;
   category: string;
-  controlKey: string;
   title: string;
-  status: 'active' | 'deprecated' | 'draft';
+  currentVersion: number;
+  active: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -13,10 +34,8 @@ export interface RuleVersionItem {
   ruleId: string;
   version: number;
   implementationVersion: string;
-  rationale: string;
   legalSourceIds: string[];
-  effectiveFrom: string;
-  effectiveTo: string | null;
-  config: Record<string, unknown>;
-  createdAt: string;
+  definition: RuleDefinition;
+  definitionHash: string;
+  changedAt: string;
 }
