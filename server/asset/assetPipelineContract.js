@@ -47,6 +47,7 @@ function assertStorageAttestation(attestation) {
     'organizationObjectKeyIsolation',
     'quarantineLifecycleConfigured',
     'cleanObjectLifecycleConfigured',
+    'promotionIsIdempotentCopy',
   ];
   if (!attestation || typeof attestation !== 'object' || Array.isArray(attestation)) {
     throw new HttpError(503, 'Asset quarantine storage attestation is missing.', 'ASSET_STORAGE_NOT_SAFE');
