@@ -61,7 +61,8 @@ Source now contains real-data paths for:
 - entitlement/usage reservations,
 - Lead/contact capture with privacy/retention gates,
 - Monitoring schedules + in-app notifications,
-- GitHub App installation/repository authorization.
+- GitHub App installation/repository authorization,
+- structured AI Governance Guided Review.
 
 These source paths still require clean runtime and staging proof before being called production-complete.
 
@@ -147,15 +148,34 @@ Accessibility source foundation:
 
 See `docs/PHASE_10_11_BROWSER_SCANNERS_TRACKER.md`.
 
+### AI Governance Guided Review
+
+Phase 12 now has a separate authenticated, tenant-scoped real-data workflow. The persistent `ai-governance` Scan module itself remains disabled.
+
+The Guided Review:
+
+- stores only structured AI-system declarations,
+- rejects arbitrary Prompt/Output/Customer-content fields at the API boundary,
+- separates documentation state from legal applicability,
+- keeps legal applicability as `requires_human_review`,
+- freezes the declaration snapshot and source-registry version for every Review,
+- links Review items to versioned official EU source anchors,
+- gives no legal-compliance score and no automatic AI Act risk class,
+- requires Member+ to submit and Admin/Owner to mark a Review reviewed/reopen it.
+
+`reviewed` means a human completed the GuardAI review workflow. It does **not** mean legally compliant.
+
+See `docs/PHASE_12_AI_GOVERNANCE_TRACKER.md`.
+
 ## Frontend state
 
-The active public/prototype shell has been stripped of known mock success claims. Real persistent product components exist for authenticated Workspace, Reports, Trust, Billing, Monitoring and GitHub integration, but the final Supabase session adapter and final production router are still pending staging infrastructure.
+The active public/prototype shell has been stripped of known mock success claims. Real persistent product components exist for authenticated Workspace, Reports, Trust, Billing, Monitoring, GitHub integration and AI Governance Guided Review, but the final Supabase session adapter and final production router are still pending staging infrastructure.
 
 Legacy visual prototype components remain reference-only and must not be reactivated as production truth without real backend state.
 
 ## Database state
 
-`database/` contains GuardAI-only SQL **design drafts**, currently through `025_*`.
+`database/` contains GuardAI-only SQL **design drafts**, currently through `027_*`.
 
 They are **not applied migrations**.
 
@@ -173,7 +193,9 @@ The drafts cover, among other areas:
 - GitHub App integration,
 - Repository Target provenance,
 - terminal usage finalization,
-- Repository Rule/scoring provenance.
+- Repository Rule/scoring provenance,
+- AI Governance structured profiles/reviews/source provenance,
+- one-open-review-cycle AI Governance invariant.
 
 Before staging they must be consolidated into generated migrations, reviewed in dependency order and applied only to a dedicated GuardAI project.
 
@@ -182,6 +204,7 @@ Before staging they must be consolidated into generated migrations, reviewed in 
 - `docs/GUARDAI_MASTER_BUILD_GUIDE.md` — canonical A-to-Z engineering guide
 - `docs/PHASE_1_TRACKER.md` — living global implementation tracker
 - `docs/PHASE_10_11_BROWSER_SCANNERS_TRACKER.md` — Privacy/Accessibility Browser gate tracker
+- `docs/PHASE_12_AI_GOVERNANCE_TRACKER.md` — AI Governance Guided Review gate tracker
 - `docs/REPO_INVENTORY.md` — living file/component disposition
 - `database/README.md` — database design/migration proof matrix
 - `docs/adr/` — GuardAI architecture decisions
@@ -240,8 +263,9 @@ Until runner access is restored, all clean install/lint/typecheck/build/test gat
 8. Configure Stripe test mode and prove Checkout/Webhook/Portal reconciliation.
 9. Configure a least-privilege staging GitHub App and prove Repository lifecycle behavior.
 10. Select and pin a concrete isolated Browser provider/runtime before Privacy or Accessibility activation.
-11. Mount the real Supabase frontend session adapter.
-12. Complete deployment, observability, security, performance and release gates from the master guide.
+11. Prove AI Governance snapshot/source/RBAC/open-review invariants in staging and review all legal wording.
+12. Mount the real Supabase frontend session adapter.
+13. Complete deployment, observability, security, performance and release gates from the master guide.
 
 ## Core engineering principle
 
