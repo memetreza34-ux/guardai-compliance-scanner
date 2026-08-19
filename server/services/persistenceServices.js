@@ -1,8 +1,11 @@
 const scanContract = require('../../shared/scan-contract.json');
+const { getAssetRuntimeProviders } = require('../asset/runtimeProviders');
 const { config } = require('../config');
 const { getPostgresPool } = require('../database/postgres');
 const { createScanSubmissionService } = require('../domain/scanSubmission');
 const { createAiGovernanceRepository } = require('../repositories/aiGovernanceRepository');
+const { createAssetIngestionRepository } = require('../repositories/assetIngestionRepository');
+const { createAssetUploadRepository } = require('../repositories/assetUploadRepository');
 const { createAuditRepository } = require('../repositories/auditRepository');
 const { createBillingRepository } = require('../repositories/billingRepository');
 const { createEntitlementRepository } = require('../repositories/entitlementRepository');
@@ -17,6 +20,7 @@ const { createTargetVerificationRepository } = require('../repositories/targetVe
 const { createTrustPublicationRepository } = require('../repositories/trustPublicationRepository');
 const stripeProvider = require('../billing/stripeProvider');
 const { createAiGovernanceService } = require('./aiGovernanceService');
+const { createAssetUploadService } = require('./assetUploadService');
 const { createAuditService } = require('./auditService');
 const { createBillingService } = require('./billingService');
 const { createJobFailureService } = require('./jobFailureService');
@@ -38,11 +42,28 @@ function createPersistenceServices() {
   const jobFailureService = createJobFailureService({ pool, jobRepository });
   const membershipRepository = createMembershipRepository(pool);
   const organizationAuthorization = createOrganizationAuthorizationService(membershipRepository);
+
   const aiGovernanceRepository = createAiGovernanceRepository(pool);
   const aiGovernanceService = createAiGovernanceService({
     organizationAuthorization,
     aiGovernanceRepository,
   });
+
+  const assetUploadRepository = createAssetUploadRepository(pool);
+  const assetIngestionRepository = createAssetIngestionRepository(pool);
+  const assetProviders = getAssetRuntimeProviders();
+  const assetUploadService = createAssetUploadService({
+    organizationAuthorization,
+    assetUploadRepository,
+    ...assetProviders,
+    limits: {
+      maxUploadBytes: config.maxUploadBytes,
+      uploadSessionTtlSeconds: 15 * 60,
+      maxExtractedTextChars: config.maxExtractedTextChars,
+      maxParserSeconds: 30,
+    },
+  });
+
   const auditService = createAuditService({ auditRepository, organizationAuthorization });
   const billingService = createBillingService({
     billingRepository,
@@ -82,6 +103,9 @@ function createPersistenceServices() {
   return {
     aiGovernanceRepository,
     aiGovernanceService,
+    assetIngestionRepository,
+    assetUploadRepository,
+    assetUploadService,
     auditRepository,
     auditService,
     billingRepository,
