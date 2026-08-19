@@ -2,6 +2,7 @@ const scanContract = require('../../shared/scan-contract.json');
 const { config } = require('../config');
 const { getPostgresPool } = require('../database/postgres');
 const { createScanSubmissionService } = require('../domain/scanSubmission');
+const { createAiGovernanceRepository } = require('../repositories/aiGovernanceRepository');
 const { createAuditRepository } = require('../repositories/auditRepository');
 const { createBillingRepository } = require('../repositories/billingRepository');
 const { createEntitlementRepository } = require('../repositories/entitlementRepository');
@@ -15,6 +16,7 @@ const { createTargetRepository } = require('../repositories/targetRepository');
 const { createTargetVerificationRepository } = require('../repositories/targetVerificationRepository');
 const { createTrustPublicationRepository } = require('../repositories/trustPublicationRepository');
 const stripeProvider = require('../billing/stripeProvider');
+const { createAiGovernanceService } = require('./aiGovernanceService');
 const { createAuditService } = require('./auditService');
 const { createBillingService } = require('./billingService');
 const { createJobFailureService } = require('./jobFailureService');
@@ -36,6 +38,11 @@ function createPersistenceServices() {
   const jobFailureService = createJobFailureService({ pool, jobRepository });
   const membershipRepository = createMembershipRepository(pool);
   const organizationAuthorization = createOrganizationAuthorizationService(membershipRepository);
+  const aiGovernanceRepository = createAiGovernanceRepository(pool);
+  const aiGovernanceService = createAiGovernanceService({
+    organizationAuthorization,
+    aiGovernanceRepository,
+  });
   const auditService = createAuditService({ auditRepository, organizationAuthorization });
   const billingService = createBillingService({
     billingRepository,
@@ -73,6 +80,8 @@ function createPersistenceServices() {
   });
 
   return {
+    aiGovernanceRepository,
+    aiGovernanceService,
     auditRepository,
     auditService,
     billingRepository,
