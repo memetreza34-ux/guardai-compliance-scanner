@@ -1,5 +1,6 @@
 {
-  "version": "0.2.0",
+  "version": "0.3.0",
+  "supportedReadVersions": ["0.2.0", "0.3.0"],
   "scanTypes": ["web", "asset"],
   "backendCategoryKeys": [
     "security",
@@ -21,7 +22,7 @@
     "repository",
     "asset"
   ],
-  "coverageStateValues": ["queued", "running", "retrying", "assessed", "error", "cancelled", "not_assessed"],
+  "coverageStateValues": ["queued", "running", "retrying", "assessed", "observed", "error", "cancelled", "not_assessed"],
   "persistentFindingSeverityValues": ["critical", "warning", "info"],
   "targetVerificationStateValues": ["unverified", "pending", "verified", "failed"]
 }
