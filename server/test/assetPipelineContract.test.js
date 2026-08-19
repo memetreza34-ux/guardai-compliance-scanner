@@ -18,6 +18,7 @@ function safeStorage() {
     organizationObjectKeyIsolation: true,
     quarantineLifecycleConfigured: true,
     cleanObjectLifecycleConfigured: true,
+    promotionIsIdempotentCopy: true,
   };
 }
 
@@ -52,6 +53,10 @@ test('asset storage safety fails closed when public access or lifecycle controls
   );
   assert.throws(
     () => assertStorageAttestation({ ...safeStorage(), cleanObjectLifecycleConfigured: false }),
+    (error) => error.code === 'ASSET_STORAGE_NOT_SAFE',
+  );
+  assert.throws(
+    () => assertStorageAttestation({ ...safeStorage(), promotionIsIdempotentCopy: false }),
     (error) => error.code === 'ASSET_STORAGE_NOT_SAFE',
   );
 });
