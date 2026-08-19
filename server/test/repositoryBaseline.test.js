@@ -111,6 +111,9 @@ test('repository assessment pins commit, summarizes manifest counts and redacts 
   assert.equal(assessment.normalizedData.manifests[0].developmentDependencyCount, 1);
   assert.equal(assessment.issues.length, 1);
   assert.equal(assessment.issues[0].ruleId, 'repository.secret.github_token');
+  assert.equal(assessment.issues[0].ruleVersion, 1);
+  assert.match(assessment.issues[0].ruleDefinitionHash, /^[a-f0-9]{64}$/);
+  assert.ok(assessment.issues[0].remediation.length > 0);
   assert.equal(assessment.score, 0);
   assert.equal(JSON.stringify(assessment).includes(githubToken), false);
 });
