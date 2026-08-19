@@ -31,6 +31,7 @@ async function executeSecurityJob(context) {
       ...issue,
       ruleId: rule.id,
       ruleVersion: rule.version,
+      ruleDefinitionHash: rule.definitionHash,
     };
   });
 
