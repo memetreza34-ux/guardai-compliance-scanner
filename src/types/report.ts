@@ -10,6 +10,8 @@ export interface ReportTargetSnapshot {
 export interface ReportScoringSnapshot {
   profileId: string;
   profileVersion: number;
+  /** Present on report schema v3+. Historical v2 reports did not freeze this hash. */
+  profileDefinitionHash?: string;
 }
 
 export interface ReportScanSnapshot {
