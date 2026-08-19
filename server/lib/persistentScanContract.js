@@ -2,6 +2,16 @@ const { z } = require('zod');
 const contractMetadata = require('../../shared/scan-contract.json');
 
 const CONTRACT_VERSION = contractMetadata.version;
+const SUPPORTED_READ_VERSIONS = Object.freeze(
+  Array.isArray(contractMetadata.supportedReadVersions) && contractMetadata.supportedReadVersions.length > 0
+    ? [...new Set(contractMetadata.supportedReadVersions)]
+    : [CONTRACT_VERSION],
+);
+
+if (!SUPPORTED_READ_VERSIONS.includes(CONTRACT_VERSION)) {
+  throw new Error('Current persistent contract version must be readable.');
+}
+
 const timestampSchema = z.preprocess(
   (value) => value instanceof Date ? value.toISOString() : value,
   z.string().datetime({ offset: true }),
@@ -15,6 +25,7 @@ const scanStatusEnum = z.enum(contractMetadata.persistentScanStatusValues);
 const jobStatusEnum = z.enum(contractMetadata.persistentJobStatusValues);
 const moduleEnum = z.enum(contractMetadata.persistentModuleIds);
 const severityEnum = z.enum(contractMetadata.persistentFindingSeverityValues);
+const storedContractVersionEnum = z.enum(SUPPORTED_READ_VERSIONS);
 
 const publicJobSchema = z.object({
   id: z.string().uuid(),
@@ -55,7 +66,7 @@ const scanStatusSchema = z.object({
   requestedBy: z.string().uuid(),
   status: scanStatusEnum,
   scannerVersion: z.string().min(1).max(100),
-  contractVersion: z.literal(CONTRACT_VERSION),
+  contractVersion: storedContractVersionEnum,
   requestedModules: z.array(moduleEnum).min(1),
   overallScore: z.number().int().min(0).max(100).nullable(),
   coverage: z.record(z.string(), z.unknown()).default({}),
@@ -124,4 +135,5 @@ module.exports = {
   finalizePersistentSubmission,
   persistentStatusSchema,
   persistentSubmissionSchema,
+  SUPPORTED_READ_VERSIONS,
 };
