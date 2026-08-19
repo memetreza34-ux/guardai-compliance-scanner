@@ -15,47 +15,29 @@ const cleanKey = `assets/${orgId}/${uploadId}`;
 function safeAttestations() {
   return {
     storage: {
-      providerId: 'test-storage',
-      privateByDefault: true,
-      publicReadDisabled: true,
-      executableServingDisabled: true,
-      serverSideEncryption: true,
-      boundedUploadPolicy: true,
-      organizationObjectKeyIsolation: true,
-      quarantineLifecycleConfigured: true,
-      cleanObjectLifecycleConfigured: true,
-      promotionIsIdempotentCopy: true,
+      providerId: 'test-storage', privateByDefault: true, publicReadDisabled: true,
+      executableServingDisabled: true, serverSideEncryption: true, boundedUploadPolicy: true,
+      organizationObjectKeyIsolation: true, quarantineLifecycleConfigured: true,
+      cleanObjectLifecycleConfigured: true, promotionIsIdempotentCopy: true,
     },
     malware: {
-      engineId: 'test-malware',
-      engineVersion: '1.0.0',
-      isolatedExecution: true,
-      failClosedOnScannerError: true,
-      signatureVersionReported: true,
-      noPublicArtifactAccess: true,
+      engineId: 'test-malware', engineVersion: '1.0.0', isolatedExecution: true,
+      failClosedOnScannerError: true, signatureVersionReported: true,
+      noPublicArtifactAccess: true, noDirectStorageCredentials: true,
     },
     parser: {
-      parserId: 'test-parser',
-      parserVersion: '1.0.0',
-      isolatedExecution: true,
-      networkDisabled: true,
-      ephemeralFilesystem: true,
-      resourceLimitsEnforced: true,
-      outputLimitEnforced: true,
+      parserId: 'test-parser', parserVersion: '1.0.0', isolatedExecution: true,
+      networkDisabled: true, ephemeralFilesystem: true, resourceLimitsEnforced: true,
+      outputLimitEnforced: true, noDirectStorageCredentials: true,
     },
   };
 }
 
 function contextForText(text) {
   return {
-    jobId,
-    organizationId: orgId,
-    uploadId,
-    pipelineVersion: '0.1.0',
-    quarantineObjectKey: quarantineKey,
-    fileName: 'policy.txt',
-    declaredMediaType: 'text/plain',
-    declaredByteLength: Buffer.byteLength(text),
+    jobId, organizationId: orgId, uploadId, pipelineVersion: '0.1.0',
+    quarantineObjectKey: quarantineKey, fileName: 'policy.txt',
+    declaredMediaType: 'text/plain', declaredByteLength: Buffer.byteLength(text),
     uploadExpiresAt: new Date(Date.now() + 60000),
   };
 }
@@ -67,27 +49,31 @@ const limits = {
   maxParserSeconds: 30,
 };
 
+function streamStorage(text, onPromote = null) {
+  return {
+    async openQuarantineReadStream() { return Readable.from([Buffer.from(text)]); },
+    async promoteQuarantineObject(input) {
+      if (onPromote) onPromote(input);
+      return { objectKey: input.destinationObjectKey, sha256: input.expectedSha256 };
+    },
+  };
+}
+
 test('clean asset execution discards extracted text before returning persistence payload', async () => {
   const rawText = 'very private parsed customer text';
-  const context = contextForText('source document');
+  const source = 'source document';
   let promotionInput = null;
-  const result = await executeAssetIngestion(context, {
-    storageProvider: {
-      async openQuarantineReadStream() {
-        return Readable.from([Buffer.from('source document')]);
-      },
-      async promoteQuarantineObject(input) {
-        promotionInput = input;
-        return { objectKey: input.destinationObjectKey, sha256: input.expectedSha256 };
-      },
-    },
+  const result = await executeAssetIngestion(contextForText(source), {
+    storageProvider: streamStorage(source, (input) => { promotionInput = input; }),
     malwareScanner: {
-      async scanQuarantineObject() {
+      async scanStream({ contentStream }) {
+        for await (const _chunk of contentStream) {}
         return { verdict: 'clean', signatureVersion: 'sig-1' };
       },
     },
     parserProvider: {
-      async parseQuarantineObject() {
+      async parseStream({ contentStream }) {
+        for await (const _chunk of contentStream) {}
         return { text: rawText, pageCount: 1 };
       },
     },
@@ -104,28 +90,19 @@ test('clean asset execution discards extracted text before returning persistence
 });
 
 test('infected asset execution never calls parser or clean-object promotion', async () => {
-  const context = contextForText('infected sample');
+  const source = 'infected sample';
   let parserCalls = 0;
   let promotionCalls = 0;
-  const result = await executeAssetIngestion(context, {
-    storageProvider: {
-      async openQuarantineReadStream() {
-        return Readable.from([Buffer.from('infected sample')]);
-      },
-      async promoteQuarantineObject() {
-        promotionCalls += 1;
-      },
-    },
+  const result = await executeAssetIngestion(contextForText(source), {
+    storageProvider: streamStorage(source, () => { promotionCalls += 1; }),
     malwareScanner: {
-      async scanQuarantineObject() {
+      async scanStream({ contentStream }) {
+        for await (const _chunk of contentStream) {}
         return { verdict: 'infected', signatureVersion: 'sig-2' };
       },
     },
     parserProvider: {
-      async parseQuarantineObject() {
-        parserCalls += 1;
-        return { text: 'must never happen' };
-      },
+      async parseStream() { parserCalls += 1; return { text: 'must never happen' }; },
     },
     attestations: safeAttestations(),
     limits,
@@ -140,93 +117,58 @@ test('unsafe asset runtime fails before customer job claim', async () => {
   let claimCalls = 0;
   await assert.rejects(
     () => processOneAssetIngestionJob({
-      repository: {
-        async claimNextJob() {
-          claimCalls += 1;
-          return null;
-        },
-      },
+      repository: { async claimNextJob() { claimCalls += 1; return null; } },
       storageProvider: {
-        getSafetyAttestation() {
-          return { ...safeAttestations().storage, publicReadDisabled: false };
-        },
-        async createQuarantineUpload() {},
-        async statQuarantineObject() {},
-        async openQuarantineReadStream() {},
-        async promoteQuarantineObject() {},
-        async deleteQuarantineObject() {},
+        getSafetyAttestation() { return { ...safeAttestations().storage, publicReadDisabled: false }; },
+        async createQuarantineUpload() {}, async statQuarantineObject() {},
+        async openQuarantineReadStream() {}, async promoteQuarantineObject() {}, async deleteQuarantineObject() {},
       },
       malwareScanner: {
         getSafetyAttestation() { return safeAttestations().malware; },
-        async scanQuarantineObject() {},
+        async scanStream() {},
       },
       parserProvider: {
         getSafetyAttestation() { return safeAttestations().parser; },
-        async parseQuarantineObject() {},
+        async parseStream() {},
       },
-      workerId: 'asset-worker-1',
-      limits,
+      workerId: 'asset-worker-1', limits,
     }),
     (error) => error.code === 'ASSET_STORAGE_NOT_SAFE',
   );
   assert.equal(claimCalls, 0);
 });
 
-test('clean worker completion receives only minimized parser provenance and cleans quarantine after DB completion', async () => {
-  const sourceText = 'source document';
+test('clean worker completion receives minimized parser provenance and cleans quarantine after DB completion', async () => {
+  const source = 'source document';
   const events = [];
   let completionInput = null;
   const repository = {
-    async claimNextJob() {
-      events.push('claim');
-      return { id: jobId, uploadId, organizationId: orgId };
-    },
-    async getExecutionContext() {
-      events.push('context');
-      return contextForText(sourceText);
-    },
+    async claimNextJob() { events.push('claim'); return { id: jobId, uploadId, organizationId: orgId }; },
+    async getExecutionContext() { events.push('context'); return contextForText(source); },
     async renewLease() {},
-    async completeClean(input) {
-      events.push('complete');
-      completionInput = input;
-      return { targetId: '44444444-4444-4444-8444-444444444444' };
-    },
-    async completeInfected() {
-      throw new Error('unexpected infected completion');
-    },
-    async failJob() {
-      throw new Error('unexpected failure');
-    },
+    async completeClean(input) { events.push('complete'); completionInput = input; return { targetId: '44444444-4444-4444-8444-444444444444' }; },
+    async completeInfected() { throw new Error('unexpected infected completion'); },
+    async failJob() { throw new Error('unexpected failure'); },
   };
   const storageProvider = {
     getSafetyAttestation() { return safeAttestations().storage; },
-    async createQuarantineUpload() {},
-    async statQuarantineObject() {},
-    async openQuarantineReadStream() {
-      return Readable.from([Buffer.from(sourceText)]);
-    },
-    async promoteQuarantineObject(input) {
-      events.push('promote');
-      return { objectKey: input.destinationObjectKey, sha256: input.expectedSha256 };
-    },
-    async deleteQuarantineObject() {
-      events.push('delete');
-    },
+    async createQuarantineUpload() {}, async statQuarantineObject() {},
+    async openQuarantineReadStream() { return Readable.from([Buffer.from(source)]); },
+    async promoteQuarantineObject(input) { events.push('promote'); return { objectKey: input.destinationObjectKey, sha256: input.expectedSha256 }; },
+    async deleteQuarantineObject() { events.push('delete'); },
   };
   const result = await processOneAssetIngestionJob({
     repository,
     storageProvider,
     malwareScanner: {
       getSafetyAttestation() { return safeAttestations().malware; },
-      async scanQuarantineObject() { return { verdict: 'clean', signatureVersion: 'sig-3' }; },
+      async scanStream({ contentStream }) { for await (const _chunk of contentStream) {} return { verdict: 'clean', signatureVersion: 'sig-3' }; },
     },
     parserProvider: {
       getSafetyAttestation() { return safeAttestations().parser; },
-      async parseQuarantineObject() { return { text: 'private parser output', pageCount: 2 }; },
+      async parseStream({ contentStream }) { for await (const _chunk of contentStream) {} return { text: 'private parser output', pageCount: 2 }; },
     },
-    workerId: 'asset-worker-1',
-    leaseSeconds: 90,
-    limits,
+    workerId: 'asset-worker-1', leaseSeconds: 90, limits,
   });
 
   assert.equal(result.state, 'clean');
