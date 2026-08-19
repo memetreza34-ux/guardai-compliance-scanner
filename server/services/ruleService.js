@@ -5,10 +5,10 @@ function createRuleService({ ruleRepository }) {
     throw new TypeError('Rule service requires a Rule repository.');
   }
 
-  async function list({ framework, status, limit }) {
+  async function list({ category, active, limit }) {
     return ruleRepository.listRules({
-      framework: framework || null,
-      status: status || 'active',
+      category: category || null,
+      active: typeof active === 'boolean' ? active : true,
       limit,
     });
   }
