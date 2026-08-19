@@ -33,6 +33,15 @@ const { createTrustPublicationService } = require('./trustPublicationService');
 
 let services = null;
 
+function assetLimitsFromConfig() {
+  return {
+    maxUploadBytes: config.assetMaxUploadBytes,
+    uploadSessionTtlSeconds: config.assetUploadSessionTtlSeconds,
+    maxExtractedTextChars: config.assetMaxExtractedTextChars,
+    maxParserSeconds: config.assetParserTimeoutSeconds,
+  };
+}
+
 function createPersistenceServices() {
   const pool = getPostgresPool();
   const auditRepository = createAuditRepository(pool);
@@ -56,12 +65,7 @@ function createPersistenceServices() {
     organizationAuthorization,
     assetUploadRepository,
     ...assetProviders,
-    limits: {
-      maxUploadBytes: config.maxUploadBytes,
-      uploadSessionTtlSeconds: 15 * 60,
-      maxExtractedTextChars: config.maxExtractedTextChars,
-      maxParserSeconds: 30,
-    },
+    limits: assetLimitsFromConfig(),
   });
 
   const auditService = createAuditService({ auditRepository, organizationAuthorization });
@@ -140,6 +144,7 @@ function getPersistenceServices() {
 }
 
 module.exports = {
+  assetLimitsFromConfig,
   createPersistenceServices,
   getPersistenceServices,
 };
