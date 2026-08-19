@@ -9,6 +9,7 @@ const safeProduction = {
   NODE_ENV: 'production',
   ALLOW_PROTOTYPE_SCAN_ENDPOINTS: 'false',
   ALLOW_UNAUTHENTICATED_AI_SCANS: 'false',
+  ASSET_PIPELINE_ENABLED: 'false',
   SUPABASE_URL: 'https://guardai.supabase.co',
   SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_example',
   DATABASE_URL: 'postgresql://user:password@db.example.com/postgres',
@@ -42,6 +43,15 @@ test('unsafe prototype/AI gates fail production startup', () => {
   });
   assert.ok(errors.some((message) => message.includes('ALLOW_PROTOTYPE_SCAN_ENDPOINTS')));
   assert.ok(errors.some((message) => message.includes('ALLOW_UNAUTHENTICATED_AI_SCANS')));
+});
+
+test('Asset ingestion remains impossible to enable in production before S3/lockfile/staging gate', () => {
+  const errors = validateProductionConfiguration({
+    ...safeProduction,
+    ASSET_PIPELINE_ENABLED: 'true',
+  });
+  assert.ok(errors.some((message) => message.includes('ASSET_PIPELINE_ENABLED')));
+  assert.ok(errors.some((message) => message.includes('S3 storage adapter')));
 });
 
 test('secret Supabase key and insecure CORS are rejected', () => {
