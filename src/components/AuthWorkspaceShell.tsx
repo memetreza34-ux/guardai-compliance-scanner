@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { createAiGovernanceApi } from '../api/aiGovernanceApi';
 import { createBillingApi } from '../api/billingApi';
 import { createGitHubIntegrationApi } from '../api/githubIntegrationApi';
 import { createMonitoringApi } from '../api/monitoringApi';
@@ -9,6 +10,7 @@ import type {
   AuthSessionAdapter,
   AuthSessionSnapshot,
 } from '../auth/sessionAdapter';
+import AiGovernanceCenter from './AiGovernanceCenter';
 import BillingCenter from './BillingCenter';
 import GitHubIntegrationManager from './GitHubIntegrationManager';
 import MonitoringCenter from './MonitoringCenter';
@@ -58,6 +60,10 @@ export default function AuthWorkspaceShell({ adapter }: AuthWorkspaceShellProps)
   );
   const githubApi = useMemo(
     () => createGitHubIntegrationApi(getAccessToken),
+    [getAccessToken],
+  );
+  const aiGovernanceApi = useMemo(
+    () => createAiGovernanceApi(getAccessToken),
     [getAccessToken],
   );
 
@@ -214,6 +220,7 @@ export default function AuthWorkspaceShell({ adapter }: AuthWorkspaceShellProps)
       <TrustCenterManager reportApi={reportApi} trustApi={trustApi} workspaceApi={workspaceApi} />
       <MonitoringCenter monitoringApi={monitoringApi} workspaceApi={workspaceApi} />
       <GitHubIntegrationManager githubApi={githubApi} workspaceApi={workspaceApi} />
+      <AiGovernanceCenter aiGovernanceApi={aiGovernanceApi} workspaceApi={workspaceApi} />
       <BillingCenter billingApi={billingApi} workspaceApi={workspaceApi} />
     </div>
   );
