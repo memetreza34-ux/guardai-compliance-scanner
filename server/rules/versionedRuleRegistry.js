@@ -1,21 +1,10 @@
-const crypto = require('node:crypto');
+const { canonicalJson, sha256Canonical } = require('../lib/canonicalJson');
 
 const RULE_ID_RE = /^[a-z0-9][a-z0-9._-]{2,119}$/;
 const FINDING_ID_RE = /^[a-z0-9][a-z0-9-]{2,159}$/;
 const TOKEN_RE = /^[a-z0-9][a-z0-9._-]{1,79}$/;
 const SEMVER_RE = /^\d+\.\d+\.\d+$/;
 const SEVERITIES = Object.freeze(['critical', 'warning', 'info']);
-
-function stableJson(value) {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map((entry) => stableJson(entry)).join(',')}]`;
-  const keys = Object.keys(value).sort();
-  return `{${keys.map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(',')}}`;
-}
-
-function sha256Canonical(value) {
-  return crypto.createHash('sha256').update(stableJson(value), 'utf8').digest('hex');
-}
 
 function assertText(value, label, { min = 1, max = 2000 } = {}) {
   if (typeof value !== 'string' || value.trim().length < min || value.length > max) {
@@ -158,6 +147,6 @@ function createVersionedRuleRegistry(source, expected = {}) {
 module.exports = {
   createVersionedRuleRegistry,
   sha256Canonical,
-  stableJson,
+  stableJson: canonicalJson,
   validateRuleDefinition,
 };
