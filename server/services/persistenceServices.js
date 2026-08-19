@@ -66,6 +66,7 @@ function createPersistenceServices() {
     assetUploadRepository,
     ...assetProviders,
     limits: assetLimitsFromConfig(),
+    enabled: config.assetPipelineEnabled,
   });
 
   const auditService = createAuditService({ auditRepository, organizationAuthorization });
