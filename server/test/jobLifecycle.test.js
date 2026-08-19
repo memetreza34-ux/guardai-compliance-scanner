@@ -60,6 +60,7 @@ test('programming, authorization and deterministic coverage/result failures are 
   assert.equal(shouldRetryWorkerError({ code: 'WORKER_JOB_TYPE_MISMATCH' }), false);
   assert.equal(shouldRetryWorkerError({ code: 'INVALID_WORKER_RESULT' }), false);
   assert.equal(shouldRetryWorkerError({ code: 'RULE_DEFINITION_HASH_MISMATCH' }), false);
+  assert.equal(shouldRetryWorkerError({ code: 'SCORING_PROFILE_DEFINITION_MISMATCH' }), false);
 
   assert.equal(shouldRetryWorkerError({ code: 'REPOSITORY_BASELINE_COVERAGE_INCOMPLETE' }), false);
   assert.equal(shouldRetryWorkerError({ code: 'REPOSITORY_TREE_METADATA_INCOMPLETE' }), false);
