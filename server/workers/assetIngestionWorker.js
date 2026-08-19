@@ -100,7 +100,7 @@ async function executeAssetIngestion(context, {
     return { outcome: 'infected', observed, malware };
   }
 
-  const parser = normalizeParserResult(
+  const parserResult = normalizeParserResult(
     await parserProvider.parseQuarantineObject({
       organizationId: context.organizationId,
       objectKey: context.quarantineObjectKey,
@@ -112,6 +112,10 @@ async function executeAssetIngestion(context, {
     attestations.parser,
     limits,
   );
+  const {
+    text: _discardedExtractedText,
+    ...parser
+  } = parserResult;
 
   const keys = buildAssetObjectKeys(context.organizationId, context.uploadId);
   if (keys.quarantineObjectKey !== context.quarantineObjectKey) {
@@ -195,7 +199,6 @@ async function processOneAssetIngestionJob({
       });
     }
 
-    // Cleanup is intentionally after DB commit. Provider deletion must be idempotent.
     await storageProvider.deleteQuarantineObject({
       organizationId: context.organizationId,
       objectKey: context.quarantineObjectKey,
