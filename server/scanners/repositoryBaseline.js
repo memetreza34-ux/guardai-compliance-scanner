@@ -310,9 +310,10 @@ async function buildRepositoryBaselineAssessment({
       title: rule.title,
       description: `GuardAI observed ${locations.length} location(s) matching this high-confidence credential indicator within the bounded repository snapshot. The matched credential text is not persisted.`,
       severity: rule.defaultSeverity,
-      remediation: 'Review the indicated file locations. If a real credential is present, revoke or rotate it promptly and remove sensitive material from the repository and relevant history using an approved incident-response process.',
+      remediation: rule.remediation,
       ruleId: rule.id,
       ruleVersion: rule.version,
+      ruleDefinitionHash: rule.definitionHash,
     };
   });
 
